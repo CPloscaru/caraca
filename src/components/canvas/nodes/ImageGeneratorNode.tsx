@@ -6,6 +6,7 @@ import { Sparkles, Play, Minus, Plus } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { runSingleNode } from '@/lib/executors';
 import { ModelSelector } from './ModelSelector';
 import { ImageResultGrid } from './ImageResultGrid';
 import type { ImageGeneratorData } from '@/types/canvas';
@@ -279,6 +280,11 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
       <button
         className="nodrag absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-all hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={isRunning}
+        onClick={() => {
+          runSingleNode(nodeId).catch((err) => {
+            console.error('Single node execution failed:', err);
+          });
+        }}
         title="Run generation"
       >
         <Play className="h-4 w-4" />
