@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "title": "Style Reference",
+  "description": "Use a reference image to guide the style of your generation.",
+  "nodes": [
+    {
+      "id": "wf3-img-1",
+      "type": "imageImport",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Image Import",
+        "type": "imageImport",
+        "imageUrl": null,
+        "fileName": null,
+        "inputs": [],
+        "outputs": [{ "type": "image", "label": "Image", "id": "image-out-0" }]
+      }
+    },
+    {
+      "id": "wf3-text-1",
+      "type": "textInput",
+      "position": { "x": 100, "y": 400 },
+      "data": {
+        "label": "Text Input",
+        "type": "textInput",
+        "value": "In the style of the reference image",
+        "inputs": [],
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+      }
+    },
+    {
+      "id": "wf3-gen-1",
+      "type": "imageGenerator",
+      "position": { "x": 550, "y": 250 },
+      "data": {
+        "label": "Image Generator",
+        "type": "imageGenerator",
+        "prompt": "",
+        "model": "fal-ai/flux/dev",
+        "aspectRatio": "1:1",
+        "numImages": 1,
+        "images": [],
+        "selectedImageIndex": 0,
+        "mode": "image-to-image",
+        "inputs": [
+          { "type": "text", "label": "Prompt", "id": "text-in-0" },
+          { "type": "image", "label": "Reference", "id": "image-in-0" }
+        ],
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "wf3-e1",
+      "source": "wf3-img-1",
+      "target": "wf3-gen-1",
+      "sourceHandle": "image-source-0",
+      "targetHandle": "image-target-1",
+      "type": "turbo"
+    },
+    {
+      "id": "wf3-e2",
+      "source": "wf3-text-1",
+      "target": "wf3-gen-1",
+      "sourceHandle": "text-source-0",
+      "targetHandle": "text-target-0",
+      "type": "turbo"
+    }
+  ]
+}

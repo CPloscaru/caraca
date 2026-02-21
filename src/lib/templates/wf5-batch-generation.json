@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "title": "Batch Generation",
+  "description": "Generate multiple image variations at once from a single prompt.",
+  "nodes": [
+    {
+      "id": "wf5-text-1",
+      "type": "textInput",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Text Input",
+        "type": "textInput",
+        "value": "A cozy cabin in the woods during autumn",
+        "inputs": [],
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+      }
+    },
+    {
+      "id": "wf5-gen-1",
+      "type": "imageGenerator",
+      "position": { "x": 500, "y": 150 },
+      "data": {
+        "label": "Image Generator",
+        "type": "imageGenerator",
+        "prompt": "",
+        "model": "fal-ai/flux/dev",
+        "aspectRatio": "1:1",
+        "numImages": 4,
+        "images": [],
+        "selectedImageIndex": 0,
+        "inputs": [
+          { "type": "text", "label": "Prompt", "id": "text-in-0" },
+          { "type": "image", "label": "Reference", "id": "image-in-0" }
+        ],
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "wf5-e1",
+      "source": "wf5-text-1",
+      "target": "wf5-gen-1",
+      "sourceHandle": "text-source-0",
+      "targetHandle": "text-target-0",
+      "type": "turbo"
+    }
+  ]
+}

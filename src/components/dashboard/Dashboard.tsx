@@ -4,13 +4,26 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
+import { TemplateCard } from '@/components/dashboard/TemplateCard';
 import { ImportDialog } from '@/components/dashboard/ImportDialog';
+import { BUILTIN_TEMPLATES } from '@/lib/templates';
+import type { Node, Edge } from '@xyflow/react';
 
 type Project = {
   id: string;
   title: string;
   thumbnail_path: string | null;
   updated_at: number;
+};
+
+type UserTemplate = {
+  id: string;
+  title: string;
+  template_description: string | null;
+  workflow_json: {
+    nodes: Node[];
+    edges: Edge[];
+  } | null;
 };
 
 export function Dashboard() {
@@ -21,6 +34,7 @@ export function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [userTemplates, setUserTemplates] = useState<UserTemplate[]>([]);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -37,6 +51,15 @@ export function Dashboard() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // Fetch user-created templates when templates tab is active
+  useEffect(() => {
+    if (activeTab !== 'templates') return;
+    fetch('/api/projects?templates=true')
+      .then((res) => res.json())
+      .then((data) => setUserTemplates(data))
+      .catch((err) => console.error('Failed to fetch user templates:', err));
+  }, [activeTab]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -196,14 +219,34 @@ export function Dashboard() {
         ) : (
           <div
             style={{
-              color: '#6b7280',
-              textAlign: 'center',
-              paddingTop: 80,
-              fontSize: 14,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: 20,
             }}
           >
-            Templates coming soon. Save any project as a template from its context
-            menu.
+            {BUILTIN_TEMPLATES.map((template) => (
+              <TemplateCard
+                key={template.id}
+                id={template.id}
+                title={template.title}
+                description={template.description}
+                thumbnailGradient={template.thumbnailGradient}
+                nodes={template.nodes}
+                edges={template.edges}
+              />
+            ))}
+            {userTemplates.map((ut) => (
+              <TemplateCard
+                key={ut.id}
+                id={ut.id}
+                title={ut.title}
+                description={ut.template_description || 'Custom template'}
+                thumbnailGradient="linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)"
+                nodes={ut.workflow_json?.nodes ?? []}
+                edges={ut.workflow_json?.edges ?? []}
+                isCustom
+              />
+            ))}
           </div>
         )}
 

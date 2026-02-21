@@ -4,18 +4,31 @@ import { projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { desc } from 'drizzle-orm';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const templatesOnly = searchParams.get('templates') === 'true';
+
     const rows = await db
       .select({
         id: projects.id,
         title: projects.title,
         thumbnail_path: projects.thumbnail_path,
         updated_at: projects.updated_at,
+        ...(templatesOnly
+          ? {
+              workflow_json: projects.workflow_json,
+              template_description: projects.template_description,
+              template_source: projects.template_source,
+            }
+          : {}),
       })
       .from(projects)
       .where(
-        and(eq(projects.is_archived, false), eq(projects.is_template, false)),
+        and(
+          eq(projects.is_archived, false),
+          eq(projects.is_template, templatesOnly),
+        ),
       )
       .orderBy(desc(projects.updated_at));
 

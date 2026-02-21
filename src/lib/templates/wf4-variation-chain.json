@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "title": "Variation Chain",
+  "description": "Generate an image, then create a variation of it by chaining two generators.",
+  "nodes": [
+    {
+      "id": "wf4-text-1",
+      "type": "textInput",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Text Input",
+        "type": "textInput",
+        "value": "A magical forest with glowing mushrooms",
+        "inputs": [],
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+      }
+    },
+    {
+      "id": "wf4-gen-1",
+      "type": "imageGenerator",
+      "position": { "x": 500, "y": 150 },
+      "data": {
+        "label": "Generator A",
+        "type": "imageGenerator",
+        "prompt": "",
+        "model": "fal-ai/flux/dev",
+        "aspectRatio": "1:1",
+        "numImages": 1,
+        "images": [],
+        "selectedImageIndex": 0,
+        "inputs": [
+          { "type": "text", "label": "Prompt", "id": "text-in-0" },
+          { "type": "image", "label": "Reference", "id": "image-in-0" }
+        ],
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+      }
+    },
+    {
+      "id": "wf4-gen-2",
+      "type": "imageGenerator",
+      "position": { "x": 900, "y": 150 },
+      "data": {
+        "label": "Generator B (Variation)",
+        "type": "imageGenerator",
+        "prompt": "",
+        "model": "fal-ai/flux/dev",
+        "aspectRatio": "1:1",
+        "numImages": 1,
+        "images": [],
+        "selectedImageIndex": 0,
+        "mode": "image-to-image",
+        "inputs": [
+          { "type": "text", "label": "Prompt", "id": "text-in-0" },
+          { "type": "image", "label": "Reference", "id": "image-in-0" }
+        ],
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "wf4-e1",
+      "source": "wf4-text-1",
+      "target": "wf4-gen-1",
+      "sourceHandle": "text-source-0",
+      "targetHandle": "text-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "wf4-e2",
+      "source": "wf4-gen-1",
+      "target": "wf4-gen-2",
+      "sourceHandle": "image-source-0",
+      "targetHandle": "image-target-1",
+      "type": "turbo"
+    }
+  ]
+}
