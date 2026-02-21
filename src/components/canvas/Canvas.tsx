@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { isValidConnection } from '@/lib/port-types';
 import { PlaceholderNode } from '@/components/canvas/nodes/PlaceholderNode';
+import { TextInputNode } from '@/components/canvas/nodes/TextInputNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import {
   ContextMenu,
@@ -20,7 +21,7 @@ import {
 } from '@/components/canvas/ContextMenu';
 import type { NodeData } from '@/types/canvas';
 
-const nodeTypes = { placeholder: PlaceholderNode };
+const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode };
 const edgeTypes = { turbo: TurboEdge };
 
 let nodeIdCounter = 0;
@@ -71,7 +72,7 @@ export function Canvas() {
 
       const newNode: Node = {
         id: getNextNodeId(),
-        type: 'placeholder',
+        type: parsed.nodeType,
         position,
         data: {
           label: parsed.label,
@@ -107,7 +108,7 @@ export function Canvas() {
     (template: NodeTemplate, flowX: number, flowY: number) => {
       const newNode: Node = {
         id: getNextNodeId(),
-        type: 'placeholder',
+        type: template.nodeType,
         position: { x: flowX, y: flowY },
         data: {
           label: template.label,

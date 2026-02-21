@@ -21,7 +21,7 @@ type NodeTemplate = {
 const NODE_TEMPLATES: NodeTemplate[] = [
   {
     label: 'Text Input',
-    nodeType: 'placeholder',
+    nodeType: 'textInput',
     inputs: [],
     outputs: [{ type: 'text', label: 'Text', id: 'text-out-0' }],
   },

@@ -22,6 +22,7 @@ type CanvasState = {
   setEdges: (edges: Edge[]) => void;
   deleteNode: (nodeId: string) => void;
   deleteEdge: (edgeId: string) => void;
+  updateNodeData: (nodeId: string, partialData: Record<string, unknown>) => void;
 };
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -65,5 +66,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   deleteEdge: (edgeId) => {
     set({ edges: get().edges.filter((e) => e.id !== edgeId) });
+  },
+
+  updateNodeData: (nodeId, partialData) => {
+    set({
+      nodes: get().nodes.map((n) =>
+        n.id === nodeId
+          ? { ...n, data: { ...n.data, ...partialData } }
+          : n
+      ),
+    });
   },
 }));
