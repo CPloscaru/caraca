@@ -7,6 +7,8 @@ import { useAppStore } from '@/stores/app-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runAllWorkflow } from '@/lib/executors';
+import { SaveIndicator } from '@/components/canvas/SaveIndicator';
+import type { SaveStatus } from '@/hooks/useAutoSave';
 
 // ---------------------------------------------------------------------------
 // Shared button style helper
@@ -42,9 +44,10 @@ function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
 type ToolbarProps = {
   projectTitle?: string;
   onTitleChange?: (title: string) => void;
+  saveStatus?: SaveStatus;
 };
 
-export function Toolbar({ projectTitle, onTitleChange }: ToolbarProps) {
+export function Toolbar({ projectTitle, onTitleChange, saveStatus }: ToolbarProps) {
   const router = useRouter();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -196,6 +199,8 @@ export function Toolbar({ projectTitle, onTitleChange }: ToolbarProps) {
             )}
           </>
         )}
+
+        {saveStatus && <SaveIndicator status={saveStatus} />}
       </div>
 
       {/* Right: execution controls + settings */}

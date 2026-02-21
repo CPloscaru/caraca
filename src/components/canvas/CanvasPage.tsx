@@ -7,6 +7,9 @@ import { Canvas } from '@/components/canvas/Canvas';
 import { Toolbar } from '@/components/canvas/Toolbar';
 import { Sidebar } from '@/components/canvas/Sidebar';
 import { SettingsModal } from '@/components/settings/SettingsModal';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { useCanvasStore } from '@/stores/canvas-store';
+import type { WorkflowJson } from '@/types/canvas';
 
 function WarningBanner() {
   const [visible, setVisible] = useState(false);
@@ -103,23 +106,57 @@ function WarningBanner() {
   );
 }
 
-export function CanvasPage({ projectId }: { projectId: string }) {
+// Inner component that has access to ReactFlow context
+function CanvasPageInner({ projectId }: { projectId: string }) {
   const [projectTitle, setProjectTitle] = useState('');
+  const { saveStatus, markRestored } = useAutoSave(projectId);
 
-  // Fetch project title on mount
+  // Fetch project data on mount and restore workflow
   useEffect(() => {
+    let cancelled = false;
+
     fetch(`/api/projects/${projectId}`)
       .then((res) => {
-        if (!res.ok) return;
+        if (!res.ok) return null;
         return res.json();
       })
       .then((data) => {
-        if (data?.title) setProjectTitle(data.title);
+        if (cancelled || !data) return;
+
+        if (data.title) setProjectTitle(data.title);
+
+        // Restore workflow from saved state
+        const wf = data.workflow_json as WorkflowJson | null;
+        if (wf && wf.nodes && wf.nodes.length > 0) {
+          const store = useCanvasStore.getState();
+          store.setNodes(wf.nodes);
+          store.setEdges(wf.edges || []);
+        }
+
+        // Mark restore complete so auto-save starts tracking changes
+        // Use a small delay to let the store settle after setNodes/setEdges
+        setTimeout(() => {
+          if (!cancelled) markRestored();
+        }, 100);
       })
       .catch(() => {
-        // Project may not exist yet
+        // Project may not exist yet — mark restored so saves can start
+        markRestored();
       });
-  }, [projectId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, markRestored]);
+
+  // Clear canvas store on unmount to avoid stale state when opening another project
+  useEffect(() => {
+    return () => {
+      const store = useCanvasStore.getState();
+      store.setNodes([]);
+      store.setEdges([]);
+    };
+  }, []);
 
   const handleTitleChange = useCallback(
     (newTitle: string) => {
@@ -134,22 +171,29 @@ export function CanvasPage({ projectId }: { projectId: string }) {
   );
 
   return (
-    <ReactFlowProvider>
-      <div
-        className="flex h-screen w-screen flex-col"
-        style={{ background: '#111111' }}
-      >
-        <Toolbar
-          projectTitle={projectTitle}
-          onTitleChange={handleTitleChange}
-        />
-        <WarningBanner />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar />
-          <Canvas />
-        </div>
-        <SettingsModal />
+    <div
+      className="flex h-screen w-screen flex-col"
+      style={{ background: '#111111' }}
+    >
+      <Toolbar
+        projectTitle={projectTitle}
+        onTitleChange={handleTitleChange}
+        saveStatus={saveStatus}
+      />
+      <WarningBanner />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        <Canvas />
       </div>
+      <SettingsModal />
+    </div>
+  );
+}
+
+export function CanvasPage({ projectId }: { projectId: string }) {
+  return (
+    <ReactFlowProvider>
+      <CanvasPageInner projectId={projectId} />
     </ReactFlowProvider>
   );
 }

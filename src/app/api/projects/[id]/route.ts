@@ -69,6 +69,38 @@ export async function PUT(
   }
 }
 
+// POST handler for sendBeacon (tab close / navigation saves)
+// sendBeacon only sends POST requests, so we mirror the PUT update logic here.
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+
+    const updateData: Record<string, unknown> = {
+      updated_at: Date.now(),
+    };
+
+    if (body.workflow_json !== undefined)
+      updateData.workflow_json = body.workflow_json;
+
+    await db
+      .update(projects)
+      .set(updateData)
+      .where(and(eq(projects.id, id), eq(projects.is_archived, false)));
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('POST /api/projects/[id] error:', error);
+    return NextResponse.json(
+      { error: 'Failed to save project' },
+      { status: 500 },
+    );
+  }
+}
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
