@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, type DragEvent } from 'react';
+import { useCallback, useState, type DragEvent, type MouseEvent } from 'react';
 import {
   ReactFlow,
   Background,
   BackgroundVariant,
+  useReactFlow,
   type Node,
 } from '@xyflow/react';
 import { useShallow } from 'zustand/shallow';
@@ -12,6 +13,11 @@ import { useCanvasStore } from '@/stores/canvas-store';
 import { isValidConnection } from '@/lib/port-types';
 import { PlaceholderNode } from '@/components/canvas/nodes/PlaceholderNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
+import {
+  ContextMenu,
+  type ContextMenuPosition,
+  type NodeTemplate,
+} from '@/components/canvas/ContextMenu';
 import type { NodeData } from '@/types/canvas';
 
 const nodeTypes = { placeholder: PlaceholderNode };
@@ -35,6 +41,10 @@ export function Canvas() {
       }))
     );
 
+  const { screenToFlowPosition } = useReactFlow();
+
+  const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
+
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -54,17 +64,15 @@ export function Canvas() {
         return;
       }
 
-      // Get canvas-relative position from the drop event
-      const reactFlowBounds = (event.target as HTMLElement).closest('.react-flow')?.getBoundingClientRect();
-      if (!reactFlowBounds) return;
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
 
       const newNode: Node = {
         id: getNextNodeId(),
         type: 'placeholder',
-        position: {
-          x: event.clientX - reactFlowBounds.left,
-          y: event.clientY - reactFlowBounds.top,
-        },
+        position,
         data: {
           label: parsed.label,
           type: parsed.nodeType,
@@ -75,11 +83,50 @@ export function Canvas() {
 
       addNode(newNode);
     },
+    [addNode, screenToFlowPosition]
+  );
+
+  const onPaneContextMenu = useCallback(
+    (event: MouseEvent | globalThis.MouseEvent) => {
+      event.preventDefault();
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        flowX: flowPos.x,
+        flowY: flowPos.y,
+      });
+    },
+    [screenToFlowPosition]
+  );
+
+  const onContextMenuAddNode = useCallback(
+    (template: NodeTemplate, flowX: number, flowY: number) => {
+      const newNode: Node = {
+        id: getNextNodeId(),
+        type: 'placeholder',
+        position: { x: flowX, y: flowY },
+        data: {
+          label: template.label,
+          type: template.nodeType,
+          inputs: template.inputs,
+          outputs: template.outputs,
+        } satisfies NodeData,
+      };
+      addNode(newNode);
+    },
     [addNode]
   );
 
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   return (
-    <div style={{ width: '100%', height: '100%' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -92,6 +139,8 @@ export function Canvas() {
         defaultEdgeOptions={{ type: 'turbo', animated: false }}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        onPaneContextMenu={onPaneContextMenu}
+        onMoveStart={closeContextMenu}
         fitView
         panOnDrag
         zoomOnScroll
@@ -103,6 +152,11 @@ export function Canvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#333" />
       </ReactFlow>
+      <ContextMenu
+        position={contextMenu}
+        onClose={closeContextMenu}
+        onAddNode={onContextMenuAddNode}
+      />
     </div>
   );
 }
