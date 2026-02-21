@@ -13,6 +13,7 @@ import { useCanvasStore } from '@/stores/canvas-store';
 import { isValidConnection } from '@/lib/port-types';
 import { PlaceholderNode } from '@/components/canvas/nodes/PlaceholderNode';
 import { TextInputNode } from '@/components/canvas/nodes/TextInputNode';
+import { ImageImportNode } from '@/components/canvas/nodes/ImageImportNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import {
   ContextMenu,
@@ -21,7 +22,7 @@ import {
 } from '@/components/canvas/ContextMenu';
 import type { NodeData } from '@/types/canvas';
 
-const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode };
+const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode };
 const edgeTypes = { turbo: TurboEdge };
 
 let nodeIdCounter = 0;

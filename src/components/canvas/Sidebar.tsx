@@ -21,7 +21,7 @@ const NODE_TEMPLATES: NodeTemplate[] = [
   },
   {
     label: 'Image Import',
-    nodeType: 'placeholder',
+    nodeType: 'imageImport',
     inputs: [],
     outputs: [{ type: 'image', label: 'Image', id: 'image-out-0' }],
   },
