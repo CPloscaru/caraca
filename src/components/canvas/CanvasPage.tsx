@@ -8,6 +8,7 @@ import { Toolbar } from '@/components/canvas/Toolbar';
 import { Sidebar } from '@/components/canvas/Sidebar';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useCanvasStore } from '@/stores/canvas-store';
 import type { WorkflowJson } from '@/types/canvas';
 
@@ -110,6 +111,7 @@ function WarningBanner() {
 function CanvasPageInner({ projectId }: { projectId: string }) {
   const [projectTitle, setProjectTitle] = useState('');
   const { saveStatus, markRestored } = useAutoSave(projectId);
+  useUndoRedo();
 
   // Fetch project data on mount and restore workflow
   useEffect(() => {

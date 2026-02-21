@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { temporal } from 'zundo';
 import {
   type Node,
   type Edge,
@@ -25,56 +26,73 @@ type CanvasState = {
   updateNodeData: (nodeId: string, partialData: Record<string, unknown>) => void;
 };
 
-export const useCanvasStore = create<CanvasState>((set, get) => ({
-  nodes: [],
-  edges: [],
+export const useCanvasStore = create<CanvasState>()(
+  temporal(
+    (set, get) => ({
+      nodes: [],
+      edges: [],
 
-  onNodesChange: (changes) => {
-    set({ nodes: applyNodeChanges(changes, get().nodes) });
-  },
+      onNodesChange: (changes) => {
+        set({ nodes: applyNodeChanges(changes, get().nodes) });
+      },
 
-  onEdgesChange: (changes) => {
-    set({ edges: applyEdgeChanges(changes, get().edges) });
-  },
+      onEdgesChange: (changes) => {
+        set({ edges: applyEdgeChanges(changes, get().edges) });
+      },
 
-  onConnect: (connection) => {
-    // Validate port type compatibility before connecting
-    if (!isValidConnection(connection)) return;
-    set({ edges: addEdge({ ...connection, type: 'turbo' }, get().edges) });
-  },
+      onConnect: (connection) => {
+        // Validate port type compatibility before connecting
+        if (!isValidConnection(connection)) return;
+        set({ edges: addEdge({ ...connection, type: 'turbo' }, get().edges) });
+      },
 
-  addNode: (node) => {
-    set({ nodes: [...get().nodes, node] });
-  },
+      addNode: (node) => {
+        set({ nodes: [...get().nodes, node] });
+      },
 
-  setNodes: (nodes) => {
-    set({ nodes });
-  },
+      setNodes: (nodes) => {
+        set({ nodes });
+      },
 
-  setEdges: (edges) => {
-    set({ edges });
-  },
+      setEdges: (edges) => {
+        set({ edges });
+      },
 
-  deleteNode: (nodeId) => {
-    set({
-      nodes: get().nodes.filter((n) => n.id !== nodeId),
-      edges: get().edges.filter(
-        (e) => e.source !== nodeId && e.target !== nodeId
-      ),
-    });
-  },
+      deleteNode: (nodeId) => {
+        set({
+          nodes: get().nodes.filter((n) => n.id !== nodeId),
+          edges: get().edges.filter(
+            (e) => e.source !== nodeId && e.target !== nodeId
+          ),
+        });
+      },
 
-  deleteEdge: (edgeId) => {
-    set({ edges: get().edges.filter((e) => e.id !== edgeId) });
-  },
+      deleteEdge: (edgeId) => {
+        set({ edges: get().edges.filter((e) => e.id !== edgeId) });
+      },
 
-  updateNodeData: (nodeId, partialData) => {
-    set({
-      nodes: get().nodes.map((n) =>
-        n.id === nodeId
-          ? { ...n, data: { ...n.data, ...partialData } }
-          : n
-      ),
-    });
-  },
-}));
+      updateNodeData: (nodeId, partialData) => {
+        set({
+          nodes: get().nodes.map((n) =>
+            n.id === nodeId
+              ? { ...n, data: { ...n.data, ...partialData } }
+              : n
+          ),
+        });
+      },
+    }),
+    {
+      partialize: (state) => ({
+        nodes: state.nodes.map((n) => ({
+          ...n,
+          data: { ...n.data, images: undefined },
+        })),
+        edges: state.edges,
+      }),
+      limit: 50,
+      equality: (pastState, currentState) =>
+        pastState.nodes === currentState.nodes &&
+        pastState.edges === currentState.edges,
+    },
+  ),
+);
