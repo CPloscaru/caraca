@@ -3,10 +3,12 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { captureCanvasThumbnail, uploadThumbnail } from '@/hooks/useCanvasThumbnail';
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved';
 
 const DEBOUNCE_MS = 2000;
+const THUMBNAIL_EVERY_N_SAVES = 5;
 
 export function useAutoSave(projectId: string) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -43,6 +45,14 @@ export function useAutoSave(projectId: string) {
       if (res.ok) {
         saveCountRef.current += 1;
         setSaveStatus('saved');
+
+        // Capture thumbnail periodically (every Nth save) — fire-and-forget
+        if (saveCountRef.current % THUMBNAIL_EVERY_N_SAVES === 0) {
+          const nodes = useCanvasStore.getState().nodes;
+          captureCanvasThumbnail(nodes).then((blob) => {
+            if (blob) uploadThumbnail(projectId, blob);
+          });
+        }
       } else {
         setSaveStatus('unsaved');
       }
@@ -134,6 +144,11 @@ export function useAutoSave(projectId: string) {
       } catch {
         // best-effort
       }
+      // Capture and upload thumbnail on navigation away (fire-and-forget)
+      const nodes = useCanvasStore.getState().nodes;
+      captureCanvasThumbnail(nodes).then((blob) => {
+        if (blob) uploadThumbnail(projectId, blob);
+      });
     };
   }, [projectId, rfInstance]);
 
