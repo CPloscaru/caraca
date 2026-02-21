@@ -27,7 +27,7 @@ const NODE_TEMPLATES: NodeTemplate[] = [
   },
   {
     label: 'Image Generator',
-    nodeType: 'placeholder',
+    nodeType: 'imageGenerator',
     inputs: [
       { type: 'text', label: 'Prompt', id: 'text-in-0' },
       { type: 'image', label: 'Reference', id: 'image-in-0' },
