@@ -10,6 +10,8 @@ import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { exportWorkflow } from '@/lib/export-import';
+import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import type { WorkflowJson } from '@/types/canvas';
 
 function WarningBanner() {
@@ -110,6 +112,8 @@ function WarningBanner() {
 // Inner component that has access to ReactFlow context
 function CanvasPageInner({ projectId }: { projectId: string }) {
   const [projectTitle, setProjectTitle] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const { saveStatus, markRestored } = useAutoSave(projectId);
   useUndoRedo();
 
@@ -160,6 +164,35 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
     };
   }, []);
 
+  const handleExport = useCallback(() => {
+    const { nodes, edges } = useCanvasStore.getState();
+    exportWorkflow({
+      title: projectTitle || 'Untitled Project',
+      nodes,
+      edges,
+    });
+  }, [projectTitle]);
+
+  const handleImportFile = useCallback((file: File) => {
+    setImportFile(file);
+    setImportDialogOpen(true);
+  }, []);
+
+  const handleImportClose = useCallback(() => {
+    setImportDialogOpen(false);
+    setImportFile(null);
+  }, []);
+
+  const handleImportReplaced = useCallback(
+    (data: { title: string; nodes: import('@xyflow/react').Node[]; edges: import('@xyflow/react').Edge[] }) => {
+      setProjectTitle(data.title);
+      const store = useCanvasStore.getState();
+      store.setNodes(data.nodes);
+      store.setEdges(data.edges);
+    },
+    [],
+  );
+
   const handleTitleChange = useCallback(
     (newTitle: string) => {
       setProjectTitle(newTitle);
@@ -181,6 +214,8 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
         projectTitle={projectTitle}
         onTitleChange={handleTitleChange}
         saveStatus={saveStatus}
+        onExport={handleExport}
+        onImportFile={handleImportFile}
       />
       <WarningBanner />
       <div className="flex flex-1 overflow-hidden">
@@ -188,6 +223,13 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
         <Canvas />
       </div>
       <SettingsModal />
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={handleImportClose}
+        file={importFile}
+        currentProjectId={projectId}
+        onReplaced={handleImportReplaced}
+      />
     </div>
   );
 }

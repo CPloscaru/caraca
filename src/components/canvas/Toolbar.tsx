@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelLeft, Settings, Play, Square, Trash2, ArrowLeft } from 'lucide-react';
+import { PanelLeft, Settings, Play, Square, Trash2, ArrowLeft, Download, Upload } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -45,13 +45,16 @@ type ToolbarProps = {
   projectTitle?: string;
   onTitleChange?: (title: string) => void;
   saveStatus?: SaveStatus;
+  onExport?: () => void;
+  onImportFile?: (file: File) => void;
 };
 
-export function Toolbar({ projectTitle, onTitleChange, saveStatus }: ToolbarProps) {
+export function Toolbar({ projectTitle, onTitleChange, saveStatus, onExport, onImportFile }: ToolbarProps) {
   const router = useRouter();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editValue, setEditValue] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -203,8 +206,47 @@ export function Toolbar({ projectTitle, onTitleChange, saveStatus }: ToolbarProp
         {saveStatus && <SaveIndicator status={saveStatus} />}
       </div>
 
-      {/* Right: execution controls + settings */}
+      {/* Right: export/import + execution controls + settings */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Hidden file input for import */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".caraca.json,.json"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              onImportFile?.(file);
+              e.target.value = '';
+            }
+          }}
+        />
+
+        {/* Export */}
+        <button
+          onClick={onExport}
+          style={iconBtnBase}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+          title="Export workflow"
+        >
+          <Download size={18} />
+        </button>
+
+        {/* Import */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          style={iconBtnBase}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+          title="Import workflow"
+        >
+          <Upload size={18} />
+        </button>
+
+        <div style={{ width: 1, height: 20, background: '#2a2a2a', margin: '0 2px' }} />
+
         {/* Clear button — visible when any node has results */}
         {hasResults && !isRunning && (
           <button

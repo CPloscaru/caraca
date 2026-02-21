@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
+import { ImportDialog } from '@/components/dashboard/ImportDialog';
 
 type Project = {
   id: string;
@@ -18,6 +19,8 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'projects' | 'templates'>('projects');
   const [searchQuery, setSearchQuery] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -95,6 +98,42 @@ export function Dashboard() {
     [],
   );
 
+  const handleImportFile = useCallback((file: File) => {
+    setImportFile(file);
+    setImportDialogOpen(true);
+  }, []);
+
+  const handleCloseImport = useCallback(() => {
+    setImportDialogOpen(false);
+    setImportFile(null);
+  }, []);
+
+  const handleSaveAsTemplate = useCallback(async (id: string) => {
+    try {
+      const srcRes = await fetch(`/api/projects/${id}`);
+      if (!srcRes.ok) return;
+      const srcProject = await srcRes.json();
+
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: srcProject.title,
+          workflow_json: srcProject.workflow_json,
+          is_template: true,
+          template_source: 'user',
+          template_description: `Custom template from ${srcProject.title}`,
+        }),
+      });
+      if (res.ok) {
+        // Brief visual feedback — could be a toast in a full UI
+        console.log('Saved as template successfully');
+      }
+    } catch (err) {
+      console.error('Failed to save as template:', err);
+    }
+  }, []);
+
   const filteredProjects = searchQuery
     ? projects.filter((p) =>
         p.title.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -111,6 +150,7 @@ export function Dashboard() {
         onTabChange={setActiveTab}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onImportFile={handleImportFile}
       />
 
       <div
@@ -148,6 +188,7 @@ export function Dashboard() {
                   onDelete={handleDelete}
                   onDuplicate={handleDuplicate}
                   onRename={handleRename}
+                  onSaveAsTemplate={handleSaveAsTemplate}
                 />
               ))}
             </div>
@@ -180,6 +221,12 @@ export function Dashboard() {
           </div>
         )}
       </div>
+
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={handleCloseImport}
+        file={importFile}
+      />
     </div>
   );
 }

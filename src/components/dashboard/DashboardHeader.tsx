@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Search, Upload } from 'lucide-react';
 
 type DashboardHeaderProps = {
   activeTab: 'projects' | 'templates';
   onTabChange: (tab: 'projects' | 'templates') => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onImportFile?: (file: File) => void;
 };
 
 export function DashboardHeader({
@@ -15,8 +16,10 @@ export function DashboardHeader({
   onTabChange,
   searchQuery,
   onSearchChange,
+  onImportFile,
 }: DashboardHeaderProps) {
   const [falStatus, setFalStatus] = useState<'configured' | 'missing' | 'loading'>('loading');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch('/api/settings/fal-key')
@@ -97,6 +100,52 @@ export function DashboardHeader({
               (e.currentTarget as HTMLElement).style.borderColor = '#2a2a2a';
             }}
           />
+        </div>
+
+        {/* Import button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".caraca.json,.json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                onImportFile?.(file);
+                // Reset so same file can be selected again
+                e.target.value = '';
+              }
+            }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid #333',
+              borderRadius: 6,
+              color: '#9ca3af',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.color = '#f3f4f6';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.color = '#9ca3af';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+            }}
+          >
+            <Upload size={14} />
+            Import
+          </button>
         </div>
 
         {/* fal.ai status */}

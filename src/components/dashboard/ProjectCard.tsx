@@ -11,6 +11,7 @@ import {
   BookmarkPlus,
   Pencil,
 } from 'lucide-react';
+import { exportWorkflow } from '@/lib/export-import';
 
 type Project = {
   id: string;
@@ -25,6 +26,7 @@ type ProjectCardProps = {
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
   onRename?: (id: string, newTitle: string) => void;
+  onSaveAsTemplate?: (id: string) => void;
 };
 
 function formatRelativeTime(timestamp: number): string {
@@ -48,6 +50,7 @@ export function ProjectCard({
   onDelete,
   onDuplicate,
   onRename,
+  onSaveAsTemplate,
 }: ProjectCardProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -288,17 +291,29 @@ export function ProjectCard({
             <MenuItem
               icon={<Download size={14} />}
               label="Export"
-              disabled
-              onClick={() => {
+              onClick={async () => {
                 setMenuOpen(false);
+                try {
+                  const res = await fetch(`/api/projects/${project.id}`);
+                  if (!res.ok) return;
+                  const data = await res.json();
+                  const wf = data.workflow_json;
+                  exportWorkflow({
+                    title: data.title,
+                    nodes: wf?.nodes ?? [],
+                    edges: wf?.edges ?? [],
+                  });
+                } catch (err) {
+                  console.error('Export failed:', err);
+                }
               }}
             />
             <MenuItem
               icon={<BookmarkPlus size={14} />}
               label="Save as Template"
-              disabled
               onClick={() => {
                 setMenuOpen(false);
+                onSaveAsTemplate?.(project.id);
               }}
             />
             <div
