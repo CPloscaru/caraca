@@ -1,0 +1,121 @@
+import { create } from 'zustand';
+import type { NodeStatus } from '@/lib/dag';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type NodeExecutionState = {
+  status: NodeStatus;
+  result?: Record<string, unknown>;
+  error?: string;
+  requestId?: string; // fal.ai queue request ID for cancellation
+};
+
+type ExecutionStore = {
+  nodeStates: Record<string, NodeExecutionState>;
+  isRunning: boolean;
+  abortController: AbortController | null;
+
+  // Actions
+  setNodeStatus: (nodeId: string, status: NodeStatus) => void;
+  setNodeResult: (nodeId: string, result: Record<string, unknown>) => void;
+  setNodeError: (nodeId: string, error: string) => void;
+  setNodeRequestId: (nodeId: string, requestId: string) => void;
+  startExecution: () => AbortController;
+  cancelExecution: () => void;
+  clearAll: () => void;
+  clearNode: (nodeId: string) => void;
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getOrCreateNodeState(
+  states: Record<string, NodeExecutionState>,
+  nodeId: string,
+): NodeExecutionState {
+  return states[nodeId] ?? { status: 'idle' as const };
+}
+
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
+
+export const useExecutionStore = create<ExecutionStore>((set, get) => ({
+  nodeStates: {},
+  isRunning: false,
+  abortController: null,
+
+  setNodeStatus: (nodeId, status) => {
+    set((state) => ({
+      nodeStates: {
+        ...state.nodeStates,
+        [nodeId]: { ...getOrCreateNodeState(state.nodeStates, nodeId), status },
+      },
+    }));
+  },
+
+  setNodeResult: (nodeId, result) => {
+    set((state) => ({
+      nodeStates: {
+        ...state.nodeStates,
+        [nodeId]: { ...getOrCreateNodeState(state.nodeStates, nodeId), result },
+      },
+    }));
+  },
+
+  setNodeError: (nodeId, error) => {
+    set((state) => ({
+      nodeStates: {
+        ...state.nodeStates,
+        [nodeId]: {
+          ...getOrCreateNodeState(state.nodeStates, nodeId),
+          error,
+          status: 'error' as const,
+        },
+      },
+    }));
+  },
+
+  setNodeRequestId: (nodeId, requestId) => {
+    set((state) => ({
+      nodeStates: {
+        ...state.nodeStates,
+        [nodeId]: {
+          ...getOrCreateNodeState(state.nodeStates, nodeId),
+          requestId,
+        },
+      },
+    }));
+  },
+
+  startExecution: () => {
+    // Cancel previous execution if still running
+    const prev = get().abortController;
+    if (prev) prev.abort();
+
+    const controller = new AbortController();
+    set({ isRunning: true, abortController: controller });
+    return controller;
+  },
+
+  cancelExecution: () => {
+    const controller = get().abortController;
+    if (controller) controller.abort();
+    // Keep completed results — only stop running state
+    set({ isRunning: false, abortController: null });
+  },
+
+  clearAll: () => {
+    set({ nodeStates: {}, isRunning: false, abortController: null });
+  },
+
+  clearNode: (nodeId) => {
+    set((state) => {
+      const { [nodeId]: _, ...rest } = state.nodeStates;
+      return { nodeStates: rest };
+    });
+  },
+}));
