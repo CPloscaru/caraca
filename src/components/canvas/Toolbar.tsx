@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
-import { PanelLeft, Settings, Play, Square, Trash2 } from 'lucide-react';
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { PanelLeft, Settings, Play, Square, Trash2, ArrowLeft } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -38,7 +39,36 @@ function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
 // Toolbar
 // ---------------------------------------------------------------------------
 
-export function Toolbar() {
+type ToolbarProps = {
+  projectTitle?: string;
+  onTitleChange?: (title: string) => void;
+};
+
+export function Toolbar({ projectTitle, onTitleChange }: ToolbarProps) {
+  const router = useRouter();
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  const startEditing = useCallback(() => {
+    setEditValue(projectTitle || '');
+    setIsEditingTitle(true);
+  }, [projectTitle]);
+
+  const commitTitle = useCallback(() => {
+    setIsEditingTitle(false);
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== projectTitle && onTitleChange) {
+      onTitleChange(trimmed);
+    }
+  }, [editValue, projectTitle, onTitleChange]);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const openSettings = useAppStore((s) => s.openSettings);
   const isRunning = useExecutionStore((s) => s.isRunning);
@@ -85,8 +115,17 @@ export function Toolbar() {
         flexShrink: 0,
       }}
     >
-      {/* Left: sidebar toggle + app name */}
+      {/* Left: back nav + sidebar toggle + app name + project title */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button
+          onClick={() => router.push('/')}
+          style={iconBtnBase}
+          onMouseEnter={hoverIn}
+          onMouseLeave={hoverOut}
+          title="Back to dashboard"
+        >
+          <ArrowLeft size={20} />
+        </button>
         <button
           onClick={toggleSidebar}
           style={iconBtnBase}
@@ -102,10 +141,61 @@ export function Toolbar() {
             fontSize: 16,
             fontWeight: 600,
             letterSpacing: '-0.01em',
+            cursor: 'pointer',
           }}
+          onClick={() => router.push('/')}
         >
           Caraca
         </span>
+
+        {projectTitle !== undefined && (
+          <>
+            <span style={{ color: '#4a4a4a', fontSize: 14 }}>/</span>
+            {isEditingTitle ? (
+              <input
+                ref={titleInputRef}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitTitle();
+                  if (e.key === 'Escape') setIsEditingTitle(false);
+                }}
+                style={{
+                  background: '#2a2a2a',
+                  border: '1px solid #444',
+                  borderRadius: 4,
+                  color: '#f3f4f6',
+                  fontSize: 14,
+                  padding: '2px 6px',
+                  outline: 'none',
+                  width: 200,
+                }}
+              />
+            ) : (
+              <span
+                onClick={startEditing}
+                style={{
+                  color: '#9ca3af',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  borderRadius: 4,
+                  transition: 'color 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.color = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.color = '#9ca3af';
+                }}
+                title="Click to rename"
+              >
+                {projectTitle || 'Untitled Project'}
+              </span>
+            )}
+          </>
+        )}
       </div>
 
       {/* Right: execution controls + settings */}
