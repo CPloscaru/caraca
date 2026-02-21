@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
 import { Sparkles, Play, Minus, Plus } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
@@ -76,11 +76,11 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
   const isDone = execState?.status === 'done';
 
   // Canvas store for updating node data
-  const setNodes = useCanvasStore((s) => s.setNodes);
-  const nodes = useCanvasStore((s) => s.nodes);
+  const updateNodeData = useCanvasStore((s) => s.updateNodeData);
 
   // Check if text input port is connected
   const edges = useEdges();
+  const nodes = useCanvasStore((s) => s.nodes);
   const textInputConnected = useMemo(
     () =>
       edges.some(
@@ -93,10 +93,21 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
   const imageInputConnected = useMemo(
     () =>
       edges.some(
-        (e) => e.target === nodeId && e.targetHandle === 'image-target-0',
+        (e) => e.target === nodeId && e.targetHandle === 'image-target-1',
       ),
     [edges, nodeId],
   );
+
+  // Auto-switch to image-to-image mode when image input is connected.
+  // Do NOT auto-revert when disconnected — user must manually change mode.
+  const prevImageConnected = useRef(imageInputConnected);
+  useEffect(() => {
+    if (imageInputConnected && !prevImageConnected.current) {
+      // Just connected — auto-switch to image-to-image
+      updateNodeData(nodeId, { mode: 'image-to-image' });
+    }
+    prevImageConnected.current = imageInputConnected;
+  }, [imageInputConnected, nodeId, updateNodeData]);
 
   // Find the source node label for the text connection
   const textSourceLabel = useMemo(() => {
@@ -112,13 +123,16 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
   // Update a specific data field
   const updateData = useCallback(
     (field: string, value: unknown) => {
-      setNodes(
-        nodes.map((n) =>
-          n.id === nodeId ? { ...n, data: { ...n.data, [field]: value } } : n,
-        ),
-      );
+      updateNodeData(nodeId, { [field]: value });
     },
-    [nodeId, nodes, setNodes],
+    [nodeId, updateNodeData],
+  );
+
+  const handleSelectImage = useCallback(
+    (index: number) => {
+      updateNodeData(nodeId, { selectedImageIndex: index });
+    },
+    [nodeId, updateNodeData],
   );
 
   const prompt = nodeData.prompt ?? '';
@@ -126,6 +140,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
   const aspectRatio = nodeData.aspectRatio ?? '1:1';
   const numImages = nodeData.numImages ?? 1;
   const images = nodeData.images ?? [];
+  const selectedImageIndex = nodeData.selectedImageIndex ?? 0;
+  const mode = nodeData.mode ?? 'text-to-image';
 
   const statusBorder = getStatusBorderClass(execState?.status);
 
@@ -134,7 +150,12 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
       className={`group relative rounded-lg border-2 bg-[#1a1a1a] shadow-lg transition-all ${statusBorder} ${
         selected ? 'ring-2 ring-[#ae53ba] ring-offset-1 ring-offset-transparent' : ''
       }`}
-      style={{ minWidth: 320, maxWidth: 400 }}
+      style={{
+        minWidth: 320,
+        maxWidth: 400,
+        borderLeftColor: imageInputConnected ? '#2a8af6' : undefined,
+        borderLeftWidth: imageInputConnected ? 3 : undefined,
+      }}
     >
       {/* Input handles */}
       <TypedHandle
@@ -170,6 +191,11 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         <span className="text-xs font-semibold text-gray-100">
           Image Generator
         </span>
+        {imageInputConnected && (
+          <span className="ml-auto rounded bg-[#2a8af6]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#2a8af6]">
+            img2img
+          </span>
+        )}
       </div>
 
       {/* Prompt area */}
@@ -199,7 +225,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
           <ModelSelector
             value={model}
             onChange={(v) => updateData('model', v)}
-            mode={imageInputConnected ? 'image-to-image' : 'text-to-image'}
+            mode={mode === 'image-to-image' ? 'image-to-image' : 'text-to-image'}
           />
         </div>
 
@@ -273,7 +299,13 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         )}
 
         {/* Done state: image grid */}
-        {isDone && images.length > 0 && <ImageResultGrid images={images} />}
+        {isDone && images.length > 0 && (
+          <ImageResultGrid
+            images={images}
+            selectedImageIndex={selectedImageIndex}
+            onSelectImage={handleSelectImage}
+          />
+        )}
       </div>
 
       {/* Run button -- always visible at bottom-right */}

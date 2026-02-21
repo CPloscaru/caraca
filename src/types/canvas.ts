@@ -38,6 +38,9 @@ export type ImageGeneratorData = NodeData & {
   aspectRatio: string;
   numImages: number;
   images: Array<{ url: string; width: number; height: number }>;
+  selectedImageIndex: number;
+  /** Persisted generation mode — set to 'image-to-image' on image input connect, NOT cleared on disconnect */
+  mode?: 'text-to-image' | 'image-to-image';
 };
 
 /** Union type for all node data variants */

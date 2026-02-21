@@ -24,13 +24,19 @@ type ImageItem = {
 
 type ImageResultGridProps = {
   images: ImageItem[];
+  selectedImageIndex?: number;
+  onSelectImage?: (index: number) => void;
 };
 
 // ---------------------------------------------------------------------------
 // ImageResultGrid
 // ---------------------------------------------------------------------------
 
-export function ImageResultGrid({ images }: ImageResultGridProps) {
+export function ImageResultGrid({
+  images,
+  selectedImageIndex = 0,
+  onSelectImage,
+}: ImageResultGridProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('grid');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -54,6 +60,20 @@ export function ImageResultGrid({ images }: ImageResultGridProps) {
       });
     },
     [images.length],
+  );
+
+  const handleImageClick = useCallback(
+    (index: number, e: React.MouseEvent) => {
+      if (onSelectImage) {
+        // Single click selects for downstream flow
+        onSelectImage(index);
+      }
+      // Double click opens lightbox
+      if (e.detail === 2) {
+        openLightbox(index);
+      }
+    },
+    [onSelectImage, openLightbox],
   );
 
   if (images.length === 0) return null;
@@ -100,8 +120,12 @@ export function ImageResultGrid({ images }: ImageResultGridProps) {
           {images.map((img, i) => (
             <button
               key={`${img.url}-${i}`}
-              className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onClick={() => openLightbox(i)}
+              className={`overflow-hidden rounded-md transition-all focus:outline-none ${
+                i === selectedImageIndex
+                  ? 'ring-2 ring-[#2a8af6]'
+                  : 'ring-1 ring-transparent hover:ring-white/20'
+              }`}
+              onClick={(e) => handleImageClick(i, e)}
             >
               <img
                 src={img.url}
@@ -119,8 +143,12 @@ export function ImageResultGrid({ images }: ImageResultGridProps) {
       {viewMode === 'carousel' && (
         <div className="relative">
           <button
-            className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onClick={() => openLightbox(carouselIndex)}
+            className={`overflow-hidden rounded-md transition-all focus:outline-none ${
+              carouselIndex === selectedImageIndex
+                ? 'ring-2 ring-[#2a8af6]'
+                : ''
+            }`}
+            onClick={(e) => handleImageClick(carouselIndex, e)}
           >
             <img
               src={images[carouselIndex].url}

@@ -119,7 +119,13 @@ const imageGeneratorExecutor: NodeExecutor = async (
       (resultData.images as Array<{ url: string; width: number; height: number }>) ??
       [];
 
-    return { 'image-source-0': images };
+    // Return selected image URL for downstream nodes + __images for node data update
+    const selectedIndex = (data as ImageGeneratorData).selectedImageIndex ?? 0;
+    const selectedImage = images[selectedIndex] ?? images[0];
+    return {
+      'image-source-0': selectedImage?.url ?? null,
+      __images: images,
+    };
   } catch (err) {
     // Check if cancelled
     if (signal.aborted) {
@@ -208,18 +214,21 @@ export async function runSingleNode(nodeId: string): Promise<void> {
         );
 
         // Update node data with results (e.g., generated images)
-        if (nodeType === 'imageGenerator' && result['image-source-0']) {
+        if (nodeType === 'imageGenerator' && result.__images) {
           useCanvasStore
             .getState()
             .updateNodeData(nId, {
-              images: result['image-source-0'],
+              images: result.__images,
             });
         }
 
-        // Store result in execution store
-        useExecutionStore.getState().setNodeResult(nId, result);
+        // Strip internal __images before passing to downstream nodes
+        const { __images: _, ...cleanResult } = result;
 
-        return result;
+        // Store result in execution store
+        useExecutionStore.getState().setNodeResult(nId, cleanResult);
+
+        return cleanResult;
       },
       signal,
       onStatusChange: (nId, status) => {
@@ -300,18 +309,21 @@ export async function runAllWorkflow(): Promise<void> {
         );
 
         // Update node data with results (e.g., generated images)
-        if (nodeType === 'imageGenerator' && result['image-source-0']) {
+        if (nodeType === 'imageGenerator' && result.__images) {
           useCanvasStore
             .getState()
             .updateNodeData(nId, {
-              images: result['image-source-0'],
+              images: result.__images,
             });
         }
 
-        // Store result in execution store
-        useExecutionStore.getState().setNodeResult(nId, result);
+        // Strip internal __images before passing to downstream nodes
+        const { __images: _, ...cleanResult } = result;
 
-        return result;
+        // Store result in execution store
+        useExecutionStore.getState().setNodeResult(nId, cleanResult);
+
+        return cleanResult;
       },
       signal,
       onStatusChange: (nId, status) => {
