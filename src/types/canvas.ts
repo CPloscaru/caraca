@@ -47,6 +47,28 @@ export type AnyNodeData =
   | ImageImportData
   | ImageGeneratorData;
 
+// ---------------------------------------------------------------------------
+// Workflow JSON — serialized React Flow state for project persistence
+// ---------------------------------------------------------------------------
+
+export type WorkflowJson = {
+  nodes: Array<{
+    id: string;
+    type: string;
+    position: { x: number; y: number };
+    data: Record<string, unknown>;
+  }>;
+  edges: Array<{
+    id: string;
+    source: string;
+    target: string;
+    sourceHandle: string | null;
+    targetHandle: string | null;
+    type: string;
+  }>;
+  viewport: { x: number; y: number; zoom: number };
+};
+
 /** Typed node variants */
 export type TextInputNode = Node<TextInputData>;
 export type ImageImportNode = Node<ImageImportData>;
