@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { Handle, type HandleProps } from '@xyflow/react';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
 
@@ -23,10 +24,12 @@ export function TypedHandle({
 
   return (
     <Handle
+      {...rest}
       id={id}
       type={type}
       position={position}
       style={{
+        ...(rest as Record<string, unknown>).style as CSSProperties | undefined,
         width: 12,
         height: 12,
         borderRadius: '50%',
@@ -40,7 +43,6 @@ export function TypedHandle({
       onMouseLeave={(e) => {
         (e.target as HTMLElement).style.boxShadow = 'none';
       }}
-      {...rest}
     />
   );
 }

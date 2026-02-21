@@ -44,11 +44,6 @@ export function PlaceholderNode({ data, selected }: NodeProps) {
           index={i}
           style={{
             top: `${((i + 1) / (nodeData.inputs.length + 1)) * 100}%`,
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            backgroundColor: `var(--handle-color-${input.type})`,
-            border: `2px solid var(--handle-color-${input.type})`,
           }}
         />
       ))}
@@ -63,11 +58,6 @@ export function PlaceholderNode({ data, selected }: NodeProps) {
           index={i}
           style={{
             top: `${((i + 1) / (nodeData.outputs.length + 1)) * 100}%`,
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            backgroundColor: `var(--handle-color-${output.type})`,
-            border: `2px solid var(--handle-color-${output.type})`,
           }}
         />
       ))}
