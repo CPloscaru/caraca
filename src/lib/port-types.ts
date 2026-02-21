@@ -1,4 +1,4 @@
-import type { Connection } from '@xyflow/react';
+import type { Connection, Edge } from '@xyflow/react';
 
 export const PORT_TYPES = {
   image: { color: '#2a8af6', label: 'Image' },
@@ -29,7 +29,7 @@ export function getPortTypeFromHandleId(handleId: string | null): PortType | nul
 }
 
 /** Validate whether a connection between two ports is allowed */
-export function isValidConnection(connection: Connection): boolean {
+export function isValidConnection(connection: Edge | Connection): boolean {
   const sourceType = getPortTypeFromHandleId(connection.sourceHandle ?? null);
   const targetType = getPortTypeFromHandleId(connection.targetHandle ?? null);
   if (!sourceType || !targetType) return false;
