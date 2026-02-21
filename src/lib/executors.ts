@@ -86,14 +86,14 @@ const imageGeneratorExecutor: NodeExecutor = async (
 
   // Resolve prompt: prefer connected input over inline prompt
   const resolvedPrompt =
-    (inputs['text-in-0'] as string) ?? data.prompt ?? '';
+    (inputs['text-target-0'] as string) ?? data.prompt ?? '';
 
   if (!resolvedPrompt.trim()) {
     throw new Error('No prompt provided for image generation');
   }
 
   // Resolve image input (for image-to-image workflows)
-  const imageInputUrl = inputs['image-in-0'] as string | undefined;
+  const imageInputUrl = inputs['image-target-1'] as string | undefined;
 
   // Build fal.ai input
   const falInput: Record<string, unknown> = {
@@ -119,7 +119,7 @@ const imageGeneratorExecutor: NodeExecutor = async (
       (resultData.images as Array<{ url: string; width: number; height: number }>) ??
       [];
 
-    return { 'image-out-0': images };
+    return { 'image-source-0': images };
   } catch (err) {
     // Check if cancelled
     if (signal.aborted) {
@@ -208,11 +208,11 @@ export async function runSingleNode(nodeId: string): Promise<void> {
         );
 
         // Update node data with results (e.g., generated images)
-        if (nodeType === 'imageGenerator' && result['image-out-0']) {
+        if (nodeType === 'imageGenerator' && result['image-source-0']) {
           useCanvasStore
             .getState()
             .updateNodeData(nId, {
-              images: result['image-out-0'],
+              images: result['image-source-0'],
             });
         }
 
@@ -300,11 +300,11 @@ export async function runAllWorkflow(): Promise<void> {
         );
 
         // Update node data with results (e.g., generated images)
-        if (nodeType === 'imageGenerator' && result['image-out-0']) {
+        if (nodeType === 'imageGenerator' && result['image-source-0']) {
           useCanvasStore
             .getState()
             .updateNodeData(nId, {
-              images: result['image-out-0'],
+              images: result['image-source-0'],
             });
         }
 
