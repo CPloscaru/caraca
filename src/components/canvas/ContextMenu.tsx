@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
-import { NODE_TEMPLATES, type NodeTemplate } from '@/lib/node-templates';
+import { getNodeTemplates, type NodeTemplate } from '@/lib/node-registry';
 import { useAppStore } from '@/stores/app-store';
 
 type ContextMenuPosition = {
@@ -62,11 +62,13 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
     };
   }, [position, onClose]);
 
+  const templates = getNodeTemplates();
+
   if (!position) return null;
 
   // Boundary detection: ensure menu stays within viewport
   const menuWidth = 200;
-  const menuHeight = NODE_TEMPLATES.length * 44 + 16;
+  const menuHeight = templates.length * 44 + 16;
   const left = Math.min(position.x, window.innerWidth - menuWidth - 8);
   const top = Math.min(position.y, window.innerHeight - menuHeight - 8);
 
@@ -129,7 +131,7 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
       >
         Add Node
       </div>
-      {NODE_TEMPLATES.map((template) => (
+      {templates.map((template) => (
         <button
           key={template.label}
           onClick={() => {

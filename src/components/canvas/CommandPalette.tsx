@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { NODE_TEMPLATES, type NodeTemplate } from '@/lib/node-templates';
+import { getNodeTemplates, type NodeTemplate } from '@/lib/node-registry';
 import { useAppStore } from '@/stores/app-store';
 
 type CommandPaletteProps = {
@@ -15,8 +15,9 @@ export function CommandPalette({ onAddNode }: CommandPaletteProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeCommandPalette = useAppStore((s) => s.closeCommandPalette);
 
+  const templates = getNodeTemplates();
   const filtered = search.trim()
-    ? NODE_TEMPLATES.filter((t) => {
+    ? templates.filter((t) => {
         const q = search.toLowerCase();
         return (
           t.label.toLowerCase().includes(q) ||
@@ -24,7 +25,7 @@ export function CommandPalette({ onAddNode }: CommandPaletteProps) {
           t.tags.some((tag) => tag.toLowerCase().includes(q))
         );
       })
-    : NODE_TEMPLATES;
+    : templates;
 
   // Reset selection when filter changes
   useEffect(() => {

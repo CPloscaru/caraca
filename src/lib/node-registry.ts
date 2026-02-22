@@ -33,6 +33,18 @@ export type NodeRegistryEntry = {
   order: number;
   /** Optional key into executors map — if absent, type is used */
   executeHandler?: string;
+  /** Whether this node type is available in the add-node menus (false = future/unimplemented) */
+  available: boolean;
+};
+
+/** Shape returned by getNodeTemplates() for UI consumers (CommandPalette, ContextMenu, Sidebar). */
+export type NodeTemplate = {
+  label: string;
+  nodeType: string;
+  inputs: PortDefinition[];
+  outputs: PortDefinition[];
+  description: string;
+  tags: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -51,6 +63,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: {},
     stripOnExport: [],
     order: 10,
+    available: true,
   },
   {
     type: 'imageImport',
@@ -62,6 +75,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: {},
     stripOnExport: [],
     order: 20,
+    available: true,
   },
   {
     type: 'imageGenerator',
@@ -76,6 +90,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: { __images: 'images' },
     stripOnExport: ['images'],
     order: 30,
+    available: true,
   },
   {
     type: 'llmAssistant',
@@ -87,6 +102,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: { __llmOutput: 'output', __tokenUsage: 'tokenUsage' },
     stripOnExport: ['output', 'tokenUsage'],
     order: 40,
+    available: true,
   },
   {
     type: 'placeholder',
@@ -98,6 +114,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: {},
     stripOnExport: [],
     order: 999,
+    available: false,
   },
 
   // -- Future nodes (Phase 12-14 placeholders) --
@@ -111,6 +128,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: { __outputImage: 'outputImage' },
     stripOnExport: ['outputImage'],
     order: 50,
+    available: false,
   },
   {
     type: 'textToVideo',
@@ -122,6 +140,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: { __videoUrl: 'videoUrl' },
     stripOnExport: ['videoUrl'],
     order: 60,
+    available: false,
   },
   {
     type: 'imageToVideo',
@@ -136,6 +155,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: { __videoUrl: 'videoUrl' },
     stripOnExport: ['videoUrl'],
     order: 70,
+    available: false,
   },
   {
     type: 'batchParameter',
@@ -147,6 +167,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: { __batchResults: 'batchResults' },
     stripOnExport: ['batchResults'],
     order: 80,
+    available: false,
   },
 ] as const satisfies readonly NodeRegistryEntry[];
 
@@ -190,6 +211,24 @@ export function getStripFields(): Set<string> {
     }
   }
   return fields;
+}
+
+/**
+ * Get node templates for UI consumers (CommandPalette, ContextMenu, Sidebar).
+ * Returns only available nodes sorted by display order.
+ */
+export function getNodeTemplates(): NodeTemplate[] {
+  return [...NODE_REGISTRY]
+    .filter((e) => e.available)
+    .sort((a, b) => a.order - b.order)
+    .map((e) => ({
+      label: e.label,
+      nodeType: e.type,
+      inputs: e.inputs as PortDefinition[],
+      outputs: e.outputs as PortDefinition[],
+      description: e.description,
+      tags: e.tags as string[],
+    }));
 }
 
 // ---------------------------------------------------------------------------

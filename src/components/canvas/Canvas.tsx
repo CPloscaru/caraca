@@ -24,9 +24,10 @@ import {
   type ContextMenuPosition,
 } from '@/components/canvas/ContextMenu';
 import { CommandPalette } from '@/components/canvas/CommandPalette';
-import type { NodeTemplate } from '@/lib/node-templates';
+import type { NodeTemplate } from '@/lib/node-registry';
 import type { NodeData } from '@/types/canvas';
 
+// NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode };
 const edgeTypes = { turbo: TurboEdge };
 

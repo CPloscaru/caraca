@@ -3,7 +3,7 @@
 import { type DragEvent } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
-import { NODE_TEMPLATES, type NodeTemplate } from '@/lib/node-templates';
+import { getNodeTemplates, type NodeTemplate } from '@/lib/node-registry';
 
 function PortDot({ type }: { type: PortType }) {
   return (
@@ -61,7 +61,7 @@ export function Sidebar() {
       >
         Node Palette
       </div>
-      {NODE_TEMPLATES.map((template) => (
+      {getNodeTemplates().map((template) => (
         <div
           key={template.label}
           draggable
