@@ -139,7 +139,7 @@ Contributions are welcome! Whether it is a bug report, feature request, or pull 
 
 ## License
 
-[MIT](LICENSE) -- CPloscaru 2025-2026
+[MIT](LICENSE)
 
 ## Links
 
