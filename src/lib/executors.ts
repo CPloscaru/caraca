@@ -7,6 +7,7 @@
 
 import { fal } from '@/lib/fal/client';
 import { classifyFalError } from '@/lib/fal/error-classifier';
+import { ensureFalCdnUrl } from '@/lib/fal/upload-local';
 import {
   topologicalSort,
   detectCycle,
@@ -97,14 +98,20 @@ const imageGeneratorExecutor: NodeExecutor = async (
   // Resolve image input (for image-to-image workflows)
   const imageInputUrl = inputs['image-target-1'] as string | undefined;
 
+  // Re-upload local images to fal CDN (per FND-03)
+  let resolvedImageUrl = imageInputUrl;
+  if (imageInputUrl) {
+    resolvedImageUrl = await ensureFalCdnUrl(imageInputUrl);
+  }
+
   // Build fal.ai input
   const falInput: Record<string, unknown> = {
     prompt: resolvedPrompt,
     image_size: ASPECT_RATIO_PRESETS[aspectRatio] || { width: 1024, height: 1024 },
     num_images: numImages,
   };
-  if (imageInputUrl) {
-    falInput.image_url = imageInputUrl;
+  if (resolvedImageUrl) {
+    falInput.image_url = resolvedImageUrl;
   }
 
   try {
@@ -162,10 +169,16 @@ const llmAssistantExecutor: NodeExecutor = async (
   let content: MessageContent;
   const imageInput = inputs['image-target-0'] as string | undefined;
 
+  // Re-upload local images to fal CDN so external APIs can access them (per FND-03)
+  let resolvedImageInput = imageInput;
   if (imageInput) {
+    resolvedImageInput = await ensureFalCdnUrl(imageInput);
+  }
+
+  if (resolvedImageInput) {
     // Multimodal: image + text instruction
     content = [
-      { type: 'image_url', image_url: { url: imageInput } },
+      { type: 'image_url', image_url: { url: resolvedImageInput } },
       { type: 'text', text: data.instruction },
     ];
   } else {
