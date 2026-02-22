@@ -1,7 +1,26 @@
 {
-  "name": "caraca-scaffold",
+  "name": "caraca",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "CPloscaru",
+  "description": "Node-graph editor for AI image and video generation using fal.ai and OpenRouter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CPloscaru/caraca.git"
+  },
+  "homepage": "https://github.com/CPloscaru/caraca",
+  "keywords": [
+    "node-graph",
+    "ai",
+    "image-generation",
+    "video-generation",
+    "fal-ai",
+    "openrouter",
+    "workflow",
+    "next-js",
+    "react-flow"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
