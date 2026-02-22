@@ -1,0 +1,6 @@
+# Gitleaks ignore file
+# Add fingerprints of known false positives below, one per line.
+# Format: <commit-hash>:<file-path>:<rule-id>:<line-number>
+#
+# Example:
+# abc123def456:src/test/fixtures/mock-key.ts:generic-api-key:42

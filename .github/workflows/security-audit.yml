@@ -1,0 +1,42 @@
+name: Security Audit
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  "npm audit":
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - run: npm ci
+
+      - name: Run npm audit
+        id: audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Create issue on audit failure
+        if: steps.audit.outcome == 'failure'
+        run: |
+          gh issue create \
+            --title "Security: npm audit found vulnerabilities ($(date +%Y-%m-%d))" \
+            --body "## npm audit failure
+
+          \`npm audit --audit-level=high\` found high or critical vulnerabilities.
+
+          **Action required:** Run \`npm audit\` locally and update affected packages.
+
+          _This issue was created automatically by the Security Audit workflow._" \
+            --label "security"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
