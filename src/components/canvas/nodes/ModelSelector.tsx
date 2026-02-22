@@ -47,6 +47,42 @@ type ModelSelectorProps = {
   mode?: 'text-to-image' | 'image-to-image' | 'image-upscaling';
 };
 
+// Static upscale models — fal.ai doesn't expose a dedicated "image-upscaling" category
+const STATIC_UPSCALE_MODELS: CachedModel[] = [
+  {
+    endpoint_id: 'fal-ai/aura-sr',
+    category: 'image-upscaling',
+    display_name: 'Aura SR',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'Fast 4x super-resolution. No prompt support.',
+    highlighted: true, pinned: false, duration_estimate: 3, model_url: null,
+  },
+  {
+    endpoint_id: 'fal-ai/creative-upscaler',
+    category: 'image-upscaling',
+    display_name: 'Creative Upscaler',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'AI-guided upscaling with optional text prompt (2x–4x).',
+    highlighted: true, pinned: false, duration_estimate: 15, model_url: null,
+  },
+  {
+    endpoint_id: 'fal-ai/esrgan',
+    category: 'image-upscaling',
+    display_name: 'ESRGAN',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'Classic super-resolution (2x/4x/8x). No prompt support.',
+    highlighted: false, pinned: false, duration_estimate: 5, model_url: null,
+  },
+  {
+    endpoint_id: 'fal-ai/clarity-upscaler',
+    category: 'image-upscaling',
+    display_name: 'Clarity Upscaler',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'Detail-preserving upscaling with optional prompt (2x–4x).',
+    highlighted: false, pinned: false, duration_estimate: 12, model_url: null,
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Model thumbnail component
 // ---------------------------------------------------------------------------
@@ -178,6 +214,23 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
       setOpen(isOpen);
       if (isOpen && !fetchedRef.current) {
         fetchedRef.current = true;
+
+        // Use static models for image-upscaling (no fal.ai category exists)
+        if (mode === 'image-upscaling') {
+          const recommended = STATIC_UPSCALE_MODELS.filter((m) => m.highlighted);
+          const rest = STATIC_UPSCALE_MODELS.filter((m) => !m.highlighted);
+          setData({
+            models: STATIC_UPSCALE_MODELS,
+            grouped: {
+              recommended,
+              groups: rest.length ? { other: { label: 'Other', models: rest } } : {},
+            },
+            cached_at: new Date().toISOString(),
+            is_stale: false,
+          });
+          return;
+        }
+
         setLoading(true);
         setError(null);
         fetch(`/api/models?mode=${mode}`)
