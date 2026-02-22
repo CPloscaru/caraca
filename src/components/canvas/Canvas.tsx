@@ -1,15 +1,17 @@
 'use client';
 
-import { useCallback, useState, type DragEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useState, type DragEvent, type MouseEvent } from 'react';
 import {
   ReactFlow,
   Background,
   BackgroundVariant,
+  MiniMap,
   useReactFlow,
   type Node,
 } from '@xyflow/react';
 import { useShallow } from 'zustand/shallow';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { useAppStore } from '@/stores/app-store';
 import { isValidConnection } from '@/lib/port-types';
 import { PlaceholderNode } from '@/components/canvas/nodes/PlaceholderNode';
 import { TextInputNode } from '@/components/canvas/nodes/TextInputNode';
@@ -21,6 +23,7 @@ import {
   ContextMenu,
   type ContextMenuPosition,
 } from '@/components/canvas/ContextMenu';
+import { CommandPalette } from '@/components/canvas/CommandPalette';
 import type { NodeTemplate } from '@/lib/node-templates';
 import type { NodeData } from '@/types/canvas';
 
@@ -30,6 +33,17 @@ const edgeTypes = { turbo: TurboEdge };
 let nodeIdCounter = 0;
 function getNextNodeId() {
   return `node_${Date.now()}_${nodeIdCounter++}`;
+}
+
+function getNodeColor(node: Node): string {
+  const t = (node.data as Record<string, unknown>)?.type as string | undefined;
+  switch (t) {
+    case 'imageGenerator': return '#ae53ba';
+    case 'textInput': return '#ae53ba';
+    case 'imageImport': return '#2a8af6';
+    case 'llmAssistant': return '#22c55e';
+    default: return '#666';
+  }
 }
 
 export function Canvas() {
@@ -46,6 +60,47 @@ export function Canvas() {
     );
 
   const { screenToFlowPosition } = useReactFlow();
+
+  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
+  const openCommandPalette = useAppStore((s) => s.openCommandPalette);
+  const minimapVisible = useAppStore((s) => s.minimapVisible);
+
+  // Keyboard shortcut: / opens command palette (unless typing in an input)
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        openCommandPalette();
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [openCommandPalette]);
+
+  const onCommandPaletteAddNode = useCallback(
+    (template: NodeTemplate) => {
+      const position = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
+      const newNode: Node = {
+        id: getNextNodeId(),
+        type: template.nodeType,
+        position,
+        data: {
+          label: template.label,
+          type: template.nodeType,
+          inputs: template.inputs,
+          outputs: template.outputs,
+        } satisfies NodeData,
+      };
+      addNode(newNode);
+    },
+    [addNode, screenToFlowPosition],
+  );
 
   const [contextMenu, setContextMenu] = useState<ContextMenuPosition | null>(null);
 
@@ -155,12 +210,26 @@ export function Canvas() {
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#333" />
+        {minimapVisible && (
+          <MiniMap
+            position="bottom-right"
+            pannable
+            zoomable
+            nodeColor={getNodeColor}
+            bgColor="#0a0a0a"
+            maskColor="rgba(0, 0, 0, 0.6)"
+            style={{ width: 200, height: 140 }}
+          />
+        )}
       </ReactFlow>
       <ContextMenu
         position={contextMenu}
         onClose={closeContextMenu}
         onAddNode={onContextMenuAddNode}
       />
+      {commandPaletteOpen && (
+        <CommandPalette onAddNode={onCommandPaletteAddNode} />
+      )}
     </div>
   );
 }

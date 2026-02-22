@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { Search } from 'lucide-react';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
 import { NODE_TEMPLATES, type NodeTemplate } from '@/lib/node-templates';
+import { useAppStore } from '@/stores/app-store';
 
 type ContextMenuPosition = {
   x: number;
@@ -84,6 +86,37 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
       }}
     >
+      <button
+        onClick={() => {
+          onClose();
+          useAppStore.getState().openCommandPalette();
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          width: '100%',
+          padding: '8px 12px',
+          background: 'transparent',
+          border: 'none',
+          borderBottom: '1px solid #2a2a2a',
+          color: '#f3f4f6',
+          fontSize: 13,
+          cursor: 'pointer',
+          textAlign: 'left',
+          transition: 'background 0.1s ease',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background =
+            'rgba(174, 83, 186, 0.1)';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background = 'transparent';
+        }}
+      >
+        <Search size={14} style={{ color: '#9ca3af' }} />
+        <span>Search Nodes...</span>
+      </button>
       <div
         style={{
           padding: '6px 12px',
