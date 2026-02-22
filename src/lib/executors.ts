@@ -14,6 +14,7 @@ import {
   executeDag,
   CycleError,
 } from '@/lib/dag';
+import { applyNodeResult } from '@/lib/node-registry';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import type {
@@ -295,30 +296,13 @@ export async function runSingleNode(nodeId: string): Promise<void> {
           inputs,
           sig,
         );
-
-        // Update node data with results (e.g., generated images)
-        if (nodeType === 'imageGenerator' && result.__images) {
-          useCanvasStore
-            .getState()
-            .updateNodeData(nId, {
-              images: result.__images,
-            });
-        }
-
-        // Update node data with LLM output and token usage
-        if (nodeType === 'llmAssistant' && result.__llmOutput !== undefined) {
-          useCanvasStore.getState().updateNodeData(nId, {
-            output: result.__llmOutput,
-            tokenUsage: result.__tokenUsage,
-          });
-        }
-
-        // Strip internal fields before passing to downstream nodes
-        const { __images: _, __llmOutput: _lo, __tokenUsage: _tu, ...cleanResult } = result;
-
-        // Store result in execution store
+        const cleanResult = applyNodeResult(
+          nodeType,
+          nId,
+          result,
+          useCanvasStore.getState().updateNodeData,
+        );
         useExecutionStore.getState().setNodeResult(nId, cleanResult);
-
         return cleanResult;
       },
       signal,
@@ -399,29 +383,13 @@ export async function runAllWorkflow(): Promise<void> {
           sig,
         );
 
-        // Update node data with results (e.g., generated images)
-        if (nodeType === 'imageGenerator' && result.__images) {
-          useCanvasStore
-            .getState()
-            .updateNodeData(nId, {
-              images: result.__images,
-            });
-        }
-
-        // Update node data with LLM output and token usage
-        if (nodeType === 'llmAssistant' && result.__llmOutput !== undefined) {
-          useCanvasStore.getState().updateNodeData(nId, {
-            output: result.__llmOutput,
-            tokenUsage: result.__tokenUsage,
-          });
-        }
-
-        // Strip internal fields before passing to downstream nodes
-        const { __images: _, __llmOutput: _lo, __tokenUsage: _tu, ...cleanResult } = result;
-
-        // Store result in execution store
+        const cleanResult = applyNodeResult(
+          nodeType,
+          nId,
+          result,
+          useCanvasStore.getState().updateNodeData,
+        );
         useExecutionStore.getState().setNodeResult(nId, cleanResult);
-
         return cleanResult;
       },
       signal,

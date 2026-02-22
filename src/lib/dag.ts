@@ -212,11 +212,24 @@ export async function executeDag(
 ): Promise<Record<string, unknown>> {
   const { sortedNodeIds, edges, executeNode, signal, onStatusChange } = config;
   const results: Record<string, Record<string, unknown>> = {};
+  const failedNodes = new Set<string>();
 
   for (const nodeId of sortedNodeIds) {
     // Check cancellation before each node
     if (signal.aborted) {
       throw new DOMException('Execution was cancelled', 'AbortError');
+    }
+
+    // Check if any upstream dependency failed — skip this node if so
+    const hasFailedUpstream = edges
+      .filter((e) => e.target === nodeId)
+      .some((e) => failedNodes.has(e.source));
+
+    if (hasFailedUpstream) {
+      failedNodes.add(nodeId);
+      results[nodeId] = { __error: 'Skipped: upstream node failed' };
+      onStatusChange(nodeId, 'error');
+      continue;
     }
 
     // Resolve inputs from upstream outputs via edge mappings
@@ -237,12 +250,14 @@ export async function executeDag(
       results[nodeId] = result;
       onStatusChange(nodeId, 'done');
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : String(err);
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw err; // Re-throw cancellation — stops everything
+      }
+      const message = err instanceof Error ? err.message : String(err);
       results[nodeId] = { __error: message };
+      failedNodes.add(nodeId);
       onStatusChange(nodeId, 'error');
-      // Stop execution — don't continue to downstream nodes
-      break;
+      // Continue to next node — independent branches keep executing
     }
   }
 
