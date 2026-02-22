@@ -108,6 +108,8 @@ export function useAutoSave(projectId: string) {
   // --- Save on beforeunload via sendBeacon ----------------------------------
   useEffect(() => {
     const handler = () => {
+      // Skip if restore hasn't completed yet to avoid overwriting with empty state
+      if (!restoredRef.current) return;
       // sendBeacon only sends POST, so use the POST endpoint
       const flowObject = rfInstance.toObject();
       navigator.sendBeacon(
@@ -131,24 +133,28 @@ export function useAutoSave(projectId: string) {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       // Abort in-flight request
       abortRef.current?.abort();
-      // Fire beacon save on navigation away
-      try {
-        const flowObject = rfInstance.toObject();
-        navigator.sendBeacon(
-          `/api/projects/${projectId}`,
-          new Blob(
-            [JSON.stringify({ workflow_json: flowObject })],
-            { type: 'application/json' },
-          ),
-        );
-      } catch {
-        // best-effort
+      // Only save on unmount if restore has completed — otherwise we'd
+      // overwrite the DB with empty state (React Strict Mode double-mount).
+      if (restoredRef.current) {
+        // Fire beacon save on navigation away
+        try {
+          const flowObject = rfInstance.toObject();
+          navigator.sendBeacon(
+            `/api/projects/${projectId}`,
+            new Blob(
+              [JSON.stringify({ workflow_json: flowObject })],
+              { type: 'application/json' },
+            ),
+          );
+        } catch {
+          // best-effort
+        }
+        // Capture and upload thumbnail on navigation away (fire-and-forget)
+        const nodes = useCanvasStore.getState().nodes;
+        captureCanvasThumbnail(nodes).then((blob) => {
+          if (blob) uploadThumbnail(projectId, blob);
+        });
       }
-      // Capture and upload thumbnail on navigation away (fire-and-forget)
-      const nodes = useCanvasStore.getState().nodes;
-      captureCanvasThumbnail(nodes).then((blob) => {
-        if (blob) uploadThumbnail(projectId, blob);
-      });
     };
   }, [projectId, rfInstance]);
 
