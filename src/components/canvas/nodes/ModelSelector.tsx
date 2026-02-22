@@ -55,7 +55,8 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     display_name: 'Aura SR',
     group_key: null, group_label: null, thumbnail_url: null,
     description: 'Fast 4x super-resolution. No prompt support.',
-    highlighted: true, pinned: false, duration_estimate: 3, model_url: null,
+    highlighted: true, pinned: false, duration_estimate: 3,
+    model_url: 'https://fal.ai/models/fal-ai/aura-sr',
   },
   {
     endpoint_id: 'fal-ai/creative-upscaler',
@@ -63,7 +64,8 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     display_name: 'Creative Upscaler',
     group_key: null, group_label: null, thumbnail_url: null,
     description: 'AI-guided upscaling with optional text prompt (2x–4x).',
-    highlighted: true, pinned: false, duration_estimate: 15, model_url: null,
+    highlighted: true, pinned: false, duration_estimate: 15,
+    model_url: 'https://fal.ai/models/fal-ai/creative-upscaler',
   },
   {
     endpoint_id: 'fal-ai/esrgan',
@@ -71,7 +73,8 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     display_name: 'ESRGAN',
     group_key: null, group_label: null, thumbnail_url: null,
     description: 'Classic super-resolution (2x/4x/8x). No prompt support.',
-    highlighted: false, pinned: false, duration_estimate: 5, model_url: null,
+    highlighted: false, pinned: false, duration_estimate: 5,
+    model_url: 'https://fal.ai/models/fal-ai/esrgan',
   },
   {
     endpoint_id: 'fal-ai/clarity-upscaler',
@@ -79,7 +82,8 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     display_name: 'Clarity Upscaler',
     group_key: null, group_label: null, thumbnail_url: null,
     description: 'Detail-preserving upscaling with optional prompt (2x–4x).',
-    highlighted: false, pinned: false, duration_estimate: 12, model_url: null,
+    highlighted: false, pinned: false, duration_estimate: 12,
+    model_url: 'https://fal.ai/models/fal-ai/clarity-upscaler',
   },
 ];
 

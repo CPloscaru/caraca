@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
 import { ArrowUpDown, Play } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode } from '@/lib/executors';
@@ -129,6 +130,9 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
     [nodeId, scaleFactor, updateNodeData],
   );
 
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
   // Check if text input port is connected
   const textInputConnected = useMemo(
     () =>
@@ -198,10 +202,19 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
         {/* Done state: comparison slider + dimensions */}
         {isDone && outputImage && inputImageUrl && !isRunning && (
           <div>
-            <ComparisonSlider
-              beforeUrl={inputImageUrl}
-              afterUrl={outputImage.url}
-            />
+            <div
+              className="cursor-pointer"
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setLightboxOpen(true);
+              }}
+              title="Double-click to view full size"
+            >
+              <ComparisonSlider
+                beforeUrl={inputImageUrl}
+                afterUrl={outputImage.url}
+              />
+            </div>
             {inputDimensions && (
               <div className="mt-1 text-center text-[10px] text-gray-500">
                 {inputDimensions.width}x{inputDimensions.height} &rarr;{' '}
@@ -294,6 +307,31 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
       >
         <Play className="h-4 w-4" />
       </button>
+
+      {/* Fullscreen comparison lightbox */}
+      {outputImage && inputImageUrl && (
+        <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+          <DialogContent
+            showCloseButton
+            className="max-h-[90vh] max-w-[90vw] border-white/10 bg-[#0a0a0a] p-0 sm:max-w-[90vw]"
+            aria-describedby={undefined}
+          >
+            <DialogTitle className="sr-only">Upscale comparison</DialogTitle>
+            <div className="flex flex-col items-center gap-2 p-4">
+              <ComparisonSlider
+                beforeUrl={inputImageUrl}
+                afterUrl={outputImage.url}
+              />
+              {inputDimensions && (
+                <div className="text-xs text-gray-500">
+                  {inputDimensions.width}x{inputDimensions.height} &rarr;{' '}
+                  {outputImage.width}x{outputImage.height}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Shimmer CSS */}
       <style>{`
