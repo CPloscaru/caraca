@@ -44,7 +44,7 @@ type ModelsResponse = {
 type ModelSelectorProps = {
   value: string;
   onChange: (endpointId: string) => void;
-  mode?: 'text-to-image' | 'image-to-image';
+  mode?: 'text-to-image' | 'image-to-image' | 'image-upscaling';
 };
 
 // ---------------------------------------------------------------------------
