@@ -8,11 +8,11 @@ import { modelsCache, cacheMetadata } from '@/lib/db/schema';
 
 type FalModel = {
   endpoint_id: string;
-  name: string;
-  category: string;
-  description?: string;
-  thumbnail_url?: string;
   metadata?: {
+    display_name?: string;
+    category?: string;
+    description?: string;
+    thumbnail_url?: string;
     status?: string;
     kind?: string;
     group?: {
@@ -22,12 +22,19 @@ type FalModel = {
     highlighted?: boolean;
     pinned?: boolean;
     duration_estimate?: number;
+    model_url?: string;
   };
+  // Legacy top-level fields (kept for backwards compatibility)
+  name?: string;
+  category?: string;
+  description?: string;
+  thumbnail_url?: string;
   model_url?: string;
 };
 
 type FalModelsResponse = {
-  data: FalModel[];
+  models?: FalModel[];
+  data?: FalModel[];
   next_cursor?: string | null;
   has_more?: boolean;
 };
@@ -66,7 +73,8 @@ export async function fetchAndCacheModels(category: string): Promise<void> {
     }
 
     const json = (await res.json()) as FalModelsResponse;
-    allModels.push(...json.data);
+    const items = json.models ?? json.data ?? [];
+    allModels.push(...items);
     cursor = json.next_cursor ?? null;
   } while (cursor);
 
@@ -78,35 +86,42 @@ export async function fetchAndCacheModels(category: string): Promise<void> {
 
   // Upsert each model into the cache
   for (const m of activeModels) {
+    const meta = m.metadata;
+    const displayName = meta?.display_name ?? m.name ?? m.endpoint_id;
+    const cat = meta?.category ?? m.category ?? category;
+    const desc = meta?.description ?? m.description ?? null;
+    const thumb = meta?.thumbnail_url ?? m.thumbnail_url ?? null;
+    const modelUrl = meta?.model_url ?? m.model_url ?? null;
+
     db.insert(modelsCache)
       .values({
         endpoint_id: m.endpoint_id,
-        category: m.category,
-        display_name: m.name,
-        group_key: m.metadata?.group?.key ?? null,
-        group_label: m.metadata?.group?.label ?? null,
-        thumbnail_url: m.thumbnail_url ?? null,
-        description: m.description ?? null,
-        highlighted: m.metadata?.highlighted ?? false,
-        pinned: m.metadata?.pinned ?? false,
-        duration_estimate: m.metadata?.duration_estimate ?? null,
-        model_url: m.model_url ?? null,
-        raw_metadata: m.metadata ? JSON.stringify(m.metadata) : null,
+        category: cat,
+        display_name: displayName,
+        group_key: meta?.group?.key ?? null,
+        group_label: meta?.group?.label ?? null,
+        thumbnail_url: thumb,
+        description: desc,
+        highlighted: meta?.highlighted ?? false,
+        pinned: meta?.pinned ?? false,
+        duration_estimate: meta?.duration_estimate ?? null,
+        model_url: modelUrl,
+        raw_metadata: meta ? JSON.stringify(meta) : null,
       })
       .onConflictDoUpdate({
         target: modelsCache.endpoint_id,
         set: {
-          category: m.category,
-          display_name: m.name,
-          group_key: m.metadata?.group?.key ?? null,
-          group_label: m.metadata?.group?.label ?? null,
-          thumbnail_url: m.thumbnail_url ?? null,
-          description: m.description ?? null,
-          highlighted: m.metadata?.highlighted ?? false,
-          pinned: m.metadata?.pinned ?? false,
-          duration_estimate: m.metadata?.duration_estimate ?? null,
-          model_url: m.model_url ?? null,
-          raw_metadata: m.metadata ? JSON.stringify(m.metadata) : null,
+          category: cat,
+          display_name: displayName,
+          group_key: meta?.group?.key ?? null,
+          group_label: meta?.group?.label ?? null,
+          thumbnail_url: thumb,
+          description: desc,
+          highlighted: meta?.highlighted ?? false,
+          pinned: meta?.pinned ?? false,
+          duration_estimate: meta?.duration_estimate ?? null,
+          model_url: modelUrl,
+          raw_metadata: meta ? JSON.stringify(meta) : null,
         },
       })
       .run();
