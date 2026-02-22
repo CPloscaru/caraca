@@ -52,13 +52,23 @@ export type LLMAssistantData = NodeData & {
   tokenUsage: { prompt: number; completion: number; total: number } | null;
 };
 
+export type ImageUpscaleData = NodeData & {
+  model: string;
+  scaleFactor: number;
+  prompt: string;
+  outputImage: { url: string; width: number; height: number } | null;
+  inputImageUrl: string | null;
+  inputDimensions: { width: number; height: number } | null;
+};
+
 /** Union type for all node data variants */
 export type AnyNodeData =
   | NodeData
   | TextInputData
   | ImageImportData
   | ImageGeneratorData
-  | LLMAssistantData;
+  | LLMAssistantData
+  | ImageUpscaleData;
 
 // ---------------------------------------------------------------------------
 // Workflow JSON — serialized React Flow state for project persistence
@@ -87,3 +97,4 @@ export type TextInputNode = Node<TextInputData>;
 export type ImageImportNode = Node<ImageImportData>;
 export type ImageGeneratorNode = Node<ImageGeneratorData>;
 export type LLMAssistantNode = Node<LLMAssistantData>;
+export type ImageUpscaleNode = Node<ImageUpscaleData>;
