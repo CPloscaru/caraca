@@ -182,7 +182,8 @@ export function getKnownNodeTypes(): Set<string> {
 
 /** Get the set of all fields that should be stripped on export across all node types. */
 export function getStripFields(): Set<string> {
-  const fields = new Set<string>();
+  // Universal strip fields (UI state that should never be exported)
+  const fields = new Set<string>(['outputExpanded']);
   for (const entry of NODE_REGISTRY) {
     for (const field of entry.stripOnExport) {
       fields.add(field);

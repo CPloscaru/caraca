@@ -1,6 +1,7 @@
 'use client';
 
 import type { Node, Edge } from '@xyflow/react';
+import { getKnownNodeTypes, getStripFields } from '@/lib/node-registry';
 
 // ---------------------------------------------------------------------------
 // Export
@@ -40,15 +41,22 @@ function slugify(text: string): string {
 }
 
 export function exportWorkflow(project: ExportInput): void {
-  // Strip images from node data (export is workflow-only)
+  // Dynamically strip fields declared by the registry (images, tokenUsage, videoUrl, etc.)
+  const stripFields = getStripFields();
+
   const cleanNodes = project.nodes.map((node) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { images, imageUrl, tokenUsage, outputExpanded, ...rest } = (node.data ?? {}) as Record<string, unknown>;
+    const data = (node.data ?? {}) as Record<string, unknown>;
+    const cleanData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (!stripFields.has(key)) {
+        cleanData[key] = value;
+      }
+    }
     return {
       id: node.id,
       type: node.type ?? 'placeholder',
       position: node.position,
-      data: rest,
+      data: cleanData,
     };
   });
 
@@ -86,14 +94,6 @@ export function exportWorkflow(project: ExportInput): void {
 // Validate
 // ---------------------------------------------------------------------------
 
-const KNOWN_NODE_TYPES = new Set([
-  'textInput',
-  'imageImport',
-  'imageGenerator',
-  'llmAssistant',
-  'placeholder',
-]);
-
 type ValidationResult =
   | { valid: true; data: { title: string; nodes: Node[]; edges: Edge[] } }
   | { valid: false; error: string };
@@ -122,6 +122,7 @@ export function validateWorkflowJson(json: unknown): ValidationResult {
   }
 
   const nodeIds = new Set<string>();
+  const knownTypes = getKnownNodeTypes();
 
   for (const node of obj.nodes) {
     if (typeof node !== 'object' || node === null) {
@@ -134,8 +135,14 @@ export function validateWorkflowJson(json: unknown): ValidationResult {
     if (typeof n.type !== 'string') {
       return { valid: false, error: `Node "${n.id}" missing type.` };
     }
-    if (!KNOWN_NODE_TYPES.has(n.type)) {
-      return { valid: false, error: `Unknown node type "${n.type}" in node "${n.id}".` };
+    // Unknown types become placeholder nodes with original data preserved for lossless re-export
+    if (!knownTypes.has(n.type)) {
+      const originalType = n.type;
+      const originalData = { ...(n.data as Record<string, unknown>) };
+      n.type = 'placeholder';
+      (n.data as Record<string, unknown>).__originalType = originalType;
+      (n.data as Record<string, unknown>).__originalData = originalData;
+      (n.data as Record<string, unknown>).label = `Unknown: ${originalType}`;
     }
     if (
       typeof n.position !== 'object' ||
