@@ -1,6 +1,7 @@
 import type { Node, Edge } from '@xyflow/react';
+import type { PortType } from '@/lib/port-types';
 
-export type PortType = 'image' | 'text' | 'mask' | 'model';
+export type { PortType } from '@/lib/port-types';
 
 export type PortDefinition = {
   type: PortType;

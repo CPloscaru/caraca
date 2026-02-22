@@ -5,16 +5,18 @@ export const PORT_TYPES = {
   text: { color: '#ae53ba', label: 'Text' },
   mask: { color: '#e92a67', label: 'Mask' },
   model: { color: '#22c55e', label: 'Model' },
+  video: { color: '#f59e0b', label: 'Video' },
 } as const;
 
 export type PortType = keyof typeof PORT_TYPES;
 
 /** Compatibility map: which output types can connect to which input types */
 export const COMPATIBLE_PORTS: Record<PortType, PortType[]> = {
-  image: ['image'],
-  text: ['text'],
+  image: ['image', 'video'],
+  text: ['text', 'video'],
   mask: ['mask'],
   model: ['model'],
+  video: ['video', 'image'],
 };
 
 /**
