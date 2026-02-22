@@ -18,6 +18,7 @@ import { TextInputNode } from '@/components/canvas/nodes/TextInputNode';
 import { ImageImportNode } from '@/components/canvas/nodes/ImageImportNode';
 import { ImageGeneratorNode } from '@/components/canvas/nodes/ImageGeneratorNode';
 import { LLMAssistantNode } from '@/components/canvas/nodes/LLMAssistantNode';
+import { ImageUpscaleNode } from '@/components/canvas/nodes/ImageUpscaleNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import {
   ContextMenu,
@@ -28,7 +29,7 @@ import type { NodeTemplate } from '@/lib/node-registry';
 import type { NodeData } from '@/types/canvas';
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
-const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode };
+const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode };
 const edgeTypes = { turbo: TurboEdge };
 
 let nodeIdCounter = 0;
@@ -43,6 +44,7 @@ function getNodeColor(node: Node): string {
     case 'textInput': return '#ae53ba';
     case 'imageImport': return '#2a8af6';
     case 'llmAssistant': return '#22c55e';
+    case 'imageUpscale': return '#ae53ba';
     default: return '#666';
   }
 }
