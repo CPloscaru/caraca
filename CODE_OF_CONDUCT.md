@@ -44,6 +44,8 @@ All reports will be reviewed promptly and kept confidential. We are committed to
 
 **Contact:** **contact@caraca.to**
 
+For security-related concerns, please use our [Security Policy](SECURITY.md) instead.
+
 ### Level 1 -- Correction
 
 **When:** First-time or minor unintentional violations.

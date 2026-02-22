@@ -67,7 +67,7 @@ Run `pre-commit autoupdate` periodically to get the latest version. See the [git
 
 ## Pull Request Process
 
-- Fill out the PR template checklist
+- Fill out the [PR template](.github/PULL_REQUEST_TEMPLATE.md) checklist
 - PRs require at least 1 review before merging
 - Keep PRs focused -- one feature or fix per PR
 - Link related issues using "Closes #N" or "Fixes #N"
