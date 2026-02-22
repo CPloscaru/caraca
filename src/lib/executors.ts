@@ -20,6 +20,7 @@ import type {
   TextInputData,
   ImageImportData,
   ImageGeneratorData,
+  LLMAssistantData,
 } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,87 @@ const imageGeneratorExecutor: NodeExecutor = async (
   }
 };
 
+const llmAssistantExecutor: NodeExecutor = async (
+  _nodeId,
+  nodeData,
+  inputs,
+  signal,
+) => {
+  const data = nodeData as unknown as LLMAssistantData;
+
+  if (!data.model) {
+    throw new Error('No model selected in LLM Assistant node');
+  }
+  if (!data.instruction?.trim()) {
+    throw new Error('No instruction provided in LLM Assistant node');
+  }
+
+  // Build messages array
+  type MessageContent =
+    | string
+    | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
+
+  let content: MessageContent;
+  const imageInput = inputs['image-target-0'] as string | undefined;
+
+  if (imageInput) {
+    // Multimodal: image + text instruction
+    content = [
+      { type: 'image_url', image_url: { url: imageInput } },
+      { type: 'text', text: data.instruction },
+    ];
+  } else {
+    content = data.instruction;
+  }
+
+  const messages = [{ role: 'user', content }];
+
+  try {
+    const res = await fetch('/api/openrouter/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: data.model, messages }),
+      signal,
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(
+        (errData as Record<string, unknown>).error as string ||
+          `OpenRouter API error: ${res.status}`,
+      );
+    }
+
+    const result = await res.json();
+    const responseText =
+      (result as Record<string, unknown> & { choices?: Array<{ message?: { content?: string } }> })
+        .choices?.[0]?.message?.content ?? '';
+
+    const usage = (result as Record<string, unknown> & {
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    }).usage;
+
+    const tokenUsage = usage
+      ? {
+          prompt: usage.prompt_tokens ?? 0,
+          completion: usage.completion_tokens ?? 0,
+          total: usage.total_tokens ?? 0,
+        }
+      : null;
+
+    return {
+      'text-source-0': responseText,
+      __llmOutput: responseText,
+      __tokenUsage: tokenUsage,
+    };
+  } catch (err) {
+    if (signal.aborted) {
+      throw new DOMException('Execution was cancelled', 'AbortError');
+    }
+    throw err;
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -145,6 +227,7 @@ const executors: Record<string, NodeExecutor> = {
   textInput: textInputExecutor,
   imageImport: imageImportExecutor,
   imageGenerator: imageGeneratorExecutor,
+  llmAssistant: llmAssistantExecutor,
 };
 
 // ---------------------------------------------------------------------------
@@ -222,8 +305,16 @@ export async function runSingleNode(nodeId: string): Promise<void> {
             });
         }
 
-        // Strip internal __images before passing to downstream nodes
-        const { __images: _, ...cleanResult } = result;
+        // Update node data with LLM output and token usage
+        if (nodeType === 'llmAssistant' && result.__llmOutput !== undefined) {
+          useCanvasStore.getState().updateNodeData(nId, {
+            output: result.__llmOutput,
+            tokenUsage: result.__tokenUsage,
+          });
+        }
+
+        // Strip internal fields before passing to downstream nodes
+        const { __images: _, __llmOutput: _lo, __tokenUsage: _tu, ...cleanResult } = result;
 
         // Store result in execution store
         useExecutionStore.getState().setNodeResult(nId, cleanResult);
@@ -317,8 +408,16 @@ export async function runAllWorkflow(): Promise<void> {
             });
         }
 
-        // Strip internal __images before passing to downstream nodes
-        const { __images: _, ...cleanResult } = result;
+        // Update node data with LLM output and token usage
+        if (nodeType === 'llmAssistant' && result.__llmOutput !== undefined) {
+          useCanvasStore.getState().updateNodeData(nId, {
+            output: result.__llmOutput,
+            tokenUsage: result.__tokenUsage,
+          });
+        }
+
+        // Strip internal fields before passing to downstream nodes
+        const { __images: _, __llmOutput: _lo, __tokenUsage: _tu, ...cleanResult } = result;
 
         // Store result in execution store
         useExecutionStore.getState().setNodeResult(nId, cleanResult);

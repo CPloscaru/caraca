@@ -15,15 +15,16 @@ import { PlaceholderNode } from '@/components/canvas/nodes/PlaceholderNode';
 import { TextInputNode } from '@/components/canvas/nodes/TextInputNode';
 import { ImageImportNode } from '@/components/canvas/nodes/ImageImportNode';
 import { ImageGeneratorNode } from '@/components/canvas/nodes/ImageGeneratorNode';
+import { LLMAssistantNode } from '@/components/canvas/nodes/LLMAssistantNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import {
   ContextMenu,
   type ContextMenuPosition,
-  type NodeTemplate,
 } from '@/components/canvas/ContextMenu';
+import type { NodeTemplate } from '@/lib/node-templates';
 import type { NodeData } from '@/types/canvas';
 
-const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode };
+const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode };
 const edgeTypes = { turbo: TurboEdge };
 
 let nodeIdCounter = 0;

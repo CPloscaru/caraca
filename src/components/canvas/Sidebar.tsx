@@ -3,44 +3,7 @@
 import { type DragEvent } from 'react';
 import { useAppStore } from '@/stores/app-store';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
-import type { PortDefinition } from '@/types/canvas';
-
-type NodeTemplate = {
-  label: string;
-  nodeType: string;
-  inputs: PortDefinition[];
-  outputs: PortDefinition[];
-};
-
-const NODE_TEMPLATES: NodeTemplate[] = [
-  {
-    label: 'Text Input',
-    nodeType: 'textInput',
-    inputs: [],
-    outputs: [{ type: 'text', label: 'Text', id: 'text-out-0' }],
-  },
-  {
-    label: 'Image Import',
-    nodeType: 'imageImport',
-    inputs: [],
-    outputs: [{ type: 'image', label: 'Image', id: 'image-out-0' }],
-  },
-  {
-    label: 'Image Generator',
-    nodeType: 'imageGenerator',
-    inputs: [
-      { type: 'text', label: 'Prompt', id: 'text-in-0' },
-      { type: 'image', label: 'Reference', id: 'image-in-0' },
-    ],
-    outputs: [{ type: 'image', label: 'Output', id: 'image-out-0' }],
-  },
-  {
-    label: 'LLM Assistant',
-    nodeType: 'placeholder',
-    inputs: [{ type: 'text', label: 'Input', id: 'text-in-0' }],
-    outputs: [{ type: 'text', label: 'Response', id: 'text-out-0' }],
-  },
-];
+import { NODE_TEMPLATES, type NodeTemplate } from '@/lib/node-templates';
 
 function PortDot({ type }: { type: PortType }) {
   return (
