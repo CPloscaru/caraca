@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelLeft, Settings, Play, Square, Trash2, ArrowLeft, Download, Upload } from 'lucide-react';
+import { PanelLeft, Settings, Play, Square, Trash2, ArrowLeft, Download, Upload, Map } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -77,6 +77,8 @@ export function Toolbar({ projectTitle, onTitleChange, saveStatus, onExport, onI
   }, [editValue, projectTitle, onTitleChange]);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const openSettings = useAppStore((s) => s.openSettings);
+  const minimapVisible = useAppStore((s) => s.minimapVisible);
+  const toggleMinimap = useAppStore((s) => s.toggleMinimap);
   const isRunning = useExecutionStore((s) => s.isRunning);
   const nodeStates = useExecutionStore((s) => s.nodeStates);
   const cancelExecution = useExecutionStore((s) => s.cancelExecution);
@@ -335,6 +337,31 @@ export function Toolbar({ projectTitle, onTitleChange, saveStatus, onExport, onI
         >
           <Play size={14} />
           <span>Run All</span>
+        </button>
+
+        {/* Minimap toggle */}
+        <button
+          onClick={toggleMinimap}
+          style={{
+            ...iconBtnBase,
+            color: minimapVisible ? '#f3f4f6' : '#9ca3af',
+            background: minimapVisible ? 'rgba(174, 83, 186, 0.12)' : 'transparent',
+          }}
+          onMouseEnter={(e) => {
+            if (!minimapVisible) {
+              (e.currentTarget as HTMLElement).style.color = '#f3f4f6';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(174, 83, 186, 0.12)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!minimapVisible) {
+              (e.currentTarget as HTMLElement).style.color = '#9ca3af';
+              (e.currentTarget as HTMLElement).style.background = 'transparent';
+            }
+          }}
+          title="Toggle minimap"
+        >
+          <Map size={18} />
         </button>
 
         {/* Settings */}
