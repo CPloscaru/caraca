@@ -43,12 +43,21 @@ export type ImageGeneratorData = NodeData & {
   mode?: 'text-to-image' | 'image-to-image';
 };
 
+export type LLMAssistantData = NodeData & {
+  instruction: string;
+  model: string;
+  output: string | null;
+  outputExpanded: boolean;
+  tokenUsage: { prompt: number; completion: number; total: number } | null;
+};
+
 /** Union type for all node data variants */
 export type AnyNodeData =
   | NodeData
   | TextInputData
   | ImageImportData
-  | ImageGeneratorData;
+  | ImageGeneratorData
+  | LLMAssistantData;
 
 // ---------------------------------------------------------------------------
 // Workflow JSON — serialized React Flow state for project persistence
@@ -76,3 +85,4 @@ export type WorkflowJson = {
 export type TextInputNode = Node<TextInputData>;
 export type ImageImportNode = Node<ImageImportData>;
 export type ImageGeneratorNode = Node<ImageGeneratorData>;
+export type LLMAssistantNode = Node<LLMAssistantData>;
