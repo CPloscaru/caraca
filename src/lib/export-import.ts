@@ -43,7 +43,7 @@ export function exportWorkflow(project: ExportInput): void {
   // Strip images from node data (export is workflow-only)
   const cleanNodes = project.nodes.map((node) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { images, imageUrl, ...rest } = (node.data ?? {}) as Record<string, unknown>;
+    const { images, imageUrl, tokenUsage, outputExpanded, ...rest } = (node.data ?? {}) as Record<string, unknown>;
     return {
       id: node.id,
       type: node.type ?? 'placeholder',
@@ -90,6 +90,7 @@ const KNOWN_NODE_TYPES = new Set([
   'textInput',
   'imageImport',
   'imageGenerator',
+  'llmAssistant',
   'placeholder',
 ]);
 
