@@ -91,7 +91,11 @@ export async function fetchAndCacheModels(category: string): Promise<void> {
     const cat = meta?.category ?? m.category ?? category;
     const desc = meta?.description ?? m.description ?? null;
     const thumb = meta?.thumbnail_url ?? m.thumbnail_url ?? null;
-    const modelUrl = meta?.model_url ?? m.model_url ?? null;
+    // fal.ai API returns execution URLs (fal.run/...) — convert to model page URLs
+    const rawModelUrl = meta?.model_url ?? m.model_url ?? null;
+    const modelUrl = rawModelUrl?.startsWith('https://fal.run/')
+      ? `https://fal.ai/models/${rawModelUrl.slice('https://fal.run/'.length)}`
+      : rawModelUrl;
 
     db.insert(modelsCache)
       .values({
