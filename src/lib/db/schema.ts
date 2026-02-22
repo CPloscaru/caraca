@@ -33,6 +33,18 @@ export const projects = sqliteTable('projects', {
   template_source: text('template_source'),
 });
 
+export const llmModelsCache = sqliteTable('llm_models_cache', {
+  model_id: text('model_id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description'),
+  context_length: integer('context_length'),
+  supports_vision: integer('supports_vision', { mode: 'boolean' }).default(false),
+  provider_group: text('provider_group').notNull(),
+  pricing_prompt: text('pricing_prompt'),
+  pricing_completion: text('pricing_completion'),
+  raw_metadata: text('raw_metadata'),
+});
+
 export const cacheMetadata = sqliteTable('cache_metadata', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
