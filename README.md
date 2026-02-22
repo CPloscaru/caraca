@@ -1,36 +1,149 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Caraca
 
-## Getting Started
+A visual node-based editor for composing and executing AI image generation workflows.
 
-First, run the development server:
+[![License: MIT](https://img.shields.io/github/license/CPloscaru/caraca?style=flat)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/CPloscaru/caraca/ci.yml?style=flat&label=CI)](https://github.com/CPloscaru/caraca/actions/workflows/ci.yml)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen?style=flat)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat)](https://www.typescriptlang.org/)
+
+<!-- TODO: Add hero screenshot -->
+<!-- ![Caraca Screenshot](docs/screenshot-placeholder.png) -->
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [Architecture](#architecture)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+- [Links](#links)
+
+## Quick Start
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) >= 18
+- npm
+
+### Setup
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/CPloscaru/caraca.git && cd caraca
+```
+
+**2. Install dependencies**
+
+```bash
+npm install
+```
+
+**3. Configure environment**
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in the required keys:
+
+- `FAL_KEY` (required) -- API key for image/video generation. Get one at [fal.ai](https://fal.ai/dashboard/keys).
+- `OPENROUTER_KEY` (optional) -- Enables the LLM Assistant node. Get one at [OpenRouter](https://openrouter.ai/keys).
+
+See `.env.example` for the full list of configuration options.
+
+**4. Run the development server**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Create a project** from the dashboard.
+2. **Add nodes** from the sidebar or command palette (press `/`).
+3. **Connect nodes** by dragging between ports. Ports are color-coded by type: blue for images, purple for text.
+4. **Configure parameters** on each node -- select a model, write prompts, adjust settings.
+5. **Run** individual nodes or the entire workflow.
+6. **Export/import** workflows as `.caraca.json` files to share or back up your work.
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+### Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 16 (App Router + API Routes) |
+| UI | React 19, Tailwind CSS 4, Shadcn UI |
+| Canvas | xyflow (React Flow) |
+| State | Zustand |
+| Database | Drizzle ORM + SQLite (better-sqlite3) |
+| AI - Images | fal.ai SDK |
+| AI - LLM | OpenRouter API |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### System Diagram
 
-## Deploy on Vercel
+```
++--------------------------------------------------+
+|                  Next.js 16                       |
+|            (App Router + API Routes)              |
++-------------+----------------+-------------------+
+|  React 19   |    Zustand     |      xyflow       |
+|  (UI)       |    (State)     |      (Canvas)     |
++-------------+----------------+-------------------+
+|             Drizzle ORM + SQLite                  |
++--------------------------------------------------+
+|       fal.ai SDK       |    OpenRouter API       |
+|   (Image/Video Gen)    |    (LLM Assistant)      |
++--------------------------------------------------+
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+  app/          Pages and API routes (Next.js App Router)
+  components/   React components
+  hooks/        Custom React hooks
+  lib/          Core logic, DAG engine, utilities
+  stores/       Zustand state stores
+  types/        TypeScript type definitions
+```
+
+## Roadmap
+
+**Current status:** v0.1.0 MVP
+
+What is available today:
+
+- Node-based workflow editor with drag-and-drop canvas
+- Image and video generation via fal.ai
+- LLM assistant via OpenRouter
+- Project persistence with SQLite
+- Workflow templates
+- Export/import as `.caraca.json`
+
+Community contributions are welcome. Check the [issue tracker](https://github.com/CPloscaru/caraca/issues) for feature requests and known issues.
+
+## Contributing
+
+Contributions are welcome! Whether it is a bug report, feature request, or pull request, your input helps improve Caraca.
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, branching conventions, and coding guidelines.
+- Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Report security vulnerabilities privately via [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) -- CPloscaru 2025-2026
+
+## Links
+
+- [GitHub Repository](https://github.com/CPloscaru/caraca)
+- [Issue Tracker](https://github.com/CPloscaru/caraca/issues)
+- [fal.ai Documentation](https://fal.ai/docs)
+- [OpenRouter Documentation](https://openrouter.ai/docs)
