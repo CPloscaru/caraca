@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# env files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# debug
+npm-debug.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# ide
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# project internals
+/brainstorming/
+/.claude/
+/.planning*/
+.audit-exceptions.md
+/.playwright-mcp/
+
+/tests/
+
+# uploads
+uploads/
+
+# database
+*.db
+*.db-journal
+
+# build
+dist/
+
+# misc
+*.tgz
+*.log
