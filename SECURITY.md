@@ -7,7 +7,7 @@ We take security seriously and appreciate responsible disclosure.
 If you discover a security vulnerability, please report it responsibly. We take all reports seriously and appreciate your help keeping Caraca safe.
 
 **Option 1: Email**
-Send details to **TODO: contact@caraca.dev**. Include steps to reproduce if possible.
+Send details to **contact@caraca.to**. Include steps to reproduce if possible.
 
 **Option 2: GitHub**
 Use [GitHub's private vulnerability reporting](https://github.com/CPloscaru/caraca/security/advisories/new) to submit a report directly.

@@ -42,7 +42,7 @@ This Code of Conduct applies within all Caraca project spaces, including GitHub 
 
 All reports will be reviewed promptly and kept confidential. We are committed to fair and consistent enforcement.
 
-**Contact:** **TODO: contact@caraca.dev**
+**Contact:** **contact@caraca.to**
 
 ### Level 1 -- Correction
 
