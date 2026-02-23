@@ -186,7 +186,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
           position={Position.Left}
           portType="text"
           portId="text-in-0"
-          index={1}
+          index={0}
           style={{ top: '45%' }}
         />
       )}
@@ -196,7 +196,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
           position={Position.Left}
           portType="image"
           portId="image-in-1"
-          index={2}
+          index={1}
           style={{ top: '65%' }}
         />
       )}
