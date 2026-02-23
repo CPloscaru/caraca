@@ -10,6 +10,9 @@ export type NodeExecutionState = {
   result?: Record<string, unknown>;
   error?: string;
   requestId?: string; // fal.ai queue request ID for cancellation
+  queueLogs?: Array<{ message: string; timestamp: string }>;
+  queuePosition?: number;
+  generationStartedAt?: number; // Date.now() when status becomes 'running'
 };
 
 type ExecutionStore = {
@@ -22,6 +25,15 @@ type ExecutionStore = {
   setNodeResult: (nodeId: string, result: Record<string, unknown>) => void;
   setNodeError: (nodeId: string, error: string) => void;
   setNodeRequestId: (nodeId: string, requestId: string) => void;
+  setNodeQueueStatus: (
+    nodeId: string,
+    status: {
+      status: string;
+      logs?: Array<{ message: string }>;
+      queue_position?: number;
+    },
+  ) => void;
+  clearNodeQueueLogs: (nodeId: string) => void;
   startExecution: () => AbortController;
   cancelExecution: () => void;
   clearAll: () => void;
@@ -52,7 +64,11 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
     set((state) => ({
       nodeStates: {
         ...state.nodeStates,
-        [nodeId]: { ...getOrCreateNodeState(state.nodeStates, nodeId), status },
+        [nodeId]: {
+          ...getOrCreateNodeState(state.nodeStates, nodeId),
+          status,
+          ...(status === 'running' ? { generationStartedAt: Date.now() } : {}),
+        },
       },
     }));
   },
@@ -89,6 +105,46 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
         },
       },
     }));
+  },
+
+  setNodeQueueStatus: (nodeId, queueStatus) => {
+    set((state) => {
+      const existing = getOrCreateNodeState(state.nodeStates, nodeId);
+      const newLogs = queueStatus.logs
+        ? [
+            ...(existing.queueLogs ?? []),
+            ...queueStatus.logs.map((l) => ({
+              message: l.message,
+              timestamp: new Date().toISOString(),
+            })),
+          ]
+        : existing.queueLogs;
+      return {
+        nodeStates: {
+          ...state.nodeStates,
+          [nodeId]: {
+            ...existing,
+            queueLogs: newLogs,
+            ...(queueStatus.queue_position !== undefined
+              ? { queuePosition: queueStatus.queue_position }
+              : {}),
+          },
+        },
+      };
+    });
+  },
+
+  clearNodeQueueLogs: (nodeId) => {
+    set((state) => {
+      const existing = getOrCreateNodeState(state.nodeStates, nodeId);
+      const { queueLogs: _, queuePosition: __, generationStartedAt: ___, ...rest } = existing;
+      return {
+        nodeStates: {
+          ...state.nodeStates,
+          [nodeId]: rest as NodeExecutionState,
+        },
+      };
+    });
   },
 
   startExecution: () => {

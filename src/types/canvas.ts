@@ -61,6 +61,26 @@ export type ImageUpscaleData = NodeData & {
   inputDimensions: { width: number; height: number } | null;
 };
 
+export type TextToVideoData = NodeData & {
+  model: string;
+  prompt: string;
+  aspectRatio: string;
+  duration: number;
+  seed: number | null;
+  videoUrl: string | null;
+  cdnUrl: string | null;
+};
+
+export type ImageToVideoData = NodeData & {
+  model: string;
+  prompt: string;
+  aspectRatio: string;
+  duration: number;
+  seed: number | null;
+  videoUrl: string | null;
+  cdnUrl: string | null;
+};
+
 /** Union type for all node data variants */
 export type AnyNodeData =
   | NodeData
@@ -68,7 +88,9 @@ export type AnyNodeData =
   | ImageImportData
   | ImageGeneratorData
   | LLMAssistantData
-  | ImageUpscaleData;
+  | ImageUpscaleData
+  | TextToVideoData
+  | ImageToVideoData;
 
 // ---------------------------------------------------------------------------
 // Workflow JSON — serialized React Flow state for project persistence
@@ -98,3 +120,5 @@ export type ImageImportNode = Node<ImageImportData>;
 export type ImageGeneratorNode = Node<ImageGeneratorData>;
 export type LLMAssistantNode = Node<LLMAssistantData>;
 export type ImageUpscaleNode = Node<ImageUpscaleData>;
+export type TextToVideoNode = Node<TextToVideoData>;
+export type ImageToVideoNode = Node<ImageToVideoData>;
