@@ -24,6 +24,8 @@ import type {
   ImageGeneratorData,
   LLMAssistantData,
   ImageUpscaleData,
+  TextToVideoData,
+  ImageToVideoData,
 } from '@/types/canvas';
 import { getModelParams, DEFAULT_UPSCALE_MODEL } from '@/lib/upscale/model-params';
 
@@ -50,6 +52,48 @@ const ASPECT_RATIO_PRESETS: Record<string, { width: number; height: number }> =
     '9:16': { width: 576, height: 1024 },
     '16:9': { width: 1024, height: 576 },
   };
+
+// ---------------------------------------------------------------------------
+// Video default models
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TEXT_TO_VIDEO_MODEL = 'fal-ai/wan/v2.1/1.3b/text-to-video';
+const DEFAULT_IMAGE_TO_VIDEO_MODEL = 'fal-ai/minimax-video/image-to-video';
+
+// ---------------------------------------------------------------------------
+// Video helpers
+// ---------------------------------------------------------------------------
+
+async function downloadVideoToLocal(
+  cdnUrl: string,
+): Promise<{ localUrl: string; cdnUrl: string }> {
+  try {
+    const res = await fetch('/api/videos/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: cdnUrl }),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { localUrl: string };
+      return { localUrl: data.localUrl, cdnUrl };
+    }
+    return { localUrl: cdnUrl, cdnUrl };
+  } catch {
+    return { localUrl: cdnUrl, cdnUrl };
+  }
+}
+
+function normalizeVideoUrl(
+  resultData: Record<string, unknown>,
+): string | null {
+  const video = resultData.video;
+  if (video && typeof video === 'object' && 'url' in (video as Record<string, unknown>)) {
+    return (video as Record<string, unknown>).url as string;
+  }
+  if (typeof video === 'string') return video;
+  if (typeof resultData.video_url === 'string') return resultData.video_url;
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Executor implementations
@@ -294,6 +338,121 @@ const imageUpscaleExecutor: NodeExecutor = async (
   }
 };
 
+const textToVideoExecutor: NodeExecutor = async (
+  nodeId,
+  nodeData,
+  inputs,
+  signal,
+) => {
+  const data = nodeData as unknown as TextToVideoData;
+  const model = data.model || DEFAULT_TEXT_TO_VIDEO_MODEL;
+
+  // Resolve prompt: prefer connected input over inline prompt
+  const resolvedPrompt =
+    (inputs['text-target-0'] as string) ?? data.prompt ?? '';
+
+  if (!resolvedPrompt.trim()) {
+    throw new Error('No prompt provided for video generation');
+  }
+
+  // Build fal.ai input
+  const falInput: Record<string, unknown> = { prompt: resolvedPrompt };
+  if (data.aspectRatio) falInput.aspect_ratio = data.aspectRatio;
+  if (data.duration) falInput.duration = data.duration;
+  if (data.seed != null) falInput.seed = data.seed;
+
+  try {
+    const result = await fal.subscribe(model, {
+      input: falInput,
+      logs: true,
+      pollInterval: 2000,
+      abortSignal: signal,
+      onQueueUpdate: (status) => {
+        useExecutionStore.getState().setNodeQueueStatus(nodeId, status);
+      },
+    });
+
+    const resultData = result.data as Record<string, unknown>;
+    const videoUrl = normalizeVideoUrl(resultData);
+    if (!videoUrl) {
+      throw new Error('No video URL in response');
+    }
+
+    const downloaded = await downloadVideoToLocal(videoUrl);
+    return {
+      'video-source-0': downloaded.localUrl,
+      __videoUrl: downloaded.localUrl,
+      __cdnUrl: downloaded.cdnUrl,
+    };
+  } catch (err) {
+    if (signal.aborted) {
+      throw new DOMException('Execution was cancelled', 'AbortError');
+    }
+    const classified = classifyFalError(err);
+    throw new Error(`${classified.message} — ${classified.suggestion}`);
+  }
+};
+
+const imageToVideoExecutor: NodeExecutor = async (
+  nodeId,
+  nodeData,
+  inputs,
+  signal,
+) => {
+  const data = nodeData as unknown as ImageToVideoData;
+  const model = data.model || DEFAULT_IMAGE_TO_VIDEO_MODEL;
+
+  // Resolve image URL from connected input
+  const imageInput = inputs['image-target-0'] as string | undefined;
+  let resolvedImageUrl = imageInput;
+  if (imageInput) {
+    resolvedImageUrl = await ensureFalCdnUrl(imageInput);
+  }
+
+  // Resolve prompt (optional for some models)
+  const resolvedPrompt =
+    (inputs['text-target-0'] as string) ?? data.prompt ?? '';
+
+  // Build fal.ai input
+  const falInput: Record<string, unknown> = {};
+  if (resolvedImageUrl) falInput.image_url = resolvedImageUrl;
+  if (resolvedPrompt.trim()) falInput.prompt = resolvedPrompt;
+  if (data.aspectRatio) falInput.aspect_ratio = data.aspectRatio;
+  if (data.duration) falInput.duration = data.duration;
+  if (data.seed != null) falInput.seed = data.seed;
+
+  try {
+    const result = await fal.subscribe(model, {
+      input: falInput,
+      logs: true,
+      pollInterval: 2000,
+      abortSignal: signal,
+      onQueueUpdate: (status) => {
+        useExecutionStore.getState().setNodeQueueStatus(nodeId, status);
+      },
+    });
+
+    const resultData = result.data as Record<string, unknown>;
+    const videoUrl = normalizeVideoUrl(resultData);
+    if (!videoUrl) {
+      throw new Error('No video URL in response');
+    }
+
+    const downloaded = await downloadVideoToLocal(videoUrl);
+    return {
+      'video-source-0': downloaded.localUrl,
+      __videoUrl: downloaded.localUrl,
+      __cdnUrl: downloaded.cdnUrl,
+    };
+  } catch (err) {
+    if (signal.aborted) {
+      throw new DOMException('Execution was cancelled', 'AbortError');
+    }
+    const classified = classifyFalError(err);
+    throw new Error(`${classified.message} — ${classified.suggestion}`);
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -304,6 +463,8 @@ const executors: Record<string, NodeExecutor> = {
   imageGenerator: imageGeneratorExecutor,
   llmAssistant: llmAssistantExecutor,
   imageUpscale: imageUpscaleExecutor,
+  textToVideo: textToVideoExecutor,
+  imageToVideo: imageToVideoExecutor,
 };
 
 // ---------------------------------------------------------------------------
