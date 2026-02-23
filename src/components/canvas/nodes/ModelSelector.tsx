@@ -44,7 +44,7 @@ type ModelsResponse = {
 type ModelSelectorProps = {
   value: string;
   onChange: (endpointId: string) => void;
-  mode?: 'text-to-image' | 'image-to-image' | 'image-upscaling';
+  mode?: 'text-to-image' | 'image-to-image' | 'image-upscaling' | 'text-to-video' | 'image-to-video';
 };
 
 // Static upscale models — fal.ai doesn't expose a dedicated "image-upscaling" category
@@ -86,6 +86,57 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     model_url: 'https://fal.ai/models/fal-ai/clarity-upscaler',
   },
 ];
+
+// Static text-to-video models — fallback when fal.ai doesn't return models for this category
+const STATIC_TEXT_TO_VIDEO_MODELS: CachedModel[] = [
+  {
+    endpoint_id: 'fal-ai/wan/v2.1/1.3b/text-to-video',
+    category: 'text-to-video',
+    display_name: 'Wan 2.1 1.3B',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'Fast text-to-video generation with Wan 2.1 1.3B model.',
+    highlighted: true, pinned: false, duration_estimate: 30,
+    model_url: 'https://fal.ai/models/fal-ai/wan/v2.1/1.3b/text-to-video',
+  },
+  {
+    endpoint_id: 'fal-ai/minimax-video/text-to-video',
+    category: 'text-to-video',
+    display_name: 'MiniMax Text to Video',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'High-quality text-to-video generation by MiniMax.',
+    highlighted: true, pinned: false, duration_estimate: 60,
+    model_url: 'https://fal.ai/models/fal-ai/minimax-video/text-to-video',
+  },
+];
+
+// Static image-to-video models — fallback when fal.ai doesn't return models for this category
+const STATIC_IMAGE_TO_VIDEO_MODELS: CachedModel[] = [
+  {
+    endpoint_id: 'fal-ai/minimax-video/image-to-video',
+    category: 'image-to-video',
+    display_name: 'MiniMax Image to Video',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'Animate images into video with MiniMax.',
+    highlighted: true, pinned: false, duration_estimate: 60,
+    model_url: 'https://fal.ai/models/fal-ai/minimax-video/image-to-video',
+  },
+  {
+    endpoint_id: 'fal-ai/wan/v2.1/1.3b/image-to-video',
+    category: 'image-to-video',
+    display_name: 'Wan 2.1 1.3B I2V',
+    group_key: null, group_label: null, thumbnail_url: null,
+    description: 'Image-to-video generation with Wan 2.1 1.3B model.',
+    highlighted: true, pinned: false, duration_estimate: 30,
+    model_url: 'https://fal.ai/models/fal-ai/wan/v2.1/1.3b/image-to-video',
+  },
+];
+
+// Map mode to static fallback models
+const STATIC_MODELS_BY_MODE: Record<string, CachedModel[]> = {
+  'image-upscaling': STATIC_UPSCALE_MODELS,
+  'text-to-video': STATIC_TEXT_TO_VIDEO_MODELS,
+  'image-to-video': STATIC_IMAGE_TO_VIDEO_MODELS,
+};
 
 // ---------------------------------------------------------------------------
 // Model thumbnail component
@@ -219,12 +270,13 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
       if (isOpen && !fetchedRef.current) {
         fetchedRef.current = true;
 
-        // Use static models for image-upscaling (no fal.ai category exists)
-        if (mode === 'image-upscaling') {
-          const recommended = STATIC_UPSCALE_MODELS.filter((m) => m.highlighted);
-          const rest = STATIC_UPSCALE_MODELS.filter((m) => !m.highlighted);
+        // Use static models for modes without fal.ai category support
+        const staticModels = STATIC_MODELS_BY_MODE[mode];
+        if (staticModels) {
+          const recommended = staticModels.filter((m) => m.highlighted);
+          const rest = staticModels.filter((m) => !m.highlighted);
           setData({
-            models: STATIC_UPSCALE_MODELS,
+            models: staticModels,
             grouped: {
               recommended,
               groups: rest.length ? { other: { label: 'Other', models: rest } } : {},
