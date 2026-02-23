@@ -50,3 +50,4 @@ dist/
 /uploads/*
 CLAUDE.md
 .mcp.json
+/tmp/*

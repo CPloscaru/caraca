@@ -1,4 +1,7 @@
-# Caraca
+<div align="center">
+  <img src="assets/caraca_logo.png" alt="caraca logo" width="400" />
+</div>
+
 
 A visual node-based editor for composing and executing AI image generation workflows.
 
@@ -9,6 +12,8 @@ A visual node-based editor for composing and executing AI image generation workf
 
 
 ![alt text](caraca.gif)
+
+> *Inspired by [Freepik](https://www.freepik.com/) and [ComfyUI](https://github.com/comfyanonymous/ComfyUI) — without the subscription lock-in of Freepik and without the complexity of ComfyUI.*
 
 ## Table of Contents
 
