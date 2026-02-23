@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "dev": "next dev",
+    "local": "next build && next start",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

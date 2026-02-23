@@ -7,8 +7,8 @@ A visual node-based editor for composing and executing AI image generation workf
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen?style=flat)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat)](https://www.typescriptlang.org/)
 
-<!-- TODO: Add hero screenshot -->
-<!-- ![Caraca Screenshot](docs/screenshot-placeholder.png) -->
+
+![alt text](caraca.gif)
 
 ## Table of Contents
 

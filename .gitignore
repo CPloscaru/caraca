@@ -45,3 +45,8 @@ dist/
 # misc
 *.tgz
 *.log
+
+/storage/*
+/uploads/*
+CLAUDE.md
+.mcp.json
