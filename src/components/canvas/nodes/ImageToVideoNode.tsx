@@ -250,8 +250,8 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      {/* Controls - revealed on hover */}
-      <div className="border-t border-white/5 px-3 py-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      {/* Controls */}
+      <div className="border-t border-white/5 px-3 py-2">
         {/* Model selector */}
         <div className="mb-2">
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">

@@ -215,8 +215,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      {/* Parameter bar -- revealed on hover */}
-      <div className="border-t border-white/5 px-3 py-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      {/* Parameter bar */}
+      <div className="border-t border-white/5 px-3 py-2">
         {/* Model selector */}
         <div className="mb-2">
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
