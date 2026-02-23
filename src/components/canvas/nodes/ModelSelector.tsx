@@ -131,13 +131,9 @@ const STATIC_IMAGE_TO_VIDEO_MODELS: CachedModel[] = [
   },
 ];
 
-// Modes that use ONLY static models (fal.ai has no API category for these)
-const STATIC_ONLY_MODES: Record<string, CachedModel[]> = {
-  'image-upscaling': STATIC_UPSCALE_MODELS,
-};
-
 // Modes that fetch from API but fall back to static models on failure
 const STATIC_FALLBACK_MODELS: Record<string, CachedModel[]> = {
+  'image-upscaling': STATIC_UPSCALE_MODELS,
   'text-to-video': STATIC_TEXT_TO_VIDEO_MODELS,
   'image-to-video': STATIC_IMAGE_TO_VIDEO_MODELS,
 };
@@ -273,23 +269,6 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
       setOpen(isOpen);
       if (isOpen && !fetchedRef.current) {
         fetchedRef.current = true;
-
-        // Use static-only models for modes without fal.ai category support
-        const staticOnly = STATIC_ONLY_MODES[mode];
-        if (staticOnly) {
-          const recommended = staticOnly.filter((m) => m.highlighted);
-          const rest = staticOnly.filter((m) => !m.highlighted);
-          setData({
-            models: staticOnly,
-            grouped: {
-              recommended,
-              groups: rest.length ? { other: { label: 'Other', models: rest } } : {},
-            },
-            cached_at: new Date().toISOString(),
-            is_stale: false,
-          });
-          return;
-        }
 
         setLoading(true);
         setError(null);

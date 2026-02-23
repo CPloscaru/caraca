@@ -39,9 +39,84 @@ type FalModelsResponse = {
   has_more?: boolean;
 };
 
+// Gallery API response shape (fal.ai/api/models — different from Platform API)
+type GalleryModel = {
+  id: string;
+  title: string;
+  category: string;
+  tags?: string[];
+  shortDescription?: string;
+  thumbnailUrl?: string;
+  modelUrl?: string;
+  highlighted?: boolean;
+  kind?: string;
+  group?: { key?: string; label?: string };
+  deprecated?: boolean;
+  removed?: boolean;
+  unlisted?: boolean;
+};
+
+type GalleryResponse = {
+  items: GalleryModel[];
+  total: number;
+  page: number;
+  pages: number;
+};
+
 // ---------------------------------------------------------------------------
 // Core fetch + cache logic
 // ---------------------------------------------------------------------------
+
+// Categories that use fal.ai Gallery API (tags-based) instead of Platform API
+const GALLERY_TAG_CATEGORIES: Record<string, string> = {
+  'image-upscaling': 'upscaling',
+};
+
+/**
+ * Fetch models from fal.ai Gallery API by tag, paginating through all pages.
+ * Used for categories that don't exist in the Platform API (e.g. image-upscaling).
+ */
+async function fetchFromGallery(tag: string): Promise<FalModel[]> {
+  const allModels: FalModel[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const url = new URL('https://fal.ai/api/models');
+    url.searchParams.set('tags', tag);
+    url.searchParams.set('limit', '50');
+    url.searchParams.set('page', String(page));
+
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error(`fal.ai gallery API error: ${res.status}`);
+
+    const json = (await res.json()) as GalleryResponse;
+    totalPages = json.pages;
+
+    for (const gm of json.items) {
+      if (gm.deprecated || gm.removed || gm.unlisted) continue;
+      // Convert gallery shape to our FalModel shape
+      const rawModelUrl = gm.modelUrl ?? null;
+      allModels.push({
+        endpoint_id: gm.id,
+        metadata: {
+          display_name: gm.title,
+          category: gm.category,
+          description: gm.shortDescription,
+          thumbnail_url: gm.thumbnailUrl,
+          status: 'active',
+          kind: gm.kind ?? 'inference',
+          group: gm.group,
+          highlighted: gm.highlighted,
+          model_url: rawModelUrl ?? undefined,
+        },
+      });
+    }
+    page++;
+  } while (page <= totalPages);
+
+  return allModels;
+}
 
 /**
  * Fetch models from fal.ai API by category, paginating through all results,
@@ -54,41 +129,51 @@ export async function fetchAndCacheModels(category: string): Promise<void> {
     return;
   }
 
-  const allModels: FalModel[] = [];
-  let cursor: string | null = null;
+  let activeModels: FalModel[];
 
-  // Paginate through all results
-  do {
-    const url = new URL('https://api.fal.ai/v1/models');
-    url.searchParams.set('category', category);
-    url.searchParams.set('limit', '50');
-    if (cursor) url.searchParams.set('cursor', cursor);
+  // Use Gallery API for tag-based categories (e.g. image-upscaling)
+  const galleryTag = GALLERY_TAG_CATEGORIES[category];
+  if (galleryTag) {
+    activeModels = await fetchFromGallery(galleryTag);
+  } else {
+    const allModels: FalModel[] = [];
+    let cursor: string | null = null;
 
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Key ${falKey}` },
-    });
+    // Paginate through all results
+    do {
+      const url = new URL('https://api.fal.ai/v1/models');
+      url.searchParams.set('category', category);
+      url.searchParams.set('limit', '50');
+      if (cursor) url.searchParams.set('cursor', cursor);
 
-    if (!res.ok) {
-      throw new Error(`fal.ai API error: ${res.status} ${res.statusText}`);
-    }
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Key ${falKey}` },
+      });
 
-    const json = (await res.json()) as FalModelsResponse;
-    const items = json.models ?? json.data ?? [];
-    allModels.push(...items);
-    cursor = json.next_cursor ?? null;
-  } while (cursor);
+      if (!res.ok) {
+        throw new Error(`fal.ai API error: ${res.status} ${res.statusText}`);
+      }
 
-  // Filter: active inference models only (FAPI-07)
-  const activeModels = allModels.filter(
-    (m) =>
-      m.metadata?.status === 'active' && m.metadata?.kind === 'inference',
-  );
+      const json = (await res.json()) as FalModelsResponse;
+      const items = json.models ?? json.data ?? [];
+      allModels.push(...items);
+      cursor = json.next_cursor ?? null;
+    } while (cursor);
+
+    // Filter: active inference models only (FAPI-07)
+    activeModels = allModels.filter(
+      (m) =>
+        m.metadata?.status === 'active' && m.metadata?.kind === 'inference',
+    );
+  }
 
   // Upsert each model into the cache
+  // For gallery-fetched models, override category to our internal name
+  const overrideCategory = galleryTag ? category : null;
   for (const m of activeModels) {
     const meta = m.metadata;
     const displayName = meta?.display_name ?? m.name ?? m.endpoint_id;
-    const cat = meta?.category ?? m.category ?? category;
+    const cat = overrideCategory ?? meta?.category ?? m.category ?? category;
     const desc = meta?.description ?? m.description ?? null;
     const thumb = meta?.thumbnail_url ?? m.thumbnail_url ?? null;
     // fal.ai API returns execution URLs (fal.run/...) — convert to model page URLs
