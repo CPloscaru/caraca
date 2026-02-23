@@ -20,6 +20,7 @@ import { ImageGeneratorNode } from '@/components/canvas/nodes/ImageGeneratorNode
 import { LLMAssistantNode } from '@/components/canvas/nodes/LLMAssistantNode';
 import { ImageUpscaleNode } from '@/components/canvas/nodes/ImageUpscaleNode';
 import { TextToVideoNode } from '@/components/canvas/nodes/TextToVideoNode';
+import { ImageToVideoNode } from '@/components/canvas/nodes/ImageToVideoNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import {
   ContextMenu,
@@ -30,7 +31,7 @@ import type { NodeTemplate } from '@/lib/node-registry';
 import type { NodeData } from '@/types/canvas';
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
-const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode, textToVideo: TextToVideoNode };
+const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode, textToVideo: TextToVideoNode, imageToVideo: ImageToVideoNode };
 const edgeTypes = { turbo: TurboEdge };
 
 let nodeIdCounter = 0;
@@ -47,6 +48,7 @@ function getNodeColor(node: Node): string {
     case 'llmAssistant': return '#22c55e';
     case 'imageUpscale': return '#ae53ba';
     case 'textToVideo': return '#f59e0b';
+    case 'imageToVideo': return '#f59e0b';
     default: return '#666';
   }
 }
