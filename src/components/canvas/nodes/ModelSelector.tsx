@@ -131,9 +131,13 @@ const STATIC_IMAGE_TO_VIDEO_MODELS: CachedModel[] = [
   },
 ];
 
-// Map mode to static fallback models
-const STATIC_MODELS_BY_MODE: Record<string, CachedModel[]> = {
+// Modes that use ONLY static models (fal.ai has no API category for these)
+const STATIC_ONLY_MODES: Record<string, CachedModel[]> = {
   'image-upscaling': STATIC_UPSCALE_MODELS,
+};
+
+// Modes that fetch from API but fall back to static models on failure
+const STATIC_FALLBACK_MODELS: Record<string, CachedModel[]> = {
   'text-to-video': STATIC_TEXT_TO_VIDEO_MODELS,
   'image-to-video': STATIC_IMAGE_TO_VIDEO_MODELS,
 };
@@ -270,13 +274,13 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
       if (isOpen && !fetchedRef.current) {
         fetchedRef.current = true;
 
-        // Use static models for modes without fal.ai category support
-        const staticModels = STATIC_MODELS_BY_MODE[mode];
-        if (staticModels) {
-          const recommended = staticModels.filter((m) => m.highlighted);
-          const rest = staticModels.filter((m) => !m.highlighted);
+        // Use static-only models for modes without fal.ai category support
+        const staticOnly = STATIC_ONLY_MODES[mode];
+        if (staticOnly) {
+          const recommended = staticOnly.filter((m) => m.highlighted);
+          const rest = staticOnly.filter((m) => !m.highlighted);
           setData({
-            models: staticModels,
+            models: staticOnly,
             grouped: {
               recommended,
               groups: rest.length ? { other: { label: 'Other', models: rest } } : {},
@@ -299,6 +303,23 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
             setLoading(false);
           })
           .catch((err) => {
+            // Fall back to static models for video modes if API fails
+            const fallback = STATIC_FALLBACK_MODELS[mode];
+            if (fallback) {
+              const recommended = fallback.filter((m) => m.highlighted);
+              const rest = fallback.filter((m) => !m.highlighted);
+              setData({
+                models: fallback,
+                grouped: {
+                  recommended,
+                  groups: rest.length ? { other: { label: 'Other', models: rest } } : {},
+                },
+                cached_at: new Date().toISOString(),
+                is_stale: true,
+              });
+              setLoading(false);
+              return;
+            }
             setError(err.message ?? 'Failed to load models');
             setLoading(false);
             fetchedRef.current = false; // allow retry
