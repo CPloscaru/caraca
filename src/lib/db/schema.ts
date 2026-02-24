@@ -19,6 +19,10 @@ export const modelsCache = sqliteTable('models_cache', {
   duration_estimate: real('duration_estimate'),
   model_url: text('model_url'),
   raw_metadata: text('raw_metadata'),
+  // Pricing columns (populated by fal.ai pricing API during cache warm)
+  unit_price: real('unit_price'),
+  price_unit: text('price_unit'),
+  price_currency: text('price_currency'),
 });
 
 export const projects = sqliteTable('projects', {

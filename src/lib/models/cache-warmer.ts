@@ -238,6 +238,87 @@ export async function fetchAndCacheModels(category: string): Promise<void> {
   console.log(
     `[model-cache] Cached ${activeModels.length} ${category} models`,
   );
+
+  // Fetch and cache pricing data (non-blocking — failures don't affect model cache)
+  try {
+    const endpointIds = activeModels.map((m) => m.endpoint_id);
+    await fetchAndCachePricing(endpointIds);
+  } catch (err) {
+    console.warn(
+      '[model-cache] Pricing fetch failed (non-blocking):',
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pricing fetch
+// ---------------------------------------------------------------------------
+
+type PricingEntry = {
+  endpoint_id: string;
+  unit_price?: number;
+  unit?: string;
+  currency?: string;
+};
+
+type PricingResponse = {
+  prices?: PricingEntry[];
+};
+
+/**
+ * Fetch pricing from fal.ai pricing API for the given endpoint_ids
+ * and update the corresponding modelsCache rows. Gracefully handles
+ * missing FAL_KEY, API errors, and partial results.
+ */
+async function fetchAndCachePricing(endpointIds: string[]): Promise<void> {
+  const falKey = process.env.FAL_KEY;
+  if (!falKey) return;
+  if (endpointIds.length === 0) return;
+
+  // Batch in groups of 50 (API limit)
+  for (let i = 0; i < endpointIds.length; i += 50) {
+    const batch = endpointIds.slice(i, i + 50);
+    const url = new URL('https://api.fal.ai/v1/models/pricing');
+    url.searchParams.set('endpoint_id', batch.join(','));
+
+    try {
+      const res = await fetch(url.toString(), {
+        headers: { Authorization: `Key ${falKey}` },
+      });
+
+      if (!res.ok) {
+        console.warn(
+          `[model-cache] Pricing API returned ${res.status} for batch starting at index ${i}`,
+        );
+        continue;
+      }
+
+      const json = (await res.json()) as PricingResponse;
+      const prices = json.prices ?? [];
+
+      for (const price of prices) {
+        if (price.unit_price == null || !price.endpoint_id) continue;
+        db.update(modelsCache)
+          .set({
+            unit_price: price.unit_price,
+            price_unit: price.unit ?? null,
+            price_currency: price.currency ?? 'USD',
+          })
+          .where(eq(modelsCache.endpoint_id, price.endpoint_id))
+          .run();
+      }
+
+      console.log(
+        `[model-cache] Updated pricing for ${prices.length} models (batch ${Math.floor(i / 50) + 1})`,
+      );
+    } catch (err) {
+      console.warn(
+        `[model-cache] Pricing batch ${Math.floor(i / 50) + 1} failed:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
