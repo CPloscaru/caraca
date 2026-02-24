@@ -721,6 +721,11 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
     const batchResults = await executeDagBatch({
       values,
       batchNodeId,
+      // NOTE: Batch output is always text. The batch node injects each value
+      // as a text string via text-source-0, regardless of the visual port type
+      // shown on the node (which adapts dynamically to the connected edge).
+      // This means batch parameters are always text — image/video batch input
+      // would require a different node type (see POST-06 in REQUIREMENTS.md).
       batchOutputHandle: 'text-source-0',
       errorMode: batchData.errorMode ?? 'skip',
       sortedNodeIds: sortedIds,
