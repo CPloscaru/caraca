@@ -44,6 +44,9 @@ export type ImageGeneratorData = NodeData & {
   mode?: 'text-to-image' | 'image-to-image';
   /** Schema-derived image_size string enum (e.g. "landscape_4_3"). When present, executor sends this instead of width/height. */
   imageSizeOption?: string;
+  debugRequest?: unknown;
+  debugResponse?: unknown;
+  debugError?: unknown;
 };
 
 export type LLMAssistantData = NodeData & {
@@ -61,6 +64,9 @@ export type ImageUpscaleData = NodeData & {
   outputImage: { url: string; width: number; height: number } | null;
   inputImageUrl: string | null;
   inputDimensions: { width: number; height: number } | null;
+  debugRequest?: unknown;
+  debugResponse?: unknown;
+  debugError?: unknown;
 };
 
 export type TextToVideoData = NodeData & {
@@ -72,6 +78,9 @@ export type TextToVideoData = NodeData & {
   videoUrl: string | null;
   cdnUrl: string | null;
   videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
+  debugRequest?: unknown;
+  debugResponse?: unknown;
+  debugError?: unknown;
 };
 
 export type ImageToVideoData = NodeData & {
@@ -83,6 +92,9 @@ export type ImageToVideoData = NodeData & {
   videoUrl: string | null;
   cdnUrl: string | null;
   videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
+  debugRequest?: unknown;
+  debugResponse?: unknown;
+  debugError?: unknown;
 };
 
 export type BatchResultItem = {
