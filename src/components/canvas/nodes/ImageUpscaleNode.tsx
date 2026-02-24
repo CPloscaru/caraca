@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { ArrowUpDown, Play } from 'lucide-react';
+import { ArrowUpDown, Play, X } from 'lucide-react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useExecutionStore } from '@/stores/execution-store';
@@ -312,10 +313,14 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
       {outputImage && inputImageUrl && (
         <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
           <DialogContent
-            showCloseButton
+            showCloseButton={false}
             className="max-h-[90vh] max-w-[90vw] border-white/10 bg-[#0a0a0a] p-0 sm:max-w-[90vw]"
             aria-describedby={undefined}
           >
+            <DialogPrimitive.Close className="absolute top-4 right-4 z-[80] flex h-8 w-8 items-center justify-center rounded-full bg-[#1a1a1a] text-white opacity-70 transition-all duration-150 hover:opacity-100 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/30">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
             <DialogTitle className="sr-only">Upscale comparison</DialogTitle>
             <div className="flex flex-col items-center gap-2 p-4">
               <ComparisonSlider
