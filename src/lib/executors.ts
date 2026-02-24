@@ -175,6 +175,9 @@ const imageGeneratorExecutor: NodeExecutor = async (
     falInput.image_url = resolvedImageUrl;
   }
 
+  // Capture debug request payload
+  const debugRequest = { model, ...falInput };
+
   try {
     const result = await fal.subscribe(model, {
       input: falInput,
@@ -195,12 +198,19 @@ const imageGeneratorExecutor: NodeExecutor = async (
     return {
       'image-source-0': selectedImage?.url ?? null,
       __images: images,
+      __debugRequest: debugRequest,
+      __debugResponse: resultData,
     };
   } catch (err) {
     // Check if cancelled
     if (signal.aborted) {
       throw new DOMException('Execution was cancelled', 'AbortError');
     }
+
+    const rawError = err instanceof Error
+      ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
+      : err;
+    useCanvasStore.getState().updateNodeData(_nodeId, { debugRequest, debugError: rawError });
 
     const classified = classifyFalError(err);
     throw new Error(`${classified.message} — ${classified.suggestion}`);
@@ -328,6 +338,9 @@ const imageUpscaleExecutor: NodeExecutor = async (
     }
   }
 
+  // Capture debug request payload
+  const debugRequest = { model, ...falInput };
+
   try {
     const result = await fal.subscribe(model, {
       input: falInput,
@@ -343,11 +356,19 @@ const imageUpscaleExecutor: NodeExecutor = async (
       'image-source-0': image.url,
       __outputImage: { url: image.url, width: image.width, height: image.height },
       __inputImageUrl: resolvedUrl,
+      __debugRequest: debugRequest,
+      __debugResponse: resultData,
     };
   } catch (err) {
     if (signal.aborted) {
       throw new DOMException('Execution was cancelled', 'AbortError');
     }
+
+    const rawError = err instanceof Error
+      ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
+      : err;
+    useCanvasStore.getState().updateNodeData(_nodeId, { debugRequest, debugError: rawError });
+
     const classified = classifyFalError(err);
     throw new Error(`${classified.message} — ${classified.suggestion}`);
   }
@@ -376,6 +397,9 @@ const textToVideoExecutor: NodeExecutor = async (
   if (data.duration) falInput.duration = data.duration;
   if (data.seed != null) falInput.seed = data.seed;
 
+  // Capture debug request payload
+  const debugRequest = { model, ...falInput };
+
   try {
     const result = await fal.subscribe(model, {
       input: falInput,
@@ -398,11 +422,19 @@ const textToVideoExecutor: NodeExecutor = async (
       'video-source-0': downloaded.localUrl,
       __videoUrl: downloaded.localUrl,
       __cdnUrl: downloaded.cdnUrl,
+      __debugRequest: debugRequest,
+      __debugResponse: resultData,
     };
   } catch (err) {
     if (signal.aborted) {
       throw new DOMException('Execution was cancelled', 'AbortError');
     }
+
+    const rawError = err instanceof Error
+      ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
+      : err;
+    useCanvasStore.getState().updateNodeData(nodeId, { debugRequest, debugError: rawError });
+
     const classified = classifyFalError(err);
     throw new Error(`${classified.message} — ${classified.suggestion}`);
   }
@@ -436,6 +468,9 @@ const imageToVideoExecutor: NodeExecutor = async (
   if (data.duration) falInput.duration = data.duration;
   if (data.seed != null) falInput.seed = data.seed;
 
+  // Capture debug request payload
+  const debugRequest = { model, ...falInput };
+
   try {
     const result = await fal.subscribe(model, {
       input: falInput,
@@ -458,11 +493,19 @@ const imageToVideoExecutor: NodeExecutor = async (
       'video-source-0': downloaded.localUrl,
       __videoUrl: downloaded.localUrl,
       __cdnUrl: downloaded.cdnUrl,
+      __debugRequest: debugRequest,
+      __debugResponse: resultData,
     };
   } catch (err) {
     if (signal.aborted) {
       throw new DOMException('Execution was cancelled', 'AbortError');
     }
+
+    const rawError = err instanceof Error
+      ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
+      : err;
+    useCanvasStore.getState().updateNodeData(nodeId, { debugRequest, debugError: rawError });
+
     const classified = classifyFalError(err);
     throw new Error(`${classified.message} — ${classified.suggestion}`);
   }
