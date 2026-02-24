@@ -112,15 +112,41 @@ export async function fetchModelSchema(
     const requiredFields = (schema.required as string[]) ?? [];
 
     const fields: ModelInputField[] = Object.entries(properties).map(
-      ([name, prop]) => ({
-        name,
-        type: (prop.type as string) ?? "string",
-        required: requiredFields.includes(name),
-        ...(prop.description ? { description: prop.description as string } : {}),
-        ...(prop.default !== undefined ? { default: prop.default } : {}),
-        ...(prop.enum ? { enum: prop.enum as unknown[] } : {}),
-        ...(prop.format ? { format: prop.format as string } : {}),
-      }),
+      ([name, prop]) => {
+        // Extract enum from direct property, anyOf, or allOf
+        let enumValues = prop.enum as unknown[] | undefined;
+        if (!enumValues) {
+          const variants =
+            (prop.anyOf as Record<string, unknown>[] | undefined) ??
+            (prop.allOf as Record<string, unknown>[] | undefined);
+          if (variants) {
+            const withEnum = variants.find((v) => Array.isArray(v.enum));
+            if (withEnum) enumValues = withEnum.enum as unknown[];
+          }
+        }
+
+        // Resolve type from anyOf/allOf when direct type is missing
+        let fieldType = prop.type as string | undefined;
+        if (!fieldType) {
+          const variants =
+            (prop.anyOf as Record<string, unknown>[] | undefined) ??
+            (prop.allOf as Record<string, unknown>[] | undefined);
+          if (variants) {
+            const withType = variants.find((v) => typeof v.type === "string");
+            if (withType) fieldType = withType.type as string;
+          }
+        }
+
+        return {
+          name,
+          type: fieldType ?? "string",
+          required: requiredFields.includes(name),
+          ...(prop.description ? { description: prop.description as string } : {}),
+          ...(prop.default !== undefined ? { default: prop.default } : {}),
+          ...(enumValues ? { enum: enumValues } : {}),
+          ...(prop.format ? { format: prop.format as string } : {}),
+        };
+      },
     );
 
     schemaCache.set(endpointId, fields);
