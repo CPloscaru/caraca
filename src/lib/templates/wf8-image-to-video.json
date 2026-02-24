@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "title": "Animate an Image into Video",
+  "description": "Generate an image from a text prompt, then bring it to life as a short video clip.",
+  "nodes": [
+    {
+      "id": "wf8-text-1",
+      "type": "textInput",
+      "position": { "x": 100, "y": 100 },
+      "data": {
+        "label": "Scene Prompt",
+        "type": "textInput",
+        "value": "A serene Japanese garden with cherry blossoms and a stone bridge over a koi pond",
+        "inputs": [],
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+      }
+    },
+    {
+      "id": "wf8-gen-1",
+      "type": "imageGenerator",
+      "position": { "x": 500, "y": 100 },
+      "data": {
+        "label": "Image Generator",
+        "type": "imageGenerator",
+        "prompt": "",
+        "model": "fal-ai/flux/dev",
+        "aspectRatio": "16:9",
+        "numImages": 1,
+        "images": [],
+        "selectedImageIndex": 0,
+        "inputs": [
+          { "type": "text", "label": "Prompt", "id": "text-in-0" },
+          { "type": "image", "label": "Reference", "id": "image-in-0" }
+        ],
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+      }
+    },
+    {
+      "id": "wf8-text-2",
+      "type": "textInput",
+      "position": { "x": 100, "y": 350 },
+      "data": {
+        "label": "Motion Prompt",
+        "type": "textInput",
+        "value": "Cherry blossom petals gently falling, koi fish swimming, soft breeze rippling the water",
+        "inputs": [],
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+      }
+    },
+    {
+      "id": "wf8-i2v-1",
+      "type": "imageToVideo",
+      "position": { "x": 900, "y": 200 },
+      "data": {
+        "label": "Image to Video",
+        "type": "imageToVideo",
+        "model": "fal-ai/minimax/video-01-live/image-to-video",
+        "prompt": "",
+        "aspectRatio": "16:9",
+        "duration": 5,
+        "seed": null,
+        "videoUrl": null,
+        "cdnUrl": null,
+        "inputs": [
+          { "type": "image", "label": "Image", "id": "image-in-0" },
+          { "type": "text", "label": "Prompt", "id": "text-in-0" }
+        ],
+        "outputs": [{ "type": "video", "label": "Video", "id": "video-out-0" }]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "wf8-e1",
+      "source": "wf8-text-1",
+      "target": "wf8-gen-1",
+      "sourceHandle": "text-source-0",
+      "targetHandle": "text-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "wf8-e2",
+      "source": "wf8-gen-1",
+      "target": "wf8-i2v-1",
+      "sourceHandle": "image-source-0",
+      "targetHandle": "image-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "wf8-e3",
+      "source": "wf8-text-2",
+      "target": "wf8-i2v-1",
+      "sourceHandle": "text-source-0",
+      "targetHandle": "text-target-0",
+      "type": "turbo"
+    }
+  ]
+}

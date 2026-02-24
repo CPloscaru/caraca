@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "title": "Create a Video from Text",
+  "description": "Describe a scene and generate a short video clip from your text prompt.",
+  "nodes": [
+    {
+      "id": "wf7-text-1",
+      "type": "textInput",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Text Input",
+        "type": "textInput",
+        "value": "A golden retriever running through a sunlit meadow with wildflowers, slow motion",
+        "inputs": [],
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+      }
+    },
+    {
+      "id": "wf7-video-1",
+      "type": "textToVideo",
+      "position": { "x": 500, "y": 150 },
+      "data": {
+        "label": "Text to Video",
+        "type": "textToVideo",
+        "model": "fal-ai/minimax/video-01-live",
+        "prompt": "",
+        "aspectRatio": "16:9",
+        "duration": 5,
+        "seed": null,
+        "videoUrl": null,
+        "cdnUrl": null,
+        "inputs": [
+          { "type": "text", "label": "Prompt", "id": "text-in-0" }
+        ],
+        "outputs": [{ "type": "video", "label": "Video", "id": "video-out-0" }]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "wf7-e1",
+      "source": "wf7-text-1",
+      "target": "wf7-video-1",
+      "sourceHandle": "text-source-0",
+      "targetHandle": "text-target-0",
+      "type": "turbo"
+    }
+  ]
+}
