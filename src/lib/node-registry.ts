@@ -170,7 +170,7 @@ const NODE_REGISTRY_ARRAY = [
     resultFields: { __batchResults: 'batchResults' },
     stripOnExport: ['batchResults'],
     order: 80,
-    available: false,
+    available: true,
   },
 ] as const satisfies readonly NodeRegistryEntry[];
 

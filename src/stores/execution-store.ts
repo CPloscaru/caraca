@@ -19,6 +19,7 @@ type ExecutionStore = {
   nodeStates: Record<string, NodeExecutionState>;
   isRunning: boolean;
   abortController: AbortController | null;
+  batchProgress: Record<string, { current: number; total: number }>;
 
   // Actions
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
@@ -34,6 +35,8 @@ type ExecutionStore = {
     },
   ) => void;
   clearNodeQueueLogs: (nodeId: string) => void;
+  setBatchProgress: (nodeId: string, current: number, total: number) => void;
+  clearBatchProgress: (nodeId: string) => void;
   startExecution: () => AbortController;
   cancelExecution: () => void;
   clearAll: () => void;
@@ -59,6 +62,7 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
   nodeStates: {},
   isRunning: false,
   abortController: null,
+  batchProgress: {},
 
   setNodeStatus: (nodeId, status) => {
     set((state) => ({
@@ -147,6 +151,22 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
     });
   },
 
+  setBatchProgress: (nodeId, current, total) => {
+    set((state) => ({
+      batchProgress: {
+        ...state.batchProgress,
+        [nodeId]: { current, total },
+      },
+    }));
+  },
+
+  clearBatchProgress: (nodeId) => {
+    set((state) => {
+      const { [nodeId]: _, ...rest } = state.batchProgress;
+      return { batchProgress: rest };
+    });
+  },
+
   startExecution: () => {
     // Cancel previous execution if still running
     const prev = get().abortController;
@@ -161,11 +181,11 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
     const controller = get().abortController;
     if (controller) controller.abort();
     // Keep completed results — only stop running state
-    set({ isRunning: false, abortController: null });
+    set({ isRunning: false, abortController: null, batchProgress: {} });
   },
 
   clearAll: () => {
-    set({ nodeStates: {}, isRunning: false, abortController: null });
+    set({ nodeStates: {}, isRunning: false, abortController: null, batchProgress: {} });
   },
 
   clearNode: (nodeId) => {

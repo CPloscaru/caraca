@@ -12,9 +12,11 @@ import {
   topologicalSort,
   detectCycle,
   getUpstreamNodes,
+  getDownstreamNodes,
   executeDag,
   CycleError,
 } from '@/lib/dag';
+import { executeDagBatch } from '@/lib/batch';
 import { applyNodeResult } from '@/lib/node-registry';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { useExecutionStore } from '@/stores/execution-store';
@@ -26,6 +28,8 @@ import type {
   ImageUpscaleData,
   TextToVideoData,
   ImageToVideoData,
+  BatchParameterData,
+  BatchResultItem,
 } from '@/types/canvas';
 import { getModelParams, DEFAULT_UPSCALE_MODEL } from '@/lib/upscale/model-params';
 
@@ -667,6 +671,110 @@ export async function runAllWorkflow(): Promise<void> {
     }
   } finally {
     useExecutionStore.getState().cancelExecution();
+  }
+}
+
+/**
+ * Run a batch parameter node: execute the downstream subgraph once per value.
+ * Public entry point — similar to runSingleNode and runAllWorkflow.
+ */
+export async function runBatchNode(batchNodeId: string): Promise<void> {
+  const { nodes, edges } = useCanvasStore.getState();
+  const execStore = useExecutionStore.getState();
+
+  const batchNode = nodes.find((n) => n.id === batchNodeId);
+  if (!batchNode) throw new Error(`Batch node not found: ${batchNodeId}`);
+
+  const batchData = batchNode.data as unknown as BatchParameterData;
+  const values = batchData.values ?? [];
+
+  if (values.length === 0) {
+    throw new Error('No values provided for batch execution');
+  }
+
+  // Get downstream subgraph (includes the batch node itself)
+  const nodeIds = nodes.map((n) => n.id);
+  const edgesSimple = edges.map((e) => ({
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle ?? '',
+    targetHandle: e.targetHandle ?? '',
+  }));
+
+  const sortedIds = getDownstreamNodes(batchNodeId, nodeIds, edgesSimple);
+
+  // Start execution
+  const controller = execStore.startExecution();
+  const signal = controller.signal;
+
+  // Set downstream nodes (excluding batch node) to pending
+  for (const id of sortedIds) {
+    if (id !== batchNodeId) {
+      useExecutionStore.getState().setNodeStatus(id, 'pending');
+    }
+  }
+
+  try {
+    const batchResults = await executeDagBatch({
+      values,
+      batchNodeId,
+      batchOutputHandle: 'text-source-0',
+      errorMode: batchData.errorMode ?? 'skip',
+      sortedNodeIds: sortedIds,
+      edges: edgesSimple,
+      executeNode: async (nId, inputs, sig) => {
+        const node = nodes.find((n) => n.id === nId);
+        if (!node) throw new Error(`Node not found: ${nId}`);
+        const nodeType = (node.data as Record<string, unknown>).type as string;
+        const result = await executeNodeByType(
+          nId,
+          nodeType,
+          node.data as Record<string, unknown>,
+          inputs,
+          sig,
+        );
+        const cleanResult = applyNodeResult(
+          nodeType,
+          nId,
+          result,
+          useCanvasStore.getState().updateNodeData,
+        );
+        useExecutionStore.getState().setNodeResult(nId, cleanResult);
+        return cleanResult;
+      },
+      signal,
+      onStatusChange: (nId, status) => {
+        useExecutionStore.getState().setNodeStatus(nId, status);
+      },
+      onBatchProgress: (current, total) => {
+        useExecutionStore.getState().setBatchProgress(batchNodeId, current, total);
+      },
+    });
+
+    // Handle append mode: concatenate with existing results if appendMode is true
+    let finalResults: BatchResultItem[];
+    if (batchData.appendMode && batchData.batchResults) {
+      finalResults = [...batchData.batchResults, ...batchResults];
+    } else {
+      finalResults = batchResults;
+    }
+
+    // Store results on the batch node via registry
+    applyNodeResult(
+      'batchParameter',
+      batchNodeId,
+      { __batchResults: finalResults },
+      useCanvasStore.getState().updateNodeData,
+    );
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      // Cancelled — keep completed results
+    } else {
+      console.error('Batch execution error:', err);
+    }
+  } finally {
+    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().clearBatchProgress(batchNodeId);
   }
 }
 
