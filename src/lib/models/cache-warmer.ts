@@ -175,7 +175,9 @@ export async function fetchAndCacheModels(category: string): Promise<void> {
     const displayName = meta?.display_name ?? m.name ?? m.endpoint_id;
     const cat = overrideCategory ?? meta?.category ?? m.category ?? category;
     const desc = meta?.description ?? m.description ?? null;
-    const thumb = meta?.thumbnail_url ?? m.thumbnail_url ?? null;
+    const rawThumb = meta?.thumbnail_url ?? m.thumbnail_url ?? null;
+    // Filter out blob: URLs — they are local to fal.ai's browser and unusable here
+    const thumb = rawThumb?.startsWith('blob:') ? null : rawThumb;
     // fal.ai API returns execution URLs (fal.run/...) — convert to model page URLs
     const rawModelUrl = meta?.model_url ?? m.model_url ?? null;
     const modelUrl = rawModelUrl?.startsWith('https://fal.run/')
