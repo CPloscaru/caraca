@@ -235,9 +235,16 @@ function ModelDetails({ model }: { model: CachedModel }) {
 
 const UNIT_LABELS: Record<string, string> = {
   image: '/image',
+  images: '/image',
   video: '/video',
   megapixel: '/MP',
+  megapixels: '/MP',
+  'processed megapixels': '/MP',
   second: '/sec',
+  'compute seconds': '/sec',
+  generations: '/gen',
+  units: '/unit',
+  credits: '/credit',
 };
 
 export function formatFalPrice(unitPrice: number | null, unit: string | null): string | null {
