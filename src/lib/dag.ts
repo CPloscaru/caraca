@@ -200,6 +200,45 @@ export function getUpstreamNodes(
 }
 
 // ---------------------------------------------------------------------------
+// Downstream Node Resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns all transitive downstream dependents of `nodeId`, topologically
+ * sorted (upstream-first), with `nodeId` itself at the start.
+ */
+export function getDownstreamNodes(
+  nodeId: string,
+  nodeIds: string[],
+  edges: Array<{ source: string; target: string }>,
+): string[] {
+  const adjacency = new Map<string, string[]>();
+  for (const id of nodeIds) adjacency.set(id, []);
+  for (const { source, target } of edges) {
+    adjacency.get(source)?.push(target);
+  }
+
+  const downstream = new Set<string>();
+  const queue: string[] = [nodeId];
+  downstream.add(nodeId);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const child of adjacency.get(current) ?? []) {
+      if (!downstream.has(child)) {
+        downstream.add(child);
+        queue.push(child);
+      }
+    }
+  }
+
+  const subEdges = edges.filter(
+    (e) => downstream.has(e.source) && downstream.has(e.target),
+  );
+  return topologicalSort(Array.from(downstream), subEdges);
+}
+
+// ---------------------------------------------------------------------------
 // DAG Execution
 // ---------------------------------------------------------------------------
 

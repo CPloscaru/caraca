@@ -81,6 +81,21 @@ export type ImageToVideoData = NodeData & {
   cdnUrl: string | null;
 };
 
+export type BatchResultItem = {
+  index: number;
+  inputValue: string;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  status: 'done' | 'error' | 'skipped';
+};
+
+export type BatchParameterData = NodeData & {
+  values: string[];              // List of values to iterate
+  errorMode: 'skip' | 'stop';   // Error handling strategy
+  appendMode: boolean;           // Replace or append on re-run
+  batchResults: BatchResultItem[] | null; // Collected results
+};
+
 /** Union type for all node data variants */
 export type AnyNodeData =
   | NodeData
@@ -90,7 +105,8 @@ export type AnyNodeData =
   | LLMAssistantData
   | ImageUpscaleData
   | TextToVideoData
-  | ImageToVideoData;
+  | ImageToVideoData
+  | BatchParameterData;
 
 // ---------------------------------------------------------------------------
 // Workflow JSON — serialized React Flow state for project persistence
@@ -122,3 +138,4 @@ export type LLMAssistantNode = Node<LLMAssistantData>;
 export type ImageUpscaleNode = Node<ImageUpscaleData>;
 export type TextToVideoNode = Node<TextToVideoData>;
 export type ImageToVideoNode = Node<ImageToVideoData>;
+export type BatchParameterNode = Node<BatchParameterData>;
