@@ -21,6 +21,7 @@ import { LLMAssistantNode } from '@/components/canvas/nodes/LLMAssistantNode';
 import { ImageUpscaleNode } from '@/components/canvas/nodes/ImageUpscaleNode';
 import { TextToVideoNode } from '@/components/canvas/nodes/TextToVideoNode';
 import { ImageToVideoNode } from '@/components/canvas/nodes/ImageToVideoNode';
+import { BatchParameterNode } from '@/components/canvas/nodes/BatchParameterNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import {
   ContextMenu,
@@ -31,7 +32,7 @@ import type { NodeTemplate } from '@/lib/node-registry';
 import type { NodeData } from '@/types/canvas';
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
-const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode, textToVideo: TextToVideoNode, imageToVideo: ImageToVideoNode };
+const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode, textToVideo: TextToVideoNode, imageToVideo: ImageToVideoNode, batchParameter: BatchParameterNode };
 const edgeTypes = { turbo: TurboEdge };
 
 let nodeIdCounter = 0;
