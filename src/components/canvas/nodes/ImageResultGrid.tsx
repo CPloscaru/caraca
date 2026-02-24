@@ -2,15 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
-import {
   Grid2X2,
   GalleryHorizontal,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { ImageLightbox } from './ImageLightbox';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,19 +45,6 @@ export function ImageResultGrid({
   const closeLightbox = useCallback(() => {
     setLightboxIndex(null);
   }, []);
-
-  const navigateLightbox = useCallback(
-    (dir: -1 | 1) => {
-      setLightboxIndex((prev) => {
-        if (prev === null) return null;
-        const next = prev + dir;
-        if (next < 0) return images.length - 1;
-        if (next >= images.length) return 0;
-        return next;
-      });
-    },
-    [images.length],
-  );
 
   const handleImageClick = useCallback(
     (index: number, e: React.MouseEvent) => {
@@ -189,44 +173,13 @@ export function ImageResultGrid({
         </div>
       )}
 
-      {/* Lightbox modal */}
-      <Dialog
+      {/* Lightbox */}
+      <ImageLightbox
+        images={images}
+        initialIndex={lightboxIndex ?? 0}
         open={lightboxIndex !== null}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) closeLightbox();
-        }}
-      >
-        <DialogContent
-          className="flex max-h-[90vh] max-w-[90vw] items-center justify-center border-white/10 bg-[#0a0a0a] p-0"
-          showCloseButton
-        >
-          {lightboxIndex !== null && (
-            <div className="relative flex items-center justify-center">
-              <img
-                src={images[lightboxIndex].url}
-                alt={`Generated image ${lightboxIndex + 1}`}
-                className="max-h-[85vh] max-w-[85vw] object-contain"
-              />
-              {images.length > 1 && (
-                <>
-                  <button
-                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
-                    onClick={() => navigateLightbox(-1)}
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
-                    onClick={() => navigateLightbox(1)}
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        onClose={closeLightbox}
+      />
     </div>
   );
 }
