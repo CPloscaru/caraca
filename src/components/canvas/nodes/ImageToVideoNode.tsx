@@ -236,13 +236,13 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Done state: video result */}
-        {isDone && videoUrl && !isRunning && (
+        {/* Done state: video result (also shown after refresh) */}
+        {!isRunning && !isPending && videoUrl && (
           <VideoResult videoUrl={videoUrl} cdnUrl={cdnUrl} nodeId={nodeId} />
         )}
 
         {/* Idle state: placeholder */}
-        {!isRunning && !isPending && !isDone && !hasError && (
+        {!isRunning && !isPending && !videoUrl && !hasError && (
           <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-white/5 bg-white/[0.02] py-8">
             <Video className="h-8 w-8 text-gray-600" />
             <span className="text-xs text-gray-500">Run to generate video</span>

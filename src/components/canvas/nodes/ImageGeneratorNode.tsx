@@ -298,8 +298,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Done state: image grid */}
-        {isDone && images.length > 0 && (
+        {/* Done state: image grid (also shown after refresh when data persists) */}
+        {!isRunning && images.length > 0 && (
           <ImageResultGrid
             images={images}
             selectedImageIndex={selectedImageIndex}

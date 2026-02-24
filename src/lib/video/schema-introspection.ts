@@ -28,6 +28,60 @@ export type ModelNodeConfig = {
 const schemaCache = new Map<string, ModelInputField[]>();
 
 /**
+ * Resolve a $ref pointer (e.g. "#/components/schemas/Foo") against the spec.
+ */
+function resolveRef(
+  spec: Record<string, unknown>,
+  ref: string,
+): Record<string, unknown> | undefined {
+  // Only handle local JSON pointer refs like "#/components/schemas/..."
+  if (!ref.startsWith("#/")) return undefined;
+  const parts = ref.slice(2).split("/");
+  let current: unknown = spec;
+  for (const part of parts) {
+    if (current == null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current as Record<string, unknown> | undefined;
+}
+
+/**
+ * Find the POST path that matches the endpoint. fal.ai OpenAPI specs use
+ * the full endpoint path (e.g. "/fal-ai/minimax/video-01-live") not "/".
+ */
+function findPostSchema(
+  spec: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const paths = spec.paths as Record<string, Record<string, unknown>> | undefined;
+  if (!paths) return undefined;
+
+  // Look through all paths for one with a POST that has a requestBody
+  for (const pathObj of Object.values(paths)) {
+    const post = pathObj?.post as Record<string, unknown> | undefined;
+    if (!post?.requestBody) continue;
+
+    const requestBody = post.requestBody as Record<string, unknown>;
+    const content = requestBody.content as Record<string, unknown> | undefined;
+    if (!content) continue;
+
+    const jsonContent = content["application/json"] as Record<string, unknown> | undefined;
+    if (!jsonContent) continue;
+
+    let schema = jsonContent.schema as Record<string, unknown> | undefined;
+    if (!schema) continue;
+
+    // Resolve $ref if the schema is a reference
+    if (schema.$ref && typeof schema.$ref === "string") {
+      schema = resolveRef(spec, schema.$ref);
+    }
+
+    if (schema?.properties) return schema;
+  }
+
+  return undefined;
+}
+
+/**
  * Fetch the OpenAPI schema for a fal.ai model endpoint and extract input fields.
  * Returns an empty array on any error (graceful fallback).
  */
@@ -44,26 +98,7 @@ export async function fetchModelSchema(
 
     const spec = (await response.json()) as Record<string, unknown>;
 
-    // Navigate to the request body schema properties
-    const paths = spec.paths as Record<string, unknown> | undefined;
-    if (!paths) return [];
-
-    const root = paths["/"] as Record<string, unknown> | undefined;
-    if (!root) return [];
-
-    const post = root.post as Record<string, unknown> | undefined;
-    if (!post) return [];
-
-    const requestBody = post.requestBody as Record<string, unknown> | undefined;
-    if (!requestBody) return [];
-
-    const content = requestBody.content as Record<string, unknown> | undefined;
-    if (!content) return [];
-
-    const jsonContent = content["application/json"] as Record<string, unknown> | undefined;
-    if (!jsonContent) return [];
-
-    const schema = jsonContent.schema as Record<string, unknown> | undefined;
+    const schema = findPostSchema(spec);
     if (!schema) return [];
 
     const properties = schema.properties as Record<string, Record<string, unknown>> | undefined;

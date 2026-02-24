@@ -199,8 +199,8 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Done state: comparison slider + dimensions */}
-        {isDone && outputImage && inputImageUrl && !isRunning && (
+        {/* Done state: comparison slider + dimensions (also shown after refresh) */}
+        {!isRunning && outputImage && inputImageUrl && (
           <div>
             <div
               className="cursor-pointer"
@@ -225,7 +225,7 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
         )}
 
         {/* Pre-execution placeholder */}
-        {!isRunning && !isDone && !hasError && (
+        {!isRunning && !outputImage && !hasError && (
           <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-white/5 bg-white/[0.02] py-8">
             <ArrowUpDown className="h-8 w-8 text-gray-600" />
             <span className="text-xs text-gray-500">Run to upscale</span>
