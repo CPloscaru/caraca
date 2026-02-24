@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Maximize2, Download, AlertTriangle, X } from 'lucide-react';
+import { Maximize2, Download, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useExecutionStore } from '@/stores/execution-store';
@@ -151,15 +151,49 @@ function VideoThumbnail({
 // VideoLightbox
 // ---------------------------------------------------------------------------
 
-function VideoLightbox({
+export function VideoLightbox({
   videoUrl,
   open,
   onClose,
+  videos,
+  currentIndex,
+  onNavigate,
 }: {
   videoUrl: string;
   open: boolean;
   onClose: () => void;
+  videos?: Array<{ videoUrl: string; cdnUrl: string }>;
+  currentIndex?: number;
+  onNavigate?: (index: number) => void;
 }) {
+  const isBatch = videos && videos.length > 1 && currentIndex != null && onNavigate;
+  const displayUrl = isBatch ? videos[currentIndex].videoUrl : videoUrl;
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Auto-play when navigating in batch mode
+  useEffect(() => {
+    if (open && videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+  }, [open, displayUrl]);
+
+  // Keyboard navigation for batch mode
+  useEffect(() => {
+    if (!open || !isBatch) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.stopPropagation();
+        onNavigate(currentIndex <= 0 ? videos.length - 1 : currentIndex - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.stopPropagation();
+        onNavigate(currentIndex >= videos.length - 1 ? 0 : currentIndex + 1);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, isBatch, videos, currentIndex, onNavigate]);
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
@@ -173,14 +207,39 @@ function VideoLightbox({
         </DialogPrimitive.Close>
         <DialogTitle className="sr-only">Video preview</DialogTitle>
         <div className="flex flex-col items-center gap-3 p-4">
+          {/* Batch navigation arrows */}
+          {isBatch && (
+            <>
+              <button
+                onClick={() => onNavigate(currentIndex <= 0 ? videos.length - 1 : currentIndex - 1)}
+                className="absolute left-4 top-1/2 z-[80] flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#1a1a1a] text-white opacity-70 transition-all duration-150 hover:opacity-100 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/30"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => onNavigate(currentIndex >= videos.length - 1 ? 0 : currentIndex + 1)}
+                className="absolute right-14 top-1/2 z-[80] flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[#1a1a1a] text-white opacity-70 transition-all duration-150 hover:opacity-100 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/30"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          )}
           <video
-            src={videoUrl}
+            ref={videoRef}
+            src={displayUrl}
             controls
+            autoPlay
             playsInline
             className="max-h-[75vh] w-full rounded-md"
           />
+          {/* Counter for batch mode */}
+          {isBatch && (
+            <div className="text-xs font-medium text-white/80">
+              {currentIndex + 1} / {videos.length}
+            </div>
+          )}
           <a
-            href={videoUrl}
+            href={displayUrl}
             download
             className="flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:bg-white/20"
           >

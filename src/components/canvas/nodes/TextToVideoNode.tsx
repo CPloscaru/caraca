@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { VideoResult, GenerationProgress } from './VideoPlayer';
+import { VideoResultCarousel } from './VideoResultCarousel';
 import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import {
   fetchModelSchema,
@@ -65,6 +66,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
   const seed = nodeData.seed ?? null;
   const videoUrl = nodeData.videoUrl ?? null;
   const cdnUrl = nodeData.cdnUrl ?? null;
+  const videoResults = nodeData.videoResults ?? null;
 
   // Pricing info from ModelSelector
   const unitPrice = (nodeData as Record<string, unknown>).unitPrice as number | null ?? null;
@@ -193,7 +195,10 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
         )}
 
         {/* Done state: video result (also shown after refresh) */}
-        {!isRunning && !isPending && videoUrl && (
+        {!isRunning && !isPending && videoResults && videoResults.length > 1 && (
+          <VideoResultCarousel videos={videoResults} />
+        )}
+        {!isRunning && !isPending && !(videoResults && videoResults.length > 1) && videoUrl && (
           <VideoResult videoUrl={videoUrl} cdnUrl={cdnUrl} nodeId={nodeId} />
         )}
 
