@@ -2,14 +2,14 @@
 
 import { useCallback, useMemo } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { List, Play } from 'lucide-react';
+import { List, Play, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runBatchNode } from '@/lib/executors';
 import { getPortTypeFromHandleId, type PortType } from '@/lib/port-types';
 import { BatchValueEditor } from './BatchValueEditor';
-import { getStatusBorderClass } from './node-utils';
+import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import type { BatchParameterData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -98,8 +98,63 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
         </span>
       </div>
 
-      {/* Body */}
+      {/* Result area — directly after header */}
       <div className="px-3 py-2 space-y-2">
+        {/* Progress section (during execution) */}
+        {batchProgress && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-teal-400">
+                Running {batchProgress.current}/{batchProgress.total}
+              </span>
+              <span className="text-gray-500">
+                {Math.round(
+                  (batchProgress.current / batchProgress.total) * 100,
+                )}
+                %
+              </span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-teal-500 transition-all duration-300"
+                style={{
+                  width: `${(batchProgress.current / batchProgress.total) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Error display */}
+        {hasError && execState?.error && (
+          <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
+            {execState.error}
+          </div>
+        )}
+
+        {/* Batch result summary */}
+        {batchResults && batchResults.length > 0 && (
+          <div className="text-[10px] text-gray-400">
+            {(() => {
+              const done = batchResults.filter((r: { status: string }) => r.status === 'done').length;
+              const errors = batchResults.filter((r: { status: string }) => r.status === 'error').length;
+              const total = batchResults.length;
+              if (errors > 0) {
+                return `${done}/${total} done, ${errors} error${errors > 1 ? 's' : ''}`;
+              }
+              return `${done}/${total} done`;
+            })()}
+          </div>
+        )}
+
+        {/* Idle state: shimmer placeholder */}
+        {!isRunning && !isPending && !batchProgress && !hasError && (!batchResults || batchResults.length === 0) && (
+          <ShimmerPlaceholder />
+        )}
+      </div>
+
+      {/* Controls */}
+      <div className="border-t border-white/5 px-3 py-2 space-y-2">
         {/* Value editor */}
         <BatchValueEditor
           values={values}
@@ -152,64 +207,29 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
             ))}
           </div>
         </div>
-
-        {/* Progress section (during execution) */}
-        {batchProgress && (
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-teal-400">
-                Running {batchProgress.current}/{batchProgress.total}
-              </span>
-              <span className="text-gray-500">
-                {Math.round(
-                  (batchProgress.current / batchProgress.total) * 100,
-                )}
-                %
-              </span>
-            </div>
-            <div className="h-1 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-teal-500 transition-all duration-300"
-                style={{
-                  width: `${(batchProgress.current / batchProgress.total) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Error display */}
-        {hasError && execState?.error && (
-          <div className="rounded-md border border-red-500/20 bg-red-500/5 px-2 py-1.5 text-[10px] text-red-400">
-            {execState.error}
-          </div>
-        )}
-
-        {/* Batch result summary */}
-        {batchResults && batchResults.length > 0 && (
-          <div className="text-[10px] text-gray-400">
-            {(() => {
-              const done = batchResults.filter((r: { status: string }) => r.status === 'done').length;
-              const errors = batchResults.filter((r: { status: string }) => r.status === 'error').length;
-              const total = batchResults.length;
-              if (errors > 0) {
-                return `${done}/${total} done, ${errors} error${errors > 1 ? 's' : ''}`;
-              }
-              return `${done}/${total} done`;
-            })()}
-          </div>
-        )}
       </div>
 
-      {/* Run Batch button */}
-      <button
-        className="nodrag absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-white shadow-lg transition-all hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={values.length === 0 || isRunning || isPending}
-        onClick={handleRunBatch}
-        title="Run batch"
-      >
-        <Play className="h-4 w-4" />
-      </button>
+      {/* Run Batch button — flow-based bottom-right */}
+      <div className="flex justify-end p-2 pt-0">
+        <button
+          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-white shadow-lg transition-all hover:bg-teal-500"
+          disabled={values.length === 0 && !isRunning && !isPending}
+          onClick={() => {
+            if (isRunning || isPending) {
+              useExecutionStore.getState().cancelExecution();
+            } else {
+              handleRunBatch();
+            }
+          }}
+          title={isRunning || isPending ? 'Cancel' : 'Run batch'}
+        >
+          {isRunning || isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }

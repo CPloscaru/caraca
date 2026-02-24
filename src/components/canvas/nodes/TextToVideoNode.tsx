@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { Video, Play } from 'lucide-react';
+import { Video, Play, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode } from '@/lib/executors';
 import { ModelSelector } from './ModelSelector';
 import { VideoResult, GenerationProgress } from './VideoPlayer';
-import { getStatusBorderClass } from './node-utils';
+import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import {
   fetchModelSchema,
   deriveNodeConfig,
@@ -176,7 +176,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
 
         {/* Error state */}
         {hasError && execState?.error && (
-          <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+          <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
             {execState.error}
           </div>
         )}
@@ -186,12 +186,9 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           <VideoResult videoUrl={videoUrl} cdnUrl={cdnUrl} nodeId={nodeId} />
         )}
 
-        {/* Idle state: placeholder */}
+        {/* Idle state: shimmer placeholder */}
         {!isRunning && !isPending && !videoUrl && !hasError && (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-white/5 bg-white/[0.02] py-8">
-            <Video className="h-8 w-8 text-gray-600" />
-            <span className="text-xs text-gray-500">Run to generate video</span>
-          </div>
+          <ShimmerPlaceholder />
         )}
       </div>
 
@@ -299,20 +296,29 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      {/* Run button */}
-      <button
-        className="nodrag absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-all hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={isRunning || isPending}
-        onClick={() => {
-          updateNodeData(nodeId, { videoUrl: null, cdnUrl: null });
-          runSingleNode(nodeId).catch((err) => {
-            console.error('Single node execution failed:', err);
-          });
-        }}
-        title="Run generation"
-      >
-        <Play className="h-4 w-4" />
-      </button>
+      {/* Run button — flow-based bottom-right */}
+      <div className="flex justify-end p-2 pt-0">
+        <button
+          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-all hover:bg-amber-500"
+          onClick={() => {
+            if (isRunning || isPending) {
+              useExecutionStore.getState().cancelExecution();
+            } else {
+              updateNodeData(nodeId, { videoUrl: null, cdnUrl: null });
+              runSingleNode(nodeId).catch((err) => {
+                console.error('Single node execution failed:', err);
+              });
+            }
+          }}
+          title={isRunning || isPending ? 'Cancel' : 'Run generation'}
+        >
+          {isRunning || isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </button>
+      </div>
 
     </div>
   );
