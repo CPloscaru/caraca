@@ -19,7 +19,7 @@ type ExecutionStore = {
   nodeStates: Record<string, NodeExecutionState>;
   isRunning: boolean;
   abortController: AbortController | null;
-  batchProgress: Record<string, { current: number; total: number }>;
+  batchProgress: Record<string, { current: number; total: number; accumulatedCost: number; currentItemText: string }>;
 
   // Actions
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
@@ -35,7 +35,7 @@ type ExecutionStore = {
     },
   ) => void;
   clearNodeQueueLogs: (nodeId: string) => void;
-  setBatchProgress: (nodeId: string, current: number, total: number) => void;
+  setBatchProgress: (nodeId: string, current: number, total: number, accumulatedCost?: number, currentItemText?: string) => void;
   clearBatchProgress: (nodeId: string) => void;
   startExecution: () => AbortController;
   cancelExecution: () => void;
@@ -151,11 +151,16 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
     });
   },
 
-  setBatchProgress: (nodeId, current, total) => {
+  setBatchProgress: (nodeId, current, total, accumulatedCost?, currentItemText?) => {
     set((state) => ({
       batchProgress: {
         ...state.batchProgress,
-        [nodeId]: { current, total },
+        [nodeId]: {
+          current,
+          total,
+          accumulatedCost: accumulatedCost ?? state.batchProgress[nodeId]?.accumulatedCost ?? 0,
+          currentItemText: currentItemText ?? state.batchProgress[nodeId]?.currentItemText ?? '',
+        },
       },
     }));
   },
