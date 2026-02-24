@@ -42,6 +42,8 @@ export type ImageGeneratorData = NodeData & {
   selectedImageIndex: number;
   /** Persisted generation mode — set to 'image-to-image' on image input connect, NOT cleared on disconnect */
   mode?: 'text-to-image' | 'image-to-image';
+  /** Schema-derived image_size string enum (e.g. "landscape_4_3"). When present, executor sends this instead of width/height. */
+  imageSizeOption?: string;
 };
 
 export type LLMAssistantData = NodeData & {

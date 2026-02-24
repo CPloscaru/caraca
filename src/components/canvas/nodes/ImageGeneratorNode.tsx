@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
 import { Sparkles, Play, Minus, Plus, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { runSingleNode } from '@/lib/executors';
+import { runSingleNode, runBatchNode } from '@/lib/executors';
+import { fetchModelSchema, deriveNodeConfig, type ModelNodeConfig } from '@/lib/fal/schema-introspection';
 import { ModelSelector, formatFalPrice } from './ModelSelector';
+import { BatchCostDialog, isCostDialogDismissed } from './BatchCostDialog';
 import {
   Tooltip,
   TooltipContent,
@@ -34,6 +36,28 @@ const ASPECT_RATIO_PRESETS: Record<
 };
 
 const DEFAULT_MODEL = 'fal-ai/flux/dev';
+
+const DEFAULT_IMAGE_CONFIG: ModelNodeConfig = {
+  hasPrompt: true,
+  hasImageUrl: true,
+  hasLastFrame: false,
+  hasSeed: true,
+  hasDuration: false,
+  hasAspectRatio: false,
+  hasNumImages: true,
+  hasGuidanceScale: false,
+  hasNegativePrompt: false,
+  hasImageSize: true,
+};
+
+const IMAGE_SIZE_LABELS: Record<string, string> = {
+  'square_hd': '1:1 HD',
+  'square': '1:1',
+  'portrait_4_3': '3:4',
+  'portrait_16_9': '9:16',
+  'landscape_4_3': '4:3',
+  'landscape_16_9': '16:9',
+};
 
 // ---------------------------------------------------------------------------
 // Shimmer loading animation component
@@ -65,6 +89,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
 
   // Canvas store for updating node data
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const deleteEdge = useCanvasStore((s) => s.deleteEdge);
 
   // Check if text input port is connected
   const edges = useEdges();
@@ -97,6 +122,38 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     prevImageConnected.current = imageInputConnected;
   }, [imageInputConnected, nodeId, updateNodeData]);
 
+  // Extract model early — needed for schema fetch below
+  const model = nodeData.model ?? DEFAULT_MODEL;
+
+  // Schema-driven config state
+  const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_IMAGE_CONFIG);
+
+  // Fetch model schema on model change (cancelled-fetch pattern for rapid switching)
+  useEffect(() => {
+    let cancelled = false;
+    fetchModelSchema(model).then((fields) => {
+      if (cancelled) return;
+      if (fields.length > 0) {
+        setConfig(deriveNodeConfig(fields));
+      } else {
+        setConfig(DEFAULT_IMAGE_CONFIG);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [model]);
+
+  // Auto-disconnect image port when model doesn't support image_url
+  const prevHasImageUrl = useRef(config.hasImageUrl);
+  useEffect(() => {
+    if (prevHasImageUrl.current && !config.hasImageUrl) {
+      const edge = edges.find(
+        (e) => e.target === nodeId && e.targetHandle === 'image-target-1',
+      );
+      if (edge) deleteEdge(edge.id);
+    }
+    prevHasImageUrl.current = config.hasImageUrl;
+  }, [config.hasImageUrl, edges, nodeId, deleteEdge]);
+
   // Find the source node label and type for the text connection
   const textSourceInfo = useMemo(() => {
     if (!textInputConnected) return null;
@@ -108,11 +165,39 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     const data = sourceNode?.data as Record<string, unknown> | undefined;
     return {
       label: (data?.label as string) ?? 'Text Input',
-      isBatch: data?.type === 'batchParameter',
+      isBatch: sourceNode?.type === 'batchParameter',
+      batchNodeId: sourceNode?.id ?? null,
+      batchValues: ((data?.values as string[]) ?? []),
     };
   }, [edges, nodeId, nodes, textInputConnected]);
   const textSourceLabel = textSourceInfo?.label ?? null;
   const isBatchConnected = textSourceInfo?.isBatch ?? false;
+
+  // Cost dialog state
+  const [costDialogOpen, setCostDialogOpen] = useState(false);
+
+  const handleRun = useCallback(() => {
+    if (isRunning) {
+      useExecutionStore.getState().cancelExecution();
+      return;
+    }
+    if (isBatchConnected && textSourceInfo?.batchNodeId && textSourceInfo.batchValues.length > 0) {
+      if (isCostDialogDismissed()) {
+        runBatchNode(textSourceInfo.batchNodeId).catch(console.error);
+      } else {
+        setCostDialogOpen(true);
+      }
+    } else {
+      runSingleNode(nodeId).catch(console.error);
+    }
+  }, [nodeId, isRunning, isBatchConnected, textSourceInfo]);
+
+  const handleCostConfirm = useCallback(() => {
+    setCostDialogOpen(false);
+    if (textSourceInfo?.batchNodeId) {
+      runBatchNode(textSourceInfo.batchNodeId).catch(console.error);
+    }
+  }, [textSourceInfo]);
 
   // Update a specific data field
   const updateData = useCallback(
@@ -130,7 +215,6 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
   );
 
   const prompt = nodeData.prompt ?? '';
-  const model = nodeData.model ?? DEFAULT_MODEL;
   const aspectRatio = nodeData.aspectRatio ?? '1:1';
   const numImages = nodeData.numImages ?? 1;
   const images = nodeData.images ?? [];
@@ -152,8 +236,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
       style={{
         minWidth: 320,
         maxWidth: 400,
-        borderLeftColor: imageInputConnected ? '#2a8af6' : undefined,
-        borderLeftWidth: imageInputConnected ? 3 : undefined,
+        borderLeftColor: config.hasImageUrl && imageInputConnected ? '#2a8af6' : undefined,
+        borderLeftWidth: config.hasImageUrl && imageInputConnected ? 3 : undefined,
       }}
     >
       {/* Input handles */}
@@ -165,14 +249,16 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         index={0}
         style={{ top: '30%' }}
       />
-      <TypedHandle
-        type="target"
-        position={Position.Left}
-        portType="image"
-        portId="image-in-0"
-        index={1}
-        style={{ top: '55%' }}
-      />
+      {config.hasImageUrl && (
+        <TypedHandle
+          type="target"
+          position={Position.Left}
+          portType="image"
+          portId="image-in-0"
+          index={1}
+          style={{ top: '55%' }}
+        />
+      )}
 
       {/* Output handle */}
       <TypedHandle
@@ -190,7 +276,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         <span className="text-xs font-semibold text-gray-100">
           Image Generator
         </span>
-        {imageInputConnected && (
+        {config.hasImageUrl && imageInputConnected && (
           <span className="ml-auto rounded bg-[#2a8af6]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#2a8af6]">
             img2img
           </span>
@@ -258,60 +344,96 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
 
         {/* Aspect ratio + count */}
         <div className="flex items-end gap-2">
-          {/* Aspect ratio */}
+          {/* Aspect ratio — schema-driven options or fallback presets */}
           <div className="flex-1">
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
               Aspect
             </label>
-            <div className="flex gap-0.5">
-              {Object.entries(ASPECT_RATIO_PRESETS).map(([key, preset]) => (
-                <button
-                  key={key}
-                  className={`nodrag rounded px-1.5 py-0.5 text-[10px] transition-colors ${
-                    aspectRatio === key
-                      ? 'bg-purple-500/20 text-purple-300'
-                      : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
-                  }`}
-                  onClick={() => updateData('aspectRatio', key)}
-                  title={`${preset.width}x${preset.height}`}
-                >
-                  {preset.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-0.5">
+              {config.hasImageSize && config.imageSizeOptions && config.imageSizeOptions.length > 0 ? (
+                config.imageSizeOptions.map((option) => (
+                  <button
+                    key={option}
+                    className={`nodrag rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                      nodeData.imageSizeOption === option
+                        ? 'bg-purple-500/20 text-purple-300'
+                        : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
+                    }`}
+                    onClick={() => {
+                      updateData('imageSizeOption', option);
+                      updateData('aspectRatio', IMAGE_SIZE_LABELS[option] ?? option);
+                    }}
+                    title={option}
+                  >
+                    {IMAGE_SIZE_LABELS[option] ?? option}
+                  </button>
+                ))
+              ) : (
+                Object.entries(ASPECT_RATIO_PRESETS).map(([key, preset]) => (
+                  <button
+                    key={key}
+                    className={`nodrag rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                      aspectRatio === key
+                        ? 'bg-purple-500/20 text-purple-300'
+                        : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
+                    }`}
+                    onClick={() => {
+                      updateData('aspectRatio', key);
+                      updateData('imageSizeOption', undefined);
+                    }}
+                    title={`${preset.width}x${preset.height}`}
+                  >
+                    {preset.label}
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
-          {/* Generation count — disabled when batch is connected (batch controls iteration count) */}
-          <div className={isBatchConnected ? 'opacity-40' : ''}>
-            <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-              Count{isBatchConnected ? ' (batch)' : ''}
-            </label>
-            <div className="flex items-center gap-1">
-              <button
-                className="nodrag rounded bg-white/5 p-0.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-30"
-                onClick={() =>
-                  updateData('numImages', Math.max(1, numImages - 1))
-                }
-                disabled={numImages <= 1 || isBatchConnected}
-              >
-                <Minus className="h-3 w-3" />
-              </button>
-              <span className="w-5 text-center text-xs text-gray-300">
-                {isBatchConnected ? 1 : numImages}
-              </span>
-              <button
-                className="nodrag rounded bg-white/5 p-0.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-30"
-                onClick={() =>
-                  updateData('numImages', Math.min(4, numImages + 1))
-                }
-                disabled={numImages >= 4 || isBatchConnected}
-              >
-                <Plus className="h-3 w-3" />
-              </button>
+          {/* Generation count — hidden when model doesn't support num_images, disabled when batch is connected */}
+          {config.hasNumImages && (
+            <div className={isBatchConnected ? 'opacity-40' : ''}>
+              <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                Count{isBatchConnected ? ' (batch)' : ''}
+              </label>
+              <div className="flex items-center gap-1">
+                <button
+                  className="nodrag rounded bg-white/5 p-0.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  onClick={() =>
+                    updateData('numImages', Math.max(1, numImages - 1))
+                  }
+                  disabled={numImages <= 1 || isBatchConnected}
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className="w-5 text-center text-xs text-gray-300">
+                  {isBatchConnected ? 1 : numImages}
+                </span>
+                <button
+                  className="nodrag rounded bg-white/5 p-0.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  onClick={() =>
+                    updateData('numImages', Math.min(4, numImages + 1))
+                  }
+                  disabled={numImages >= 4 || isBatchConnected}
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
+
+      {/* Batch cost dialog */}
+      <BatchCostDialog
+        open={costDialogOpen}
+        onConfirm={handleCostConfirm}
+        onCancel={() => setCostDialogOpen(false)}
+        itemCount={textSourceInfo?.batchValues.length ?? 0}
+        unitPrice={unitPrice}
+        priceUnit={priceUnit}
+        modelName={model}
+      />
 
       {/* Run button — flow-based bottom-right */}
       <div className="flex justify-end p-2 pt-0">
@@ -320,15 +442,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
             <TooltipTrigger asChild>
               <button
                 className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-all hover:bg-purple-500"
-                onClick={() => {
-                  if (isRunning) {
-                    useExecutionStore.getState().cancelExecution();
-                  } else {
-                    runSingleNode(nodeId).catch((err) => {
-                      console.error('Single node execution failed:', err);
-                    });
-                  }
-                }}
+                onClick={handleRun}
                 title={isRunning ? 'Cancel' : undefined}
               >
                 {isRunning ? (
