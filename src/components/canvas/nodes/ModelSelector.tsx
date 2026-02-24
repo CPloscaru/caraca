@@ -239,6 +239,11 @@ function ModelRow({
         <div className="truncate text-xs font-medium text-gray-200">
           {model.display_name}
         </div>
+        {model.group_label && (
+          <div className="truncate text-[10px] text-gray-500">
+            {model.group_label}
+          </div>
+        )}
       </div>
       {model.duration_estimate != null && (
         <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-500">
