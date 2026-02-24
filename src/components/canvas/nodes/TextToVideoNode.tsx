@@ -6,8 +6,9 @@ import { Video, Play, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { runSingleNode } from '@/lib/executors';
+import { runSingleNode, runBatchNode } from '@/lib/executors';
 import { ModelSelector, formatFalPrice } from './ModelSelector';
+import { BatchCostDialog, isCostDialogDismissed } from './BatchCostDialog';
 import {
   Tooltip,
   TooltipContent,
@@ -21,7 +22,7 @@ import {
   fetchModelSchema,
   deriveNodeConfig,
   type ModelNodeConfig,
-} from '@/lib/video/schema-introspection';
+} from '@/lib/fal/schema-introspection';
 import type { TextToVideoData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,10 @@ const DEFAULT_CONFIG: ModelNodeConfig = {
   hasSeed: true,
   hasDuration: true,
   hasAspectRatio: true,
+  hasNumImages: false,
+  hasGuidanceScale: false,
+  hasNegativePrompt: false,
+  hasImageSize: false,
 };
 
 const DEFAULT_MODEL = 'fal-ai/minimax/video-01-live';
@@ -57,6 +62,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
   // Canvas store
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
   const deleteEdge = useCanvasStore((s) => s.deleteEdge);
+  const nodes = useCanvasStore((s) => s.nodes);
   const edges = useEdges();
 
   // Derived data
@@ -74,6 +80,42 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
   const costTooltip = formatFalPrice(unitPrice, priceUnit);
 
   const statusBorder = getStatusBorderClass(execState?.status);
+
+  // Upstream batch detection
+  const upstreamBatch = useMemo(() => {
+    const inEdge = edges.find((e) => e.target === nodeId);
+    if (!inEdge) return null;
+    const sourceNode = nodes.find((n) => n.id === inEdge.source);
+    if (!sourceNode || sourceNode.type !== 'batchParameter') return null;
+    return { id: sourceNode.id, values: ((sourceNode.data as Record<string, unknown>).values as string[]) ?? [] };
+  }, [edges, nodeId, nodes]);
+
+  // Cost dialog state
+  const [costDialogOpen, setCostDialogOpen] = useState(false);
+
+  const handleRun = useCallback(() => {
+    if (isRunning || isPending) {
+      useExecutionStore.getState().cancelExecution();
+      return;
+    }
+    if (upstreamBatch && upstreamBatch.values.length > 0) {
+      if (isCostDialogDismissed()) {
+        runBatchNode(upstreamBatch.id).catch(console.error);
+      } else {
+        setCostDialogOpen(true);
+      }
+    } else {
+      updateNodeData(nodeId, { videoUrl: null, cdnUrl: null, videoResults: null });
+      runSingleNode(nodeId).catch(console.error);
+    }
+  }, [nodeId, upstreamBatch, isRunning, isPending, updateNodeData]);
+
+  const handleCostConfirm = useCallback(() => {
+    setCostDialogOpen(false);
+    if (upstreamBatch) {
+      runBatchNode(upstreamBatch.id).catch(console.error);
+    }
+  }, [upstreamBatch]);
 
   // Schema-driven config
   const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_CONFIG);
@@ -313,6 +355,17 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
+      {/* Batch cost dialog */}
+      <BatchCostDialog
+        open={costDialogOpen}
+        onConfirm={handleCostConfirm}
+        onCancel={() => setCostDialogOpen(false)}
+        itemCount={upstreamBatch?.values.length ?? 0}
+        unitPrice={unitPrice}
+        priceUnit={priceUnit}
+        modelName={model}
+      />
+
       {/* Run button — flow-based bottom-right */}
       <div className="flex justify-end p-2 pt-0">
         <TooltipProvider delayDuration={300}>
@@ -320,16 +373,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
             <TooltipTrigger asChild>
               <button
                 className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-all hover:bg-amber-500"
-                onClick={() => {
-                  if (isRunning || isPending) {
-                    useExecutionStore.getState().cancelExecution();
-                  } else {
-                    updateNodeData(nodeId, { videoUrl: null, cdnUrl: null, videoResults: null });
-                    runSingleNode(nodeId).catch((err) => {
-                      console.error('Single node execution failed:', err);
-                    });
-                  }
-                }}
+                onClick={handleRun}
                 title={isRunning || isPending ? 'Cancel' : undefined}
               >
                 {isRunning || isPending ? (
