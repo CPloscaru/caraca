@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Model schema introspection for fal.ai video models
+// Model schema introspection for fal.ai models
 // Fetches OpenAPI schemas and derives dynamic port/field configuration
 // ---------------------------------------------------------------------------
 
@@ -22,6 +22,11 @@ export type ModelNodeConfig = {
   hasAspectRatio: boolean;
   aspectRatioOptions?: string[];
   durationOptions?: number[];
+  hasNumImages: boolean;
+  hasGuidanceScale: boolean;
+  hasNegativePrompt: boolean;
+  hasImageSize: boolean;
+  imageSizeOptions?: string[];
 };
 
 // Module-level cache to avoid re-fetching on every model selection
@@ -134,10 +139,11 @@ export function deriveNodeConfig(fields: ModelInputField[]): ModelNodeConfig {
 
   const aspectRatioField = fieldMap.get("aspect_ratio");
   const durationField = fieldMap.get("duration");
+  const imageSizeField = fieldMap.get("image_size");
 
   return {
     hasPrompt: fieldMap.has("prompt"),
-    hasImageUrl: fieldMap.has("image_url"),
+    hasImageUrl: fieldMap.has("image_url") || fieldMap.has("image"),
     hasLastFrame:
       fieldMap.has("last_frame_image_url") ||
       fieldMap.has("tail_image_url"),
@@ -149,6 +155,13 @@ export function deriveNodeConfig(fields: ModelInputField[]): ModelNodeConfig {
       : {}),
     ...(durationField?.enum
       ? { durationOptions: durationField.enum as number[] }
+      : {}),
+    hasNumImages: fieldMap.has("num_images"),
+    hasGuidanceScale: fieldMap.has("guidance_scale"),
+    hasNegativePrompt: fieldMap.has("negative_prompt"),
+    hasImageSize: fieldMap.has("image_size"),
+    ...(imageSizeField?.enum
+      ? { imageSizeOptions: imageSizeField.enum as string[] }
       : {}),
   };
 }
