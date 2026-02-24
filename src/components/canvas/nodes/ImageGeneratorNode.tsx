@@ -109,16 +109,22 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     prevImageConnected.current = imageInputConnected;
   }, [imageInputConnected, nodeId, updateNodeData]);
 
-  // Find the source node label for the text connection
-  const textSourceLabel = useMemo(() => {
+  // Find the source node label and type for the text connection
+  const textSourceInfo = useMemo(() => {
     if (!textInputConnected) return null;
     const edge = edges.find(
       (e) => e.target === nodeId && e.targetHandle === 'text-target-0',
     );
     if (!edge) return null;
     const sourceNode = nodes.find((n) => n.id === edge.source);
-    return (sourceNode?.data as Record<string, unknown>)?.label as string ?? 'Text Input';
+    const data = sourceNode?.data as Record<string, unknown> | undefined;
+    return {
+      label: (data?.label as string) ?? 'Text Input',
+      isBatch: data?.type === 'batchParameter',
+    };
   }, [edges, nodeId, nodes, textInputConnected]);
+  const textSourceLabel = textSourceInfo?.label ?? null;
+  const isBatchConnected = textSourceInfo?.isBatch ?? false;
 
   // Update a specific data field
   const updateData = useCallback(
@@ -254,10 +260,10 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
             </div>
           </div>
 
-          {/* Generation count */}
-          <div>
+          {/* Generation count — disabled when batch is connected (batch controls iteration count) */}
+          <div className={isBatchConnected ? 'opacity-40' : ''}>
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-              Count
+              Count{isBatchConnected ? ' (batch)' : ''}
             </label>
             <div className="flex items-center gap-1">
               <button
@@ -265,19 +271,19 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
                 onClick={() =>
                   updateData('numImages', Math.max(1, numImages - 1))
                 }
-                disabled={numImages <= 1}
+                disabled={numImages <= 1 || isBatchConnected}
               >
                 <Minus className="h-3 w-3" />
               </button>
               <span className="w-5 text-center text-xs text-gray-300">
-                {numImages}
+                {isBatchConnected ? 1 : numImages}
               </span>
               <button
                 className="nodrag rounded bg-white/5 p-0.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-30"
                 onClick={() =>
                   updateData('numImages', Math.min(4, numImages + 1))
                 }
-                disabled={numImages >= 4}
+                disabled={numImages >= 4 || isBatchConnected}
               >
                 <Plus className="h-3 w-3" />
               </button>
