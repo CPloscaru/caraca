@@ -714,6 +714,9 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
     }
   }
 
+  // Accumulate images from imageGenerator nodes across batch iterations
+  const accumulatedImages = new Map<string, Array<{ url: string; width: number; height: number }>>();
+
   try {
     const batchResults = await executeDagBatch({
       values,
@@ -733,6 +736,22 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
           inputs,
           sig,
         );
+
+        // For imageGenerator nodes, accumulate images instead of overwriting per-iteration
+        if (nodeType === 'imageGenerator' && result.__images) {
+          const existing = accumulatedImages.get(nId) ?? [];
+          existing.push(...(result.__images as Array<{ url: string; width: number; height: number }>));
+          accumulatedImages.set(nId, existing);
+
+          // Strip internal fields and return clean result for downstream without applying to node
+          const clean: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(result)) {
+            if (!k.startsWith('__')) clean[k] = v;
+          }
+          useExecutionStore.getState().setNodeResult(nId, clean);
+          return clean;
+        }
+
         const cleanResult = applyNodeResult(
           nodeType,
           nId,
@@ -750,6 +769,18 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
         useExecutionStore.getState().setBatchProgress(batchNodeId, current, total);
       },
     });
+
+    // Write accumulated images to each Image Generator node
+    for (const [nId, batchImages] of accumulatedImages) {
+      const node = nodes.find((n) => n.id === nId);
+      const existingImages = batchData.appendMode
+        ? ((node?.data as Record<string, unknown>)?.images as Array<{ url: string; width: number; height: number }>) ?? []
+        : [];
+      useCanvasStore.getState().updateNodeData(nId, {
+        images: [...existingImages, ...batchImages],
+        selectedImageIndex: 0,
+      });
+    }
 
     // Handle append mode: concatenate with existing results if appendMode is true
     let finalResults: BatchResultItem[];

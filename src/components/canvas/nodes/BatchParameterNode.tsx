@@ -9,7 +9,6 @@ import { useCanvasStore } from '@/stores/canvas-store';
 import { runBatchNode } from '@/lib/executors';
 import { getPortTypeFromHandleId, type PortType } from '@/lib/port-types';
 import { BatchValueEditor } from './BatchValueEditor';
-import { BatchResultDisplay } from './BatchResultDisplay';
 import type { BatchParameterData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -204,9 +203,19 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Batch result display */}
+        {/* Batch result summary */}
         {batchResults && batchResults.length > 0 && (
-          <BatchResultDisplay results={batchResults} nodeLabel="Batch Parameter" />
+          <div className="text-[10px] text-gray-400">
+            {(() => {
+              const done = batchResults.filter((r: { status: string }) => r.status === 'done').length;
+              const errors = batchResults.filter((r: { status: string }) => r.status === 'error').length;
+              const total = batchResults.length;
+              if (errors > 0) {
+                return `${done}/${total} done, ${errors} error${errors > 1 ? 's' : ''}`;
+              }
+              return `${done}/${total} done`;
+            })()}
+          </div>
         )}
       </div>
 
