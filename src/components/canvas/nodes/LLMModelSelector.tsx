@@ -9,6 +9,7 @@ import {
   Bot,
   Loader2,
   ChevronRight,
+  ArrowUpDown,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,36 @@ type LLMModelSelectorProps = {
   value: string;
   onSelect: (modelId: string) => void;
 };
+
+// ---------------------------------------------------------------------------
+// LLM pricing formatter
+// ---------------------------------------------------------------------------
+
+function formatLLMPricing(
+  prompt: string | null,
+  completion: string | null,
+): string | null {
+  if (!prompt && !completion) return null;
+  const pNum = prompt
+    ? Math.round(parseFloat(prompt) * 1_000_000 * 100) / 100
+    : 0;
+  const cNum = completion
+    ? Math.round(parseFloat(completion) * 1_000_000 * 100) / 100
+    : 0;
+  const fmt = (n: number) => {
+    if (n < 0.01) return n.toFixed(3);
+    if (n < 1) return n.toFixed(2);
+    // Show .toFixed(2) for clean numbers like $3.00, otherwise .toFixed(1)
+    const oneDecimal = n.toFixed(1);
+    const twoDecimal = n.toFixed(2);
+    return twoDecimal.endsWith('0') && !oneDecimal.endsWith('0')
+      ? twoDecimal
+      : oneDecimal.endsWith('0')
+        ? twoDecimal
+        : oneDecimal;
+  };
+  return `$${fmt(pNum)}/M in | $${fmt(cNum)}/M out`;
+}
 
 // ---------------------------------------------------------------------------
 // Collapsible provider group
@@ -94,6 +125,11 @@ function ProviderGroup({
                 {Math.round(m.context_length / 1000)}k
               </span>
             )}
+            {formatLLMPricing(m.pricing_prompt, m.pricing_completion) && (
+              <span className="shrink-0 text-[10px] text-gray-500">
+                {formatLLMPricing(m.pricing_prompt, m.pricing_completion)}
+              </span>
+            )}
           </button>
         ))}
     </div>
@@ -110,6 +146,7 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sortByPrice, setSortByPrice] = useState(false);
   const fetchedRef = useRef(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -159,24 +196,40 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
     }
   }, [open]);
 
-  // Filter by search
-  const filteredGroups = useMemo(() => {
+  // Filter by search (and optionally sort by price)
+  const filtered = useMemo(() => {
     if (!data) return null;
     const q = search.toLowerCase();
-    if (!q) return data.grouped.groups;
+    const filterModel = (m: CachedLLMModel) =>
+      !q ||
+      m.name.toLowerCase().includes(q) ||
+      m.provider_group.toLowerCase().includes(q);
+
+    // When sorting by price, flatten all models into a single sorted list
+    if (sortByPrice) {
+      const allFiltered = data.models.filter(filterModel);
+      const sorted = [...allFiltered].sort((a, b) => {
+        const aPrice = a.pricing_completion ? parseFloat(a.pricing_completion) : null;
+        const bPrice = b.pricing_completion ? parseFloat(b.pricing_completion) : null;
+        if (aPrice == null && bPrice == null) return 0;
+        if (aPrice == null) return 1;
+        if (bPrice == null) return -1;
+        return aPrice - bPrice;
+      });
+      return { groups: null, flatSorted: sorted };
+    }
+
+    // Default grouped view
+    if (!q) return { groups: data.grouped.groups, flatSorted: null };
 
     const result: Record<string, { label: string; models: CachedLLMModel[] }> =
       {};
     for (const [key, group] of Object.entries(data.grouped.groups)) {
-      const fm = group.models.filter(
-        (m) =>
-          m.name.toLowerCase().includes(q) ||
-          m.provider_group.toLowerCase().includes(q),
-      );
+      const fm = group.models.filter(filterModel);
       if (fm.length) result[key] = { ...group, models: fm };
     }
-    return result;
-  }, [data, search]);
+    return { groups: result, flatSorted: null };
+  }, [data, search, sortByPrice]);
 
   // Find selected model name
   const selectedModel = data?.models.find((m) => m.model_id === value);
@@ -218,17 +271,28 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
           align="start"
           className="nodrag nowheel z-50 max-h-80 w-72 overflow-hidden rounded-lg border border-white/10 bg-[#1a1a1a] shadow-xl"
         >
-          {/* Search bar */}
+          {/* Search bar + sort toggle */}
           <div className="border-b border-white/5 p-2">
-            <div className="flex items-center gap-2 rounded-md bg-white/5 px-2 py-1.5">
-              <Search className="h-3.5 w-3.5 text-gray-500" />
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search models..."
-                className="w-full bg-transparent text-xs text-gray-200 outline-none placeholder:text-gray-600"
-              />
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 rounded-md bg-white/5 px-2 py-1.5">
+                <Search className="h-3.5 w-3.5 text-gray-500" />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search models..."
+                  className="w-full bg-transparent text-xs text-gray-200 outline-none placeholder:text-gray-600"
+                />
+              </div>
+              <button
+                className={`rounded p-1 transition-colors hover:text-gray-300 ${
+                  sortByPrice ? 'text-blue-400' : 'text-gray-500'
+                }`}
+                onClick={() => setSortByPrice(!sortByPrice)}
+                title={sortByPrice ? 'Default order' : 'Sort by price'}
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
 
@@ -247,24 +311,64 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
               </div>
             )}
 
-            {filteredGroups && !loading && (
+            {filtered && !loading && (
               <>
-                {Object.entries(filteredGroups).map(([key, group]) => (
-                  <ProviderGroup
-                    key={key}
-                    label={group.label}
-                    models={group.models}
-                    selectedModel={value}
-                    onSelect={handleSelect}
-                    defaultOpen={!!search || group.models.some((m) => m.model_id === value)}
-                  />
-                ))}
+                {/* Price-sorted flat list */}
+                {filtered.flatSorted ? (
+                  <>
+                    {filtered.flatSorted.map((m) => (
+                      <button
+                        key={m.model_id}
+                        className={`flex w-full items-center gap-2 px-3 py-1.5 pl-4 text-left transition-colors hover:bg-white/5 ${
+                          m.model_id === value ? 'bg-white/10' : ''
+                        }`}
+                        onClick={() => handleSelect(m.model_id)}
+                      >
+                        <Bot className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-medium text-gray-200">
+                            {m.name}
+                          </div>
+                          <div className="truncate text-[10px] text-gray-600">
+                            {m.provider_group}
+                          </div>
+                        </div>
+                        {m.supports_vision && (
+                          <Eye className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        )}
+                        {formatLLMPricing(m.pricing_prompt, m.pricing_completion) && (
+                          <span className="shrink-0 text-[10px] text-gray-500">
+                            {formatLLMPricing(m.pricing_prompt, m.pricing_completion)}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    {filtered.flatSorted.length === 0 && (
+                      <div className="py-6 text-center text-xs text-gray-500">
+                        No models match &quot;{search}&quot;
+                      </div>
+                    )}
+                  </>
+                ) : filtered.groups ? (
+                  <>
+                    {Object.entries(filtered.groups).map(([key, group]) => (
+                      <ProviderGroup
+                        key={key}
+                        label={group.label}
+                        models={group.models}
+                        selectedModel={value}
+                        onSelect={handleSelect}
+                        defaultOpen={!!search || group.models.some((m) => m.model_id === value)}
+                      />
+                    ))}
 
-                {Object.keys(filteredGroups).length === 0 && (
-                  <div className="py-6 text-center text-xs text-gray-500">
-                    No models match &quot;{search}&quot;
-                  </div>
-                )}
+                    {Object.keys(filtered.groups).length === 0 && (
+                      <div className="py-6 text-center text-xs text-gray-500">
+                        No models match &quot;{search}&quot;
+                      </div>
+                    )}
+                  </>
+                ) : null}
               </>
             )}
           </div>
