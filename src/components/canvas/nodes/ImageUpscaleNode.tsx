@@ -17,8 +17,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ComparisonSlider } from './ComparisonSlider';
+import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import { getModelParams, DEFAULT_UPSCALE_MODEL } from '@/lib/upscale/model-params';
+import { fetchModelSchema, type ModelInputField } from '@/lib/fal/schema-introspection';
 import type { ImageUpscaleData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -112,6 +114,22 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
     [nodeId, scaleFactor, updateNodeData],
   );
 
+  // Debug schema fields (for debug Schema tab only — node UI uses getModelParams)
+  const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
+
+  // Debug mode (per-session, not persisted)
+  const [debugMode, setDebugMode] = useState(false);
+
+  // Fetch model schema on model change (for debug Schema tab)
+  useEffect(() => {
+    let cancelled = false;
+    fetchModelSchema(model).then((fields) => {
+      if (cancelled) return;
+      setSchemaFields(fields.length > 0 ? fields : null);
+    });
+    return () => { cancelled = true; };
+  }, [model]);
+
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -170,45 +188,58 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Result area */}
-      <div className="px-3 py-2">
-        {/* Running state: shimmer */}
-        {isRunning && <ShimmerPlaceholder />}
+      <div className="relative px-3 py-2">
+        <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} />
+        {debugMode ? (
+          <JsonDebugPanel
+            schema={schemaFields}
+            config={{ model, scaleFactor, prompt }}
+            request={nodeData.debugRequest}
+            response={nodeData.debugResponse}
+            error={nodeData.debugError}
+          />
+        ) : (
+          <>
+            {/* Running state: shimmer */}
+            {isRunning && <ShimmerPlaceholder />}
 
-        {/* Error state */}
-        {hasError && execState?.error && (
-          <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
-            {execState.error}
-          </div>
-        )}
-
-        {/* Done state: comparison slider + dimensions (also shown after refresh) */}
-        {!isRunning && outputImage && inputImageUrl && (
-          <div>
-            <div
-              className="cursor-pointer"
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                setLightboxOpen(true);
-              }}
-              title="Double-click to view full size"
-            >
-              <ComparisonSlider
-                beforeUrl={inputImageUrl}
-                afterUrl={outputImage.url}
-              />
-            </div>
-            {inputDimensions && (
-              <div className="mt-1 text-center text-[10px] text-gray-500">
-                {inputDimensions.width}x{inputDimensions.height} &rarr;{' '}
-                {outputImage.width}x{outputImage.height}
+            {/* Error state */}
+            {hasError && execState?.error && (
+              <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
+                {execState.error}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Idle state: shimmer placeholder */}
-        {!isRunning && !outputImage && !hasError && (
-          <ShimmerPlaceholder />
+            {/* Done state: comparison slider + dimensions (also shown after refresh) */}
+            {!isRunning && outputImage && inputImageUrl && (
+              <div>
+                <div
+                  className="cursor-pointer"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxOpen(true);
+                  }}
+                  title="Double-click to view full size"
+                >
+                  <ComparisonSlider
+                    beforeUrl={inputImageUrl}
+                    afterUrl={outputImage.url}
+                  />
+                </div>
+                {inputDimensions && (
+                  <div className="mt-1 text-center text-[10px] text-gray-500">
+                    {inputDimensions.width}x{inputDimensions.height} &rarr;{' '}
+                    {outputImage.width}x{outputImage.height}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Idle state: shimmer placeholder */}
+            {!isRunning && !outputImage && !hasError && (
+              <ShimmerPlaceholder />
+            )}
+          </>
         )}
       </div>
 

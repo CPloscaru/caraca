@@ -22,7 +22,9 @@ import {
   fetchModelSchema,
   deriveNodeConfig,
   type ModelNodeConfig,
+  type ModelInputField,
 } from '@/lib/fal/schema-introspection';
+import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import type { ImageToVideoData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -119,6 +121,10 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
 
   // Schema-driven config
   const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_CONFIG);
+  const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
+
+  // Debug mode (per-session, not persisted)
+  const [debugMode, setDebugMode] = useState(false);
 
   // Track previous port states to auto-disconnect edges on model change
   const prevHasPrompt = useRef(config.hasPrompt);
@@ -130,6 +136,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
     let cancelled = false;
     fetchModelSchema(model).then((fields) => {
       if (cancelled) return;
+      setSchemaFields(fields.length > 0 ? fields : null);
       if (fields.length > 0) {
         setConfig(deriveNodeConfig(fields));
       } else {
@@ -260,30 +267,43 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Body */}
-      <div className="px-3 py-2">
-        {/* Running/pending state: generation progress */}
-        {(isRunning || isPending) && (
-          <GenerationProgress nodeId={nodeId} />
-        )}
+      <div className="relative px-3 py-2">
+        <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} />
+        {debugMode ? (
+          <JsonDebugPanel
+            schema={schemaFields}
+            config={{ model, prompt: nodeData.prompt, aspectRatio, duration, seed }}
+            request={nodeData.debugRequest}
+            response={nodeData.debugResponse}
+            error={nodeData.debugError}
+          />
+        ) : (
+          <>
+            {/* Running/pending state: generation progress */}
+            {(isRunning || isPending) && (
+              <GenerationProgress nodeId={nodeId} />
+            )}
 
-        {/* Error state */}
-        {hasError && execState?.error && (
-          <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
-            {execState.error}
-          </div>
-        )}
+            {/* Error state */}
+            {hasError && execState?.error && (
+              <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
+                {execState.error}
+              </div>
+            )}
 
-        {/* Done state: video result (also shown after refresh) */}
-        {!isRunning && !isPending && videoResults && videoResults.length > 1 && (
-          <VideoResultCarousel videos={videoResults} />
-        )}
-        {!isRunning && !isPending && !(videoResults && videoResults.length > 1) && videoUrl && (
-          <VideoResult videoUrl={videoUrl} cdnUrl={cdnUrl} nodeId={nodeId} />
-        )}
+            {/* Done state: video result (also shown after refresh) */}
+            {!isRunning && !isPending && videoResults && videoResults.length > 1 && (
+              <VideoResultCarousel videos={videoResults} />
+            )}
+            {!isRunning && !isPending && !(videoResults && videoResults.length > 1) && videoUrl && (
+              <VideoResult videoUrl={videoUrl} cdnUrl={cdnUrl} nodeId={nodeId} />
+            )}
 
-        {/* Idle state: shimmer placeholder */}
-        {!isRunning && !isPending && !videoUrl && !hasError && (
-          <ShimmerPlaceholder />
+            {/* Idle state: shimmer placeholder */}
+            {!isRunning && !isPending && !videoUrl && !hasError && (
+              <ShimmerPlaceholder />
+            )}
+          </>
         )}
       </div>
 

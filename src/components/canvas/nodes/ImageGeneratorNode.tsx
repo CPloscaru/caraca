@@ -7,8 +7,9 @@ import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode, runBatchNode } from '@/lib/executors';
-import { fetchModelSchema, deriveNodeConfig, type ModelNodeConfig } from '@/lib/fal/schema-introspection';
+import { fetchModelSchema, deriveNodeConfig, type ModelNodeConfig, type ModelInputField } from '@/lib/fal/schema-introspection';
 import { ModelSelector, formatFalPrice } from './ModelSelector';
+import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { BatchCostDialog, isCostDialogDismissed } from './BatchCostDialog';
 import {
   Tooltip,
@@ -127,12 +128,17 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
 
   // Schema-driven config state
   const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_IMAGE_CONFIG);
+  const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
+
+  // Debug mode (per-session, not persisted)
+  const [debugMode, setDebugMode] = useState(false);
 
   // Fetch model schema on model change (cancelled-fetch pattern for rapid switching)
   useEffect(() => {
     let cancelled = false;
     fetchModelSchema(model).then((fields) => {
       if (cancelled) return;
+      setSchemaFields(fields.length > 0 ? fields : null);
       if (fields.length > 0) {
         setConfig(deriveNodeConfig(fields));
       } else {
@@ -284,29 +290,42 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Result area — directly after header */}
-      <div className="px-3 py-2">
-        {/* Running state: shimmer */}
-        {isRunning && <ShimmerPlaceholder aspectRatio={aspectRatio} />}
-
-        {/* Error state: red inline message */}
-        {hasError && execState?.error && (
-          <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
-            {execState.error}
-          </div>
-        )}
-
-        {/* Done state: image grid (also shown after refresh when data persists) */}
-        {!isRunning && images.length > 0 && (
-          <ImageResultGrid
-            images={images}
-            selectedImageIndex={selectedImageIndex}
-            onSelectImage={handleSelectImage}
+      <div className="relative px-3 py-2">
+        <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} />
+        {debugMode ? (
+          <JsonDebugPanel
+            schema={schemaFields}
+            config={{ model, prompt, aspectRatio, numImages, imageSizeOption: (nodeData as Record<string, unknown>).imageSizeOption }}
+            request={nodeData.debugRequest}
+            response={nodeData.debugResponse}
+            error={nodeData.debugError}
           />
-        )}
+        ) : (
+          <>
+            {/* Running state: shimmer */}
+            {isRunning && <ShimmerPlaceholder aspectRatio={aspectRatio} />}
 
-        {/* Idle state: shimmer placeholder */}
-        {!isRunning && images.length === 0 && !hasError && (
-          <ShimmerPlaceholder aspectRatio={aspectRatio} />
+            {/* Error state: red inline message */}
+            {hasError && execState?.error && (
+              <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
+                {execState.error}
+              </div>
+            )}
+
+            {/* Done state: image grid (also shown after refresh when data persists) */}
+            {!isRunning && images.length > 0 && (
+              <ImageResultGrid
+                images={images}
+                selectedImageIndex={selectedImageIndex}
+                onSelectImage={handleSelectImage}
+              />
+            )}
+
+            {/* Idle state: shimmer placeholder */}
+            {!isRunning && images.length === 0 && !hasError && (
+              <ShimmerPlaceholder aspectRatio={aspectRatio} />
+            )}
+          </>
         )}
       </div>
 
