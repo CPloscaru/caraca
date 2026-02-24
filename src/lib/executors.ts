@@ -717,6 +717,9 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
   // Accumulate images from imageGenerator nodes across batch iterations
   const accumulatedImages = new Map<string, Array<{ url: string; width: number; height: number }>>();
 
+  // Accumulate videos from video nodes across batch iterations
+  const accumulatedVideos = new Map<string, Array<{ videoUrl: string; cdnUrl: string }>>();
+
   try {
     const batchResults = await executeDagBatch({
       values,
@@ -757,6 +760,24 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
           return clean;
         }
 
+        // For video nodes, accumulate videos instead of overwriting per-iteration
+        if ((nodeType === 'textToVideo' || nodeType === 'imageToVideo') && result.__videoUrl) {
+          const existing = accumulatedVideos.get(nId) ?? [];
+          existing.push({
+            videoUrl: result.__videoUrl as string,
+            cdnUrl: result.__cdnUrl as string,
+          });
+          accumulatedVideos.set(nId, existing);
+
+          // Strip internal fields — don't apply per-iteration to prevent overwriting
+          const clean: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(result)) {
+            if (!k.startsWith('__')) clean[k] = v;
+          }
+          useExecutionStore.getState().setNodeResult(nId, clean);
+          return clean;
+        }
+
         const cleanResult = applyNodeResult(
           nodeType,
           nId,
@@ -784,6 +805,19 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
       useCanvasStore.getState().updateNodeData(nId, {
         images: [...existingImages, ...batchImages],
         selectedImageIndex: 0,
+      });
+    }
+
+    // Write accumulated videos to each video node
+    for (const [nId, videos] of accumulatedVideos) {
+      const node = nodes.find((n) => n.id === nId);
+      const existingVideos = batchData.appendMode
+        ? ((node?.data as Record<string, unknown>)?.videoResults as Array<{ videoUrl: string; cdnUrl: string }>) ?? []
+        : [];
+      useCanvasStore.getState().updateNodeData(nId, {
+        videoResults: [...existingVideos, ...videos],
+        videoUrl: videos[videos.length - 1]?.videoUrl ?? null,
+        cdnUrl: videos[videos.length - 1]?.cdnUrl ?? null,
       });
     }
 

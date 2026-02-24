@@ -319,7 +319,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
                   if (isRunning || isPending) {
                     useExecutionStore.getState().cancelExecution();
                   } else {
-                    updateNodeData(nodeId, { videoUrl: null, cdnUrl: null });
+                    updateNodeData(nodeId, { videoUrl: null, cdnUrl: null, videoResults: null });
                     runSingleNode(nodeId).catch((err) => {
                       console.error('Single node execution failed:', err);
                     });

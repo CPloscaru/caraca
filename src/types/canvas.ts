@@ -69,6 +69,7 @@ export type TextToVideoData = NodeData & {
   seed: number | null;
   videoUrl: string | null;
   cdnUrl: string | null;
+  videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
 };
 
 export type ImageToVideoData = NodeData & {
@@ -79,6 +80,7 @@ export type ImageToVideoData = NodeData & {
   seed: number | null;
   videoUrl: string | null;
   cdnUrl: string | null;
+  videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
 };
 
 export type BatchResultItem = {
