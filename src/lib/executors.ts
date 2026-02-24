@@ -675,6 +675,23 @@ export async function runAllWorkflow(): Promise<void> {
 }
 
 /**
+ * Get the unit price from the first downstream node connected to the batch node.
+ * Returns null if no pricing is available.
+ */
+function getDownstreamUnitPrice(
+  batchNodeId: string,
+  nodes: ReturnType<typeof useCanvasStore.getState>['nodes'],
+  edges: ReturnType<typeof useCanvasStore.getState>['edges'],
+): number | null {
+  const outEdge = edges.find((e) => e.source === batchNodeId);
+  if (!outEdge) return null;
+  const targetNode = nodes.find((n) => n.id === outEdge.target);
+  if (!targetNode) return null;
+  const targetData = targetNode.data as Record<string, unknown>;
+  return (targetData.unitPrice as number | null) ?? null;
+}
+
+/**
  * Run a batch parameter node: execute the downstream subgraph once per value.
  * Public entry point — similar to runSingleNode and runAllWorkflow.
  */
@@ -719,6 +736,10 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
 
   // Accumulate videos from video nodes across batch iterations
   const accumulatedVideos = new Map<string, Array<{ videoUrl: string; cdnUrl: string }>>();
+
+  // Running cost tracking
+  let runningCost = 0;
+  const downstreamUnitPrice = getDownstreamUnitPrice(batchNodeId, nodes, edges);
 
   try {
     const batchResults = await executeDagBatch({
@@ -792,7 +813,16 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
         useExecutionStore.getState().setNodeStatus(nId, status);
       },
       onBatchProgress: (current, total) => {
-        useExecutionStore.getState().setBatchProgress(batchNodeId, current, total);
+        // current is 1-indexed (called before iteration starts)
+        const currentIndex = current - 1;
+        const currentItemText = values[currentIndex] ?? '';
+        // After each successful iteration, add unit price to running cost
+        if (current > 1 && downstreamUnitPrice != null) {
+          runningCost += downstreamUnitPrice;
+        }
+        useExecutionStore.getState().setBatchProgress(
+          batchNodeId, current, total, runningCost, currentItemText,
+        );
       },
     });
 
@@ -841,6 +871,196 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
       // Cancelled — keep completed results
     } else {
       console.error('Batch execution error:', err);
+    }
+  } finally {
+    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().clearBatchProgress(batchNodeId);
+  }
+}
+
+/**
+ * Retry only the failed items from a previous batch execution.
+ * Re-runs failed iterations and merges results in-place at original indices.
+ */
+export async function retryFailedBatchItems(batchNodeId: string): Promise<void> {
+  const { nodes, edges } = useCanvasStore.getState();
+  const execStore = useExecutionStore.getState();
+
+  const batchNode = nodes.find((n) => n.id === batchNodeId);
+  if (!batchNode) throw new Error(`Batch node not found: ${batchNodeId}`);
+
+  const batchData = batchNode.data as unknown as BatchParameterData;
+  const existingResults = batchData.batchResults ?? [];
+
+  // Find failed items with their original indices
+  const failedItems = existingResults
+    .map((r, idx) => ({ ...r, arrayIndex: idx }))
+    .filter((r) => r.status === 'error');
+
+  if (failedItems.length === 0) return;
+
+  const failedValues = failedItems.map((r) => r.inputValue);
+
+  // Get downstream subgraph
+  const nodeIds = nodes.map((n) => n.id);
+  const edgesSimple = edges.map((e) => ({
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle ?? '',
+    targetHandle: e.targetHandle ?? '',
+  }));
+
+  const sortedIds = getDownstreamNodes(batchNodeId, nodeIds, edgesSimple);
+
+  // Start execution
+  const controller = execStore.startExecution();
+  const signal = controller.signal;
+
+  for (const id of sortedIds) {
+    if (id !== batchNodeId) {
+      useExecutionStore.getState().setNodeStatus(id, 'pending');
+    }
+  }
+
+  // Accumulate images/videos for retried items
+  const accumulatedImages = new Map<string, Array<{ url: string; width: number; height: number }>>();
+  const accumulatedVideos = new Map<string, Array<{ videoUrl: string; cdnUrl: string }>>();
+
+  let runningCost = 0;
+  const downstreamUnitPrice = getDownstreamUnitPrice(batchNodeId, nodes, edges);
+
+  try {
+    const retryResults = await executeDagBatch({
+      values: failedValues,
+      batchNodeId,
+      batchOutputHandle: 'text-source-0',
+      errorMode: batchData.errorMode ?? 'skip',
+      sortedNodeIds: sortedIds,
+      edges: edgesSimple,
+      executeNode: async (nId, inputs, sig) => {
+        const node = nodes.find((n) => n.id === nId);
+        if (!node) throw new Error(`Node not found: ${nId}`);
+        const nodeType = (node.data as Record<string, unknown>).type as string;
+        const result = await executeNodeByType(
+          nId,
+          nodeType,
+          node.data as Record<string, unknown>,
+          inputs,
+          sig,
+        );
+
+        if (nodeType === 'imageGenerator' && result.__images) {
+          const existing = accumulatedImages.get(nId) ?? [];
+          existing.push(...(result.__images as Array<{ url: string; width: number; height: number }>));
+          accumulatedImages.set(nId, existing);
+          const clean: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(result)) {
+            if (!k.startsWith('__')) clean[k] = v;
+          }
+          useExecutionStore.getState().setNodeResult(nId, clean);
+          return clean;
+        }
+
+        if ((nodeType === 'textToVideo' || nodeType === 'imageToVideo') && result.__videoUrl) {
+          const existing = accumulatedVideos.get(nId) ?? [];
+          existing.push({
+            videoUrl: result.__videoUrl as string,
+            cdnUrl: result.__cdnUrl as string,
+          });
+          accumulatedVideos.set(nId, existing);
+          const clean: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(result)) {
+            if (!k.startsWith('__')) clean[k] = v;
+          }
+          useExecutionStore.getState().setNodeResult(nId, clean);
+          return clean;
+        }
+
+        const cleanResult = applyNodeResult(
+          nodeType,
+          nId,
+          result,
+          useCanvasStore.getState().updateNodeData,
+        );
+        useExecutionStore.getState().setNodeResult(nId, cleanResult);
+        return cleanResult;
+      },
+      signal,
+      onStatusChange: (nId, status) => {
+        useExecutionStore.getState().setNodeStatus(nId, status);
+      },
+      onBatchProgress: (current, total) => {
+        const currentIndex = current - 1;
+        const currentItemText = failedValues[currentIndex] ?? '';
+        if (current > 1 && downstreamUnitPrice != null) {
+          runningCost += downstreamUnitPrice;
+        }
+        useExecutionStore.getState().setBatchProgress(
+          batchNodeId, current, total, runningCost, currentItemText,
+        );
+      },
+    });
+
+    // Merge retry results into existing results at original indices
+    const mergedResults = [...existingResults];
+    for (let i = 0; i < retryResults.length; i++) {
+      const originalIndex = failedItems[i].arrayIndex;
+      mergedResults[originalIndex] = {
+        ...retryResults[i],
+        index: failedItems[i].index, // preserve original batch index
+      };
+    }
+
+    // Merge accumulated images into existing node arrays at correct positions
+    for (const [nId, retryImages] of accumulatedImages) {
+      const node = useCanvasStore.getState().nodes.find((n) => n.id === nId);
+      const currentImages = ((node?.data as Record<string, unknown>)?.images as Array<{ url: string; width: number; height: number }>) ?? [];
+      // Replace images at failed indices with retry results
+      const updatedImages = [...currentImages];
+      let retryIdx = 0;
+      for (const failedItem of failedItems) {
+        if (retryIdx < retryImages.length) {
+          updatedImages[failedItem.arrayIndex] = retryImages[retryIdx];
+          retryIdx++;
+        }
+      }
+      useCanvasStore.getState().updateNodeData(nId, {
+        images: updatedImages,
+        selectedImageIndex: 0,
+      });
+    }
+
+    // Merge accumulated videos into existing node arrays at correct positions
+    for (const [nId, retryVideos] of accumulatedVideos) {
+      const node = useCanvasStore.getState().nodes.find((n) => n.id === nId);
+      const currentVideos = ((node?.data as Record<string, unknown>)?.videoResults as Array<{ videoUrl: string; cdnUrl: string }>) ?? [];
+      const updatedVideos = [...currentVideos];
+      let retryIdx = 0;
+      for (const failedItem of failedItems) {
+        if (retryIdx < retryVideos.length) {
+          updatedVideos[failedItem.arrayIndex] = retryVideos[retryIdx];
+          retryIdx++;
+        }
+      }
+      useCanvasStore.getState().updateNodeData(nId, {
+        videoResults: updatedVideos,
+        videoUrl: updatedVideos[updatedVideos.length - 1]?.videoUrl ?? null,
+        cdnUrl: updatedVideos[updatedVideos.length - 1]?.cdnUrl ?? null,
+      });
+    }
+
+    // Store merged results on the batch node
+    applyNodeResult(
+      'batchParameter',
+      batchNodeId,
+      { __batchResults: mergedResults },
+      useCanvasStore.getState().updateNodeData,
+    );
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      // Cancelled — keep completed results
+    } else {
+      console.error('Batch retry error:', err);
     }
   } finally {
     useExecutionStore.getState().cancelExecution();
