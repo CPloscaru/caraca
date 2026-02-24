@@ -233,6 +233,7 @@ export function Dashboard() {
                 thumbnailGradient={template.thumbnailGradient}
                 nodes={template.nodes}
                 edges={template.edges}
+                isNew={template.isNew}
               />
             ))}
             {userTemplates.map((ut) => (

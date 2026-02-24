@@ -12,6 +12,7 @@ type TemplateCardProps = {
   nodes: Node[];
   edges: Edge[];
   isCustom?: boolean;
+  isNew?: boolean;
 };
 
 export function TemplateCard({
@@ -21,6 +22,7 @@ export function TemplateCard({
   nodes,
   edges,
   isCustom,
+  isNew,
 }: TemplateCardProps) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -116,6 +118,27 @@ export function TemplateCard({
           }}
         >
           Custom
+        </div>
+      )}
+
+      {/* New badge */}
+      {isNew && !isCustom && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            background: 'rgba(34, 197, 94, 0.85)',
+            color: '#fff',
+            fontSize: 10,
+            fontWeight: 600,
+            padding: '2px 8px',
+            borderRadius: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+        >
+          New
         </div>
       )}
 
