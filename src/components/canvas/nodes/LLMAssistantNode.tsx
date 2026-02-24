@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { Bot, Play, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Bot, Play, Loader2, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -205,18 +205,28 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
       )}
 
       {/* Run button */}
-      <button
-        className="nodrag absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={isRunning}
-        onClick={() => {
-          runSingleNode(nodeId).catch((err) => {
-            console.error('LLM execution failed:', err);
-          });
-        }}
-        title="Run LLM"
-      >
-        <Play className="h-4 w-4" />
-      </button>
+      <div className="flex justify-end p-2 pt-0">
+        <button
+          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={false}
+          onClick={() => {
+            if (isRunning) {
+              useExecutionStore.getState().cancelExecution();
+            } else {
+              runSingleNode(nodeId).catch((err) => {
+                console.error('LLM execution failed:', err);
+              });
+            }
+          }}
+          title={isRunning ? 'Cancel' : 'Run LLM'}
+        >
+          {isRunning ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }
