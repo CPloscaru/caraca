@@ -36,6 +36,8 @@ export type ExecuteDagConfig = {
   ) => Promise<Record<string, unknown>>;
   signal: AbortSignal;
   onStatusChange: (nodeId: string, status: NodeStatus) => void;
+  /** Pre-populated results for nodes that already ran (skip re-execution). */
+  cachedResults?: Record<string, Record<string, unknown>>;
 };
 
 // ---------------------------------------------------------------------------
@@ -210,14 +212,27 @@ export function getUpstreamNodes(
 export async function executeDag(
   config: ExecuteDagConfig,
 ): Promise<Record<string, unknown>> {
-  const { sortedNodeIds, edges, executeNode, signal, onStatusChange } = config;
+  const { sortedNodeIds, edges, executeNode, signal, onStatusChange, cachedResults } = config;
   const results: Record<string, Record<string, unknown>> = {};
   const failedNodes = new Set<string>();
+
+  // Pre-populate with cached results (upstream nodes that already ran)
+  if (cachedResults) {
+    for (const [nId, res] of Object.entries(cachedResults)) {
+      results[nId] = res;
+    }
+  }
 
   for (const nodeId of sortedNodeIds) {
     // Check cancellation before each node
     if (signal.aborted) {
       throw new DOMException('Execution was cancelled', 'AbortError');
+    }
+
+    // Skip nodes that already have cached results
+    if (results[nodeId] && !('__error' in results[nodeId])) {
+      onStatusChange(nodeId, 'done');
+      continue;
     }
 
     // Check if any upstream dependency failed — skip this node if so

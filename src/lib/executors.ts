@@ -512,8 +512,20 @@ export async function runSingleNode(nodeId: string): Promise<void> {
   const controller = execStore.startExecution();
   const signal = controller.signal;
 
-  // Set all upstream nodes to pending
+  // Build cached results from upstream nodes that already have 'done' status.
+  // The target node itself is never cached (user explicitly clicked Run on it).
+  const cachedResults: Record<string, Record<string, unknown>> = {};
   for (const id of sortedIds) {
+    if (id === nodeId) continue;
+    const state = execStore.nodeStates[id];
+    if (state?.status === 'done' && state.result) {
+      cachedResults[id] = state.result as Record<string, unknown>;
+    }
+  }
+
+  // Set nodes to pending (only those that will actually execute)
+  for (const id of sortedIds) {
+    if (cachedResults[id]) continue; // skip cached
     useExecutionStore.getState().setNodeStatus(id, 'pending');
   }
 
@@ -521,6 +533,7 @@ export async function runSingleNode(nodeId: string): Promise<void> {
     const results = await executeDag({
       sortedNodeIds: sortedIds,
       edges: edgesSimple,
+      cachedResults,
       executeNode: async (nId, inputs, sig) => {
         const node = nodes.find((n) => n.id === nId);
         if (!node) throw new Error(`Node not found: ${nId}`);

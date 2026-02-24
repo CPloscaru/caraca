@@ -38,8 +38,8 @@ export async function fetchModelSchema(
   if (cached) return cached;
 
   try {
-    const url = `https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=${encodeURIComponent(endpointId)}`;
-    const response = await fetch(url);
+    // Route through the Next.js API route to avoid CORS issues
+    const response = await fetch(`/api/fal/schema?endpoint_id=${encodeURIComponent(endpointId)}`);
     if (!response.ok) return [];
 
     const spec = (await response.json()) as Record<string, unknown>;

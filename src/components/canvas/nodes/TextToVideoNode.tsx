@@ -24,7 +24,7 @@ const DEFAULT_CONFIG: ModelNodeConfig = {
   hasPrompt: true,
   hasImageUrl: false,
   hasLastFrame: false,
-  hasSeed: false,
+  hasSeed: true,
   hasDuration: true,
   hasAspectRatio: true,
 };
