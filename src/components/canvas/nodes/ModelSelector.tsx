@@ -228,8 +228,10 @@ function ModelRow({
   onSelect: () => void;
 }) {
   return (
-    <button
-      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5 ${
+    <div
+      role="option"
+      aria-selected={isSelected}
+      className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5 ${
         isSelected ? 'bg-white/10' : ''
       }`}
       onClick={onSelect}
@@ -251,7 +253,7 @@ function ModelRow({
         </span>
       )}
       <ModelDetails model={model} />
-    </button>
+    </div>
   );
 }
 
