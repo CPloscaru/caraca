@@ -30,37 +30,50 @@ type BatchResultDisplayProps = {
 const IMAGE_PATTERN = /\.(png|jpg|jpeg|webp)(\?|$)|\/api\/images\//i;
 const VIDEO_PATTERN = /\.(mp4|webm)(\?|$)|\/api\/videos\//i;
 
+/** Collect all leaf string values from a possibly nested record. */
+function collectLeafStrings(obj: Record<string, unknown>): string[] {
+  const strings: string[] = [];
+  for (const val of Object.values(obj)) {
+    if (typeof val === 'string') {
+      strings.push(val);
+    } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+      strings.push(...collectLeafStrings(val as Record<string, unknown>));
+    }
+  }
+  return strings;
+}
+
 function detectResultType(results: BatchResultItem[]): ResultType {
   const firstDone = results.find((r) => r.status === 'done' && r.result);
   if (!firstDone?.result) return 'text';
 
-  const values = Object.values(firstDone.result);
-  for (const val of values) {
-    if (typeof val === 'string') {
-      if (IMAGE_PATTERN.test(val)) return 'image';
-      if (VIDEO_PATTERN.test(val)) return 'video';
-    }
+  const strings = collectLeafStrings(firstDone.result);
+  for (const val of strings) {
+    if (IMAGE_PATTERN.test(val)) return 'image';
+    if (VIDEO_PATTERN.test(val)) return 'video';
   }
   return 'text';
 }
 
-/** Extract the first URL-like value from a result record. */
+/** Extract the first URL-like value from a (possibly nested) result record. */
 function extractUrl(result: Record<string, unknown>): string | null {
-  for (const val of Object.values(result)) {
-    if (typeof val === 'string' && (val.startsWith('http') || val.startsWith('/api/'))) {
+  const strings = collectLeafStrings(result);
+  for (const val of strings) {
+    if (val.startsWith('http') || val.startsWith('/api/')) {
       return val;
     }
   }
   return null;
 }
 
-/** Extract a displayable text from a result record. */
+/** Extract a displayable text from a (possibly nested) result record. */
 function extractText(result: Record<string, unknown>): string {
-  const vals = Object.values(result);
-  for (const val of vals) {
-    if (typeof val === 'string') return val;
+  const strings = collectLeafStrings(result);
+  for (const val of strings) {
+    if (val && !val.startsWith('http') && !val.startsWith('/api/')) return val;
   }
-  return JSON.stringify(result);
+  // Fall back to first string or JSON
+  return strings[0] || JSON.stringify(result);
 }
 
 /** Slugify a string for file naming. */
