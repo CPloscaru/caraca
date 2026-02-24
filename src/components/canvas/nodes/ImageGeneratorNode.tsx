@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { Sparkles, Play, Minus, Plus } from 'lucide-react';
+import { Sparkles, Play, Minus, Plus, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -186,6 +186,33 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
+      {/* Result area — directly after header */}
+      <div className="px-3 py-2">
+        {/* Running state: shimmer */}
+        {isRunning && <ShimmerPlaceholder aspectRatio={aspectRatio} />}
+
+        {/* Error state: red inline message */}
+        {hasError && execState?.error && (
+          <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
+            {execState.error}
+          </div>
+        )}
+
+        {/* Done state: image grid (also shown after refresh when data persists) */}
+        {!isRunning && images.length > 0 && (
+          <ImageResultGrid
+            images={images}
+            selectedImageIndex={selectedImageIndex}
+            onSelectImage={handleSelectImage}
+          />
+        )}
+
+        {/* Idle state: shimmer placeholder */}
+        {!isRunning && images.length === 0 && !hasError && (
+          <ShimmerPlaceholder aspectRatio={aspectRatio} />
+        )}
+      </div>
+
       {/* Prompt area */}
       <div className="px-3 py-2">
         {textInputConnected ? (
@@ -274,41 +301,28 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {/* Result area */}
-      <div className="px-3 pb-3">
-        {/* Running state: shimmer */}
-        {isRunning && <ShimmerPlaceholder aspectRatio={aspectRatio} />}
-
-        {/* Error state: red inline message */}
-        {hasError && execState?.error && (
-          <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
-            {execState.error}
-          </div>
-        )}
-
-        {/* Done state: image grid (also shown after refresh when data persists) */}
-        {!isRunning && images.length > 0 && (
-          <ImageResultGrid
-            images={images}
-            selectedImageIndex={selectedImageIndex}
-            onSelectImage={handleSelectImage}
-          />
-        )}
+      {/* Run button — flow-based bottom-right */}
+      <div className="flex justify-end p-2 pt-0">
+        <button
+          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-all hover:bg-purple-500"
+          onClick={() => {
+            if (isRunning) {
+              useExecutionStore.getState().cancelExecution();
+            } else {
+              runSingleNode(nodeId).catch((err) => {
+                console.error('Single node execution failed:', err);
+              });
+            }
+          }}
+          title={isRunning ? 'Cancel' : 'Run generation'}
+        >
+          {isRunning ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </button>
       </div>
-
-      {/* Run button -- always visible at bottom-right */}
-      <button
-        className="nodrag absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-all hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={isRunning}
-        onClick={() => {
-          runSingleNode(nodeId).catch((err) => {
-            console.error('Single node execution failed:', err);
-          });
-        }}
-        title="Run generation"
-      >
-        <Play className="h-4 w-4" />
-      </button>
 
     </div>
   );

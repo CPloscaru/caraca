@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { ArrowUpDown, Play, X } from 'lucide-react';
+import { ArrowUpDown, Play, X, Loader2 } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -164,7 +164,7 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
 
         {/* Error state */}
         {hasError && execState?.error && (
-          <div className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+          <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
             {execState.error}
           </div>
         )}
@@ -194,12 +194,9 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Pre-execution placeholder */}
+        {/* Idle state: shimmer placeholder */}
         {!isRunning && !outputImage && !hasError && (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-white/5 bg-white/[0.02] py-8">
-            <ArrowUpDown className="h-8 w-8 text-gray-600" />
-            <span className="text-xs text-gray-500">Run to upscale</span>
-          </div>
+          <ShimmerPlaceholder />
         )}
       </div>
 
@@ -262,21 +259,30 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      {/* Run button */}
-      <button
-        className="nodrag absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-all hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={isRunning}
-        onClick={() => {
-          // Clear previous result when re-running
-          updateNodeData(nodeId, { outputImage: null, inputImageUrl: null, inputDimensions: null });
-          runSingleNode(nodeId).catch((err) => {
-            console.error('Single node execution failed:', err);
-          });
-        }}
-        title="Run upscale"
-      >
-        <Play className="h-4 w-4" />
-      </button>
+      {/* Run button — flow-based bottom-right */}
+      <div className="flex justify-end p-2 pt-0">
+        <button
+          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-all hover:bg-purple-500"
+          onClick={() => {
+            if (isRunning) {
+              useExecutionStore.getState().cancelExecution();
+            } else {
+              // Clear previous result when re-running
+              updateNodeData(nodeId, { outputImage: null, inputImageUrl: null, inputDimensions: null });
+              runSingleNode(nodeId).catch((err) => {
+                console.error('Single node execution failed:', err);
+              });
+            }
+          }}
+          title={isRunning ? 'Cancel' : 'Run upscale'}
+        >
+          {isRunning ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </button>
+      </div>
 
       {/* Fullscreen comparison lightbox */}
       {outputImage && inputImageUrl && (
