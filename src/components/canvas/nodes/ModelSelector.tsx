@@ -11,6 +11,7 @@ import {
   ExternalLink,
   ImageIcon,
   Loader2,
+  ArrowUpDown,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,9 @@ type CachedModel = {
   pinned: boolean | null;
   duration_estimate: number | null;
   model_url: string | null;
+  unit_price: number | null;
+  price_unit: string | null;
+  price_currency: string | null;
 };
 
 type ModelsResponse = {
@@ -57,6 +61,7 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     description: 'Fast 4x super-resolution. No prompt support.',
     highlighted: true, pinned: false, duration_estimate: 3,
     model_url: 'https://fal.ai/models/fal-ai/aura-sr',
+    unit_price: null, price_unit: null, price_currency: null,
   },
   {
     endpoint_id: 'fal-ai/creative-upscaler',
@@ -66,6 +71,7 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     description: 'AI-guided upscaling with optional text prompt (2x–4x).',
     highlighted: true, pinned: false, duration_estimate: 15,
     model_url: 'https://fal.ai/models/fal-ai/creative-upscaler',
+    unit_price: null, price_unit: null, price_currency: null,
   },
   {
     endpoint_id: 'fal-ai/esrgan',
@@ -75,6 +81,7 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     description: 'Classic super-resolution (2x/4x/8x). No prompt support.',
     highlighted: false, pinned: false, duration_estimate: 5,
     model_url: 'https://fal.ai/models/fal-ai/esrgan',
+    unit_price: null, price_unit: null, price_currency: null,
   },
   {
     endpoint_id: 'fal-ai/clarity-upscaler',
@@ -84,6 +91,7 @@ const STATIC_UPSCALE_MODELS: CachedModel[] = [
     description: 'Detail-preserving upscaling with optional prompt (2x–4x).',
     highlighted: false, pinned: false, duration_estimate: 12,
     model_url: 'https://fal.ai/models/fal-ai/clarity-upscaler',
+    unit_price: null, price_unit: null, price_currency: null,
   },
 ];
 
@@ -97,6 +105,7 @@ const STATIC_TEXT_TO_VIDEO_MODELS: CachedModel[] = [
     description: 'Fast text-to-video generation with Wan 2.1 1.3B model.',
     highlighted: true, pinned: false, duration_estimate: 30,
     model_url: 'https://fal.ai/models/fal-ai/wan/v2.1/1.3b/text-to-video',
+    unit_price: null, price_unit: null, price_currency: null,
   },
   {
     endpoint_id: 'fal-ai/minimax-video/text-to-video',
@@ -106,6 +115,7 @@ const STATIC_TEXT_TO_VIDEO_MODELS: CachedModel[] = [
     description: 'High-quality text-to-video generation by MiniMax.',
     highlighted: true, pinned: false, duration_estimate: 60,
     model_url: 'https://fal.ai/models/fal-ai/minimax-video/text-to-video',
+    unit_price: null, price_unit: null, price_currency: null,
   },
 ];
 
@@ -119,6 +129,7 @@ const STATIC_IMAGE_TO_VIDEO_MODELS: CachedModel[] = [
     description: 'Animate images into video with MiniMax.',
     highlighted: true, pinned: false, duration_estimate: 60,
     model_url: 'https://fal.ai/models/fal-ai/minimax-video/image-to-video',
+    unit_price: null, price_unit: null, price_currency: null,
   },
   {
     endpoint_id: 'fal-ai/wan/v2.1/1.3b/image-to-video',
@@ -128,6 +139,7 @@ const STATIC_IMAGE_TO_VIDEO_MODELS: CachedModel[] = [
     description: 'Image-to-video generation with Wan 2.1 1.3B model.',
     highlighted: true, pinned: false, duration_estimate: 30,
     model_url: 'https://fal.ai/models/fal-ai/wan/v2.1/1.3b/image-to-video',
+    unit_price: null, price_unit: null, price_currency: null,
   },
 ];
 
@@ -215,6 +227,24 @@ function ModelDetails({ model }: { model: CachedModel }) {
 }
 
 // ---------------------------------------------------------------------------
+// Price formatting
+// ---------------------------------------------------------------------------
+
+const UNIT_LABELS: Record<string, string> = {
+  image: '/image',
+  video: '/video',
+  megapixel: '/MP',
+  second: '/sec',
+};
+
+function formatFalPrice(unitPrice: number | null, unit: string | null): string | null {
+  if (unitPrice == null || unit == null) return null;
+  const label = UNIT_LABELS[unit] ?? `/${unit}`;
+  const formatted = unitPrice < 0.01 ? unitPrice.toFixed(4) : unitPrice.toFixed(3);
+  return `$${formatted}${label}`;
+}
+
+// ---------------------------------------------------------------------------
 // Model row
 // ---------------------------------------------------------------------------
 
@@ -252,6 +282,11 @@ function ModelRow({
           ~{Math.round(model.duration_estimate)}s
         </span>
       )}
+      {formatFalPrice(model.unit_price, model.price_unit) && (
+        <span className="shrink-0 text-[10px] text-gray-500">
+          {formatFalPrice(model.unit_price, model.price_unit)}
+        </span>
+      )}
       <ModelDetails model={model} />
     </div>
   );
@@ -267,6 +302,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sortByPrice, setSortByPrice] = useState(false);
   const fetchedRef = useRef(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -324,14 +360,27 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
     }
   }, [open]);
 
-  // Filter models by search
+  // Filter models by search (and optionally sort by price)
   const filtered = useMemo(() => {
     if (!data) return null;
     const q = search.toLowerCase();
-    if (!q) return data.grouped;
-
     const filterModels = (models: CachedModel[]) =>
-      models.filter((m) => m.display_name.toLowerCase().includes(q));
+      q ? models.filter((m) => m.display_name.toLowerCase().includes(q)) : models;
+
+    // When sorting by price, flatten all models into a single sorted list
+    if (sortByPrice) {
+      const allFiltered = filterModels(data.models);
+      const sorted = [...allFiltered].sort((a, b) => {
+        if (a.unit_price == null && b.unit_price == null) return 0;
+        if (a.unit_price == null) return 1;
+        if (b.unit_price == null) return -1;
+        return a.unit_price - b.unit_price;
+      });
+      return { recommended: [] as CachedModel[], groups: {} as Record<string, { label: string; models: CachedModel[] }>, flatSorted: sorted };
+    }
+
+    // Default grouped view
+    if (!q) return { ...data.grouped, flatSorted: null };
 
     const filteredGroups: Record<string, { label: string; models: CachedModel[] }> = {};
     for (const [key, group] of Object.entries(data.grouped.groups)) {
@@ -342,8 +391,9 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
     return {
       recommended: filterModels(data.grouped.recommended),
       groups: filteredGroups,
+      flatSorted: null,
     };
-  }, [data, search]);
+  }, [data, search, sortByPrice]);
 
   // Find the currently selected model name
   const selectedModel = data?.models.find((m) => m.endpoint_id === value);
@@ -374,17 +424,28 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
           align="start"
           className="nodrag nowheel z-50 max-h-80 w-72 overflow-hidden rounded-lg border border-white/10 bg-[#1a1a1a] shadow-xl"
         >
-          {/* Search bar */}
+          {/* Search bar + sort toggle */}
           <div className="border-b border-white/5 p-2">
-            <div className="flex items-center gap-2 rounded-md bg-white/5 px-2 py-1.5">
-              <Search className="h-3.5 w-3.5 text-gray-500" />
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search models..."
-                className="w-full bg-transparent text-xs text-gray-200 outline-none placeholder:text-gray-600"
-              />
+            <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 rounded-md bg-white/5 px-2 py-1.5">
+                <Search className="h-3.5 w-3.5 text-gray-500" />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search models..."
+                  className="w-full bg-transparent text-xs text-gray-200 outline-none placeholder:text-gray-600"
+                />
+              </div>
+              <button
+                className={`rounded p-1 transition-colors hover:text-gray-300 ${
+                  sortByPrice ? 'text-blue-400' : 'text-gray-500'
+                }`}
+                onClick={() => setSortByPrice(!sortByPrice)}
+                title={sortByPrice ? 'Default order' : 'Sort by price'}
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
 
@@ -405,14 +466,10 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
 
             {filtered && !loading && (
               <>
-                {/* Recommended section */}
-                {filtered.recommended.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-yellow-500/80">
-                      <Star className="h-3 w-3" />
-                      Recommended
-                    </div>
-                    {filtered.recommended.map((m) => (
+                {/* Price-sorted flat list */}
+                {filtered.flatSorted ? (
+                  <>
+                    {filtered.flatSorted.map((m) => (
                       <ModelRow
                         key={m.endpoint_id}
                         model={m}
@@ -423,36 +480,64 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
                         }}
                       />
                     ))}
-                  </div>
+                    {filtered.flatSorted.length === 0 && (
+                      <div className="py-6 text-center text-xs text-gray-500">
+                        No models match &quot;{search}&quot;
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* Recommended section */}
+                    {filtered.recommended.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-yellow-500/80">
+                          <Star className="h-3 w-3" />
+                          Recommended
+                        </div>
+                        {filtered.recommended.map((m) => (
+                          <ModelRow
+                            key={m.endpoint_id}
+                            model={m}
+                            isSelected={m.endpoint_id === value}
+                            onSelect={() => {
+                              onChange(m.endpoint_id);
+                              setOpen(false);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Grouped models */}
+                    {Object.entries(filtered.groups).map(([key, group]) => (
+                      <div key={key}>
+                        <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                          {group.label}
+                        </div>
+                        {group.models.map((m) => (
+                          <ModelRow
+                            key={m.endpoint_id}
+                            model={m}
+                            isSelected={m.endpoint_id === value}
+                            onSelect={() => {
+                              onChange(m.endpoint_id);
+                              setOpen(false);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ))}
+
+                    {/* Empty search results */}
+                    {filtered.recommended.length === 0 &&
+                      Object.keys(filtered.groups).length === 0 && (
+                        <div className="py-6 text-center text-xs text-gray-500">
+                          No models match &quot;{search}&quot;
+                        </div>
+                      )}
+                  </>
                 )}
-
-                {/* Grouped models */}
-                {Object.entries(filtered.groups).map(([key, group]) => (
-                  <div key={key}>
-                    <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                      {group.label}
-                    </div>
-                    {group.models.map((m) => (
-                      <ModelRow
-                        key={m.endpoint_id}
-                        model={m}
-                        isSelected={m.endpoint_id === value}
-                        onSelect={() => {
-                          onChange(m.endpoint_id);
-                          setOpen(false);
-                        }}
-                      />
-                    ))}
-                  </div>
-                ))}
-
-                {/* Empty search results */}
-                {filtered.recommended.length === 0 &&
-                  Object.keys(filtered.groups).length === 0 && (
-                    <div className="py-6 text-center text-xs text-gray-500">
-                      No models match &quot;{search}&quot;
-                    </div>
-                  )}
               </>
             )}
           </div>
