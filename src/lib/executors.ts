@@ -157,9 +157,20 @@ const imageGeneratorExecutor: NodeExecutor = async (
   // Build fal.ai input
   const falInput: Record<string, unknown> = {
     prompt: resolvedPrompt,
-    image_size: ASPECT_RATIO_PRESETS[aspectRatio] || { width: 1024, height: 1024 },
-    num_images: numImages,
   };
+
+  // Use string enum if available (schema-driven), fall back to width/height object
+  const imageSizeOption = (data as Record<string, unknown>).imageSizeOption as string | undefined;
+  if (imageSizeOption) {
+    falInput.image_size = imageSizeOption;
+  } else {
+    falInput.image_size = ASPECT_RATIO_PRESETS[aspectRatio] || { width: 1024, height: 1024 };
+  }
+
+  // Only send num_images when > 1 (avoids unsupported-param errors on models without it)
+  if (numImages > 1) {
+    falInput.num_images = numImages;
+  }
   if (resolvedImageUrl) {
     falInput.image_url = resolvedImageUrl;
   }
@@ -461,6 +472,12 @@ const imageToVideoExecutor: NodeExecutor = async (
 // Registry
 // ---------------------------------------------------------------------------
 
+// Batch parameter is a data provider — passthrough its first value during single-node DAG runs
+const batchParameterExecutor: NodeExecutor = async (_nodeId, nodeData) => {
+  const values = (nodeData.values as string[]) ?? [];
+  return { text: values[0] ?? '' };
+};
+
 const executors: Record<string, NodeExecutor> = {
   textInput: textInputExecutor,
   imageImport: imageImportExecutor,
@@ -469,6 +486,7 @@ const executors: Record<string, NodeExecutor> = {
   imageUpscale: imageUpscaleExecutor,
   textToVideo: textToVideoExecutor,
   imageToVideo: imageToVideoExecutor,
+  batchParameter: batchParameterExecutor,
 };
 
 // ---------------------------------------------------------------------------
