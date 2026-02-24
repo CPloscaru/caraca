@@ -45,7 +45,7 @@ type LLMModelSelectorProps = {
 // LLM pricing formatter
 // ---------------------------------------------------------------------------
 
-function formatLLMPricing(
+export function formatLLMPricing(
   prompt: string | null,
   completion: string | null,
 ): string | null {

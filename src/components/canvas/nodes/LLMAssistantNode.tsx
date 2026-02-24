@@ -7,8 +7,14 @@ import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode } from '@/lib/executors';
-import { LLMModelSelector, useLLMModelData } from './LLMModelSelector';
+import { LLMModelSelector, useLLMModelData, formatLLMPricing } from './LLMModelSelector';
 import { getStatusBorderClass } from './node-utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { LLMAssistantData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -48,6 +54,11 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
     nodeData.model &&
     selectedModelData &&
     !selectedModelData.supports_vision;
+
+  // LLM pricing tooltip
+  const llmCostTooltip = selectedModelData
+    ? formatLLMPricing(selectedModelData.pricing_prompt, selectedModelData.pricing_completion)
+    : null;
 
   // Local instruction state with debounce
   const [localInstruction, setLocalInstruction] = useState(
@@ -206,26 +217,35 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
 
       {/* Run button */}
       <div className="flex justify-end p-2 pt-0">
-        <button
-          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-          disabled={false}
-          onClick={() => {
-            if (isRunning) {
-              useExecutionStore.getState().cancelExecution();
-            } else {
-              runSingleNode(nodeId).catch((err) => {
-                console.error('LLM execution failed:', err);
-              });
-            }
-          }}
-          title={isRunning ? 'Cancel' : 'Run LLM'}
-        >
-          {isRunning ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={false}
+                onClick={() => {
+                  if (isRunning) {
+                    useExecutionStore.getState().cancelExecution();
+                  } else {
+                    runSingleNode(nodeId).catch((err) => {
+                      console.error('LLM execution failed:', err);
+                    });
+                  }
+                }}
+                title={isRunning ? 'Cancel' : undefined}
+              >
+                {isRunning ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            {llmCostTooltip && !isRunning && (
+              <TooltipContent>{llmCostTooltip}</TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );

@@ -7,7 +7,13 @@ import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode } from '@/lib/executors';
-import { ModelSelector } from './ModelSelector';
+import { ModelSelector, formatFalPrice } from './ModelSelector';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { VideoResult, GenerationProgress } from './VideoPlayer';
 import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import {
@@ -59,6 +65,11 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
   const seed = nodeData.seed ?? null;
   const videoUrl = nodeData.videoUrl ?? null;
   const cdnUrl = nodeData.cdnUrl ?? null;
+
+  // Pricing info from ModelSelector
+  const unitPrice = (nodeData as Record<string, unknown>).unitPrice as number | null ?? null;
+  const priceUnit = (nodeData as Record<string, unknown>).priceUnit as string | null ?? null;
+  const costTooltip = formatFalPrice(unitPrice, priceUnit);
 
   const statusBorder = getStatusBorderClass(execState?.status);
 
@@ -240,6 +251,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
             value={model}
             onChange={handleModelChange}
             mode="image-to-video"
+            onPricingInfo={(info) => updateNodeData(nodeId, { unitPrice: info.unitPrice, priceUnit: info.priceUnit })}
           />
         </div>
 
@@ -335,26 +347,35 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
 
       {/* Run button — flow-based bottom-right */}
       <div className="flex justify-end p-2 pt-0">
-        <button
-          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-all hover:bg-amber-500"
-          onClick={() => {
-            if (isRunning || isPending) {
-              useExecutionStore.getState().cancelExecution();
-            } else {
-              updateNodeData(nodeId, { videoUrl: null, cdnUrl: null });
-              runSingleNode(nodeId).catch((err) => {
-                console.error('Single node execution failed:', err);
-              });
-            }
-          }}
-          title={isRunning || isPending ? 'Cancel' : 'Run generation'}
-        >
-          {isRunning || isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-all hover:bg-amber-500"
+                onClick={() => {
+                  if (isRunning || isPending) {
+                    useExecutionStore.getState().cancelExecution();
+                  } else {
+                    updateNodeData(nodeId, { videoUrl: null, cdnUrl: null });
+                    runSingleNode(nodeId).catch((err) => {
+                      console.error('Single node execution failed:', err);
+                    });
+                  }
+                }}
+                title={isRunning || isPending ? 'Cancel' : undefined}
+              >
+                {isRunning || isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            {costTooltip && !(isRunning || isPending) && (
+              <TooltipContent>~{costTooltip}</TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
     </div>

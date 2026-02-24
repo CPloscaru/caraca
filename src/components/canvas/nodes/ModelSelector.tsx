@@ -45,10 +45,13 @@ type ModelsResponse = {
   is_stale: boolean;
 };
 
+type PricingInfo = { unitPrice: number | null; priceUnit: string | null };
+
 type ModelSelectorProps = {
   value: string;
   onChange: (endpointId: string) => void;
   mode?: 'text-to-image' | 'image-to-image' | 'image-upscaling' | 'text-to-video' | 'image-to-video';
+  onPricingInfo?: (info: PricingInfo) => void;
 };
 
 // Static upscale models — fal.ai doesn't expose a dedicated "image-upscaling" category
@@ -237,7 +240,7 @@ const UNIT_LABELS: Record<string, string> = {
   second: '/sec',
 };
 
-function formatFalPrice(unitPrice: number | null, unit: string | null): string | null {
+export function formatFalPrice(unitPrice: number | null, unit: string | null): string | null {
   if (unitPrice == null || unit == null) return null;
   const label = UNIT_LABELS[unit] ?? `/${unit}`;
   const formatted = unitPrice < 0.01 ? unitPrice.toFixed(4) : unitPrice.toFixed(3);
@@ -296,7 +299,7 @@ function ModelRow({
 // ModelSelector
 // ---------------------------------------------------------------------------
 
-export function ModelSelector({ value, onChange, mode = 'text-to-image' }: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, mode = 'text-to-image', onPricingInfo }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<ModelsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -323,6 +326,13 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
           .then((json: ModelsResponse) => {
             setData(json);
             setLoading(false);
+            // Emit pricing for the currently selected model
+            if (onPricingInfo && value) {
+              const selected = json.models.find((m) => m.endpoint_id === value);
+              if (selected) {
+                onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
+              }
+            }
           })
           .catch((err) => {
             // Fall back to static models for video modes if API fails
@@ -394,6 +404,18 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
       flatSorted: null,
     };
   }, [data, search, sortByPrice]);
+
+  // Handle model selection with pricing emission
+  const handleModelSelect = useCallback(
+    (model: CachedModel) => {
+      onChange(model.endpoint_id);
+      setOpen(false);
+      if (onPricingInfo) {
+        onPricingInfo({ unitPrice: model.unit_price, priceUnit: model.price_unit });
+      }
+    },
+    [onChange, onPricingInfo],
+  );
 
   // Find the currently selected model name
   const selectedModel = data?.models.find((m) => m.endpoint_id === value);
@@ -474,10 +496,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image' }: Model
                         key={m.endpoint_id}
                         model={m}
                         isSelected={m.endpoint_id === value}
-                        onSelect={() => {
-                          onChange(m.endpoint_id);
-                          setOpen(false);
-                        }}
+                        onSelect={() => handleModelSelect(m)}
                       />
                     ))}
                     {filtered.flatSorted.length === 0 && (

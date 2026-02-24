@@ -10,6 +10,13 @@ import { runBatchNode } from '@/lib/executors';
 import { getPortTypeFromHandleId, type PortType } from '@/lib/port-types';
 import { BatchValueEditor } from './BatchValueEditor';
 import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { formatFalPrice } from './ModelSelector';
 import type { BatchParameterData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +36,7 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
 
   // Canvas store
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const nodes = useCanvasStore((s) => s.nodes);
   const edges = useEdges();
 
   // Derived data
@@ -38,6 +46,26 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
   const batchResults = nodeData.batchResults ?? null;
 
   const statusBorder = getStatusBorderClass(execState?.status);
+
+  // ---------------------------------------------------------------------------
+  // Batch cost tooltip from downstream node pricing
+  // ---------------------------------------------------------------------------
+  const batchCostTooltip = useMemo(() => {
+    if (values.length === 0) return null;
+    // Find the downstream node connected to this batch node's output
+    const outEdge = edges.find((e) => e.source === nodeId);
+    if (!outEdge) return null;
+    const targetNode = nodes.find((n) => n.id === outEdge.target);
+    if (!targetNode) return null;
+    const targetData = targetNode.data as Record<string, unknown>;
+    const unitPrice = targetData.unitPrice as number | null;
+    const priceUnit = targetData.priceUnit as string | null;
+    const priceLabel = formatFalPrice(unitPrice, priceUnit);
+    if (!priceLabel || unitPrice == null) return null;
+    const total = unitPrice * values.length;
+    const totalFormatted = total < 0.01 ? total.toFixed(4) : total < 1 ? total.toFixed(3) : total.toFixed(2);
+    return `~$${totalFormatted} total (${priceLabel} x ${values.length})`;
+  }, [edges, nodeId, nodes, values.length]);
 
   // ---------------------------------------------------------------------------
   // Dynamic output port type
@@ -211,24 +239,33 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
 
       {/* Run Batch button — flow-based bottom-right */}
       <div className="flex justify-end p-2 pt-0">
-        <button
-          className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-white shadow-lg transition-all hover:bg-teal-500"
-          disabled={values.length === 0 && !isRunning && !isPending}
-          onClick={() => {
-            if (isRunning || isPending) {
-              useExecutionStore.getState().cancelExecution();
-            } else {
-              handleRunBatch();
-            }
-          }}
-          title={isRunning || isPending ? 'Cancel' : 'Run batch'}
-        >
-          {isRunning || isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-white shadow-lg transition-all hover:bg-teal-500"
+                disabled={values.length === 0 && !isRunning && !isPending}
+                onClick={() => {
+                  if (isRunning || isPending) {
+                    useExecutionStore.getState().cancelExecution();
+                  } else {
+                    handleRunBatch();
+                  }
+                }}
+                title={isRunning || isPending ? 'Cancel' : undefined}
+              >
+                {isRunning || isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            {batchCostTooltip && !(isRunning || isPending) && (
+              <TooltipContent>{batchCostTooltip}</TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
