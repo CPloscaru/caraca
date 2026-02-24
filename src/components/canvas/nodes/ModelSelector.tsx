@@ -519,10 +519,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
                             key={m.endpoint_id}
                             model={m}
                             isSelected={m.endpoint_id === value}
-                            onSelect={() => {
-                              onChange(m.endpoint_id);
-                              setOpen(false);
-                            }}
+                            onSelect={() => handleModelSelect(m)}
                           />
                         ))}
                       </div>
@@ -539,10 +536,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
                             key={m.endpoint_id}
                             model={m}
                             isSelected={m.endpoint_id === value}
-                            onSelect={() => {
-                              onChange(m.endpoint_id);
-                              setOpen(false);
-                            }}
+                            onSelect={() => handleModelSelect(m)}
                           />
                         ))}
                       </div>
