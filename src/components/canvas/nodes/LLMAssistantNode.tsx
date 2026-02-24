@@ -8,26 +8,8 @@ import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode } from '@/lib/executors';
 import { LLMModelSelector, useLLMModelData } from './LLMModelSelector';
+import { getStatusBorderClass } from './node-utils';
 import type { LLMAssistantData } from '@/types/canvas';
-
-// ---------------------------------------------------------------------------
-// Execution status border
-// ---------------------------------------------------------------------------
-
-function getStatusBorderClass(status?: string): string {
-  switch (status) {
-    case 'pending':
-      return 'border-gray-600';
-    case 'running':
-      return 'border-blue-500 animate-pulse';
-    case 'done':
-      return 'border-green-500';
-    case 'error':
-      return 'border-red-500';
-    default:
-      return 'border-[#2a2a2a]';
-  }
-}
 
 // ---------------------------------------------------------------------------
 // LLMAssistantNode

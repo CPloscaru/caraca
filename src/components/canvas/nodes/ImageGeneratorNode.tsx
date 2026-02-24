@@ -9,6 +9,7 @@ import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode } from '@/lib/executors';
 import { ModelSelector } from './ModelSelector';
 import { ImageResultGrid } from './ImageResultGrid';
+import { getStatusBorderClass } from './node-utils';
 import type { ImageGeneratorData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -40,25 +41,6 @@ function ShimmerPlaceholder({ aspectRatio }: { aspectRatio: string }) {
       style={{ aspectRatio: `${preset.width}/${preset.height}` }}
     />
   );
-}
-
-// ---------------------------------------------------------------------------
-// Execution status border
-// ---------------------------------------------------------------------------
-
-function getStatusBorderClass(status?: string): string {
-  switch (status) {
-    case 'pending':
-      return 'border-gray-600';
-    case 'running':
-      return 'border-blue-500 animate-pulse';
-    case 'done':
-      return 'border-green-500';
-    case 'error':
-      return 'border-red-500';
-    default:
-      return 'border-[#2a2a2a]';
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -328,23 +310,6 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         <Play className="h-4 w-4" />
       </button>
 
-      {/* Shimmer CSS */}
-      <style>{`
-        .shimmer-loading {
-          background: linear-gradient(
-            90deg,
-            #1a1a1a 25%,
-            #2a2a2a 50%,
-            #1a1a1a 75%
-          );
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
     </div>
   );
 }

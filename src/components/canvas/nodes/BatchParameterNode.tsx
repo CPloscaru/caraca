@@ -9,26 +9,8 @@ import { useCanvasStore } from '@/stores/canvas-store';
 import { runBatchNode } from '@/lib/executors';
 import { getPortTypeFromHandleId, type PortType } from '@/lib/port-types';
 import { BatchValueEditor } from './BatchValueEditor';
+import { getStatusBorderClass } from './node-utils';
 import type { BatchParameterData } from '@/types/canvas';
-
-// ---------------------------------------------------------------------------
-// Execution status border
-// ---------------------------------------------------------------------------
-
-function getStatusBorderClass(status?: string): string {
-  switch (status) {
-    case 'pending':
-      return 'border-gray-600';
-    case 'running':
-      return 'border-blue-500 animate-pulse';
-    case 'done':
-      return 'border-green-500';
-    case 'error':
-      return 'border-red-500';
-    default:
-      return 'border-[#2a2a2a]';
-  }
-}
 
 // ---------------------------------------------------------------------------
 // BatchParameterNode
