@@ -282,13 +282,14 @@ export function getCachedModels(category: string) {
   // Separate recommended models
   const recommended = models.filter((m) => m.highlighted || m.pinned);
 
-  // Group remaining by group_key
+  // Group non-recommended by group_key (avoid duplicates with recommended section)
   const groups: Record<
     string,
     { label: string; models: typeof models }
   > = {};
 
-  for (const m of models) {
+  const nonRecommended = models.filter((m) => !m.highlighted && !m.pinned);
+  for (const m of nonRecommended) {
     const key = m.group_key ?? m.endpoint_id;
     const label = m.group_label ?? m.display_name;
     if (!groups[key]) {
