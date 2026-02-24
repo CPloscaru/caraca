@@ -12,7 +12,7 @@
         "type": "textInput",
         "value": "A golden retriever running through a sunlit meadow with wildflowers, slow motion",
         "inputs": [],
-        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-source-0" }]
       }
     },
     {
@@ -30,9 +30,9 @@
         "videoUrl": null,
         "cdnUrl": null,
         "inputs": [
-          { "type": "text", "label": "Prompt", "id": "text-in-0" }
+          { "type": "text", "label": "Prompt", "id": "text-target-0" }
         ],
-        "outputs": [{ "type": "video", "label": "Video", "id": "video-out-0" }]
+        "outputs": [{ "type": "video", "label": "Video", "id": "video-source-0" }]
       }
     }
   ],

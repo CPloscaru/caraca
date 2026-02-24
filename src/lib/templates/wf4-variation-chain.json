@@ -12,7 +12,7 @@
         "type": "textInput",
         "value": "A magical forest with glowing mushrooms",
         "inputs": [],
-        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-source-0" }]
       }
     },
     {
@@ -29,10 +29,10 @@
         "images": [],
         "selectedImageIndex": 0,
         "inputs": [
-          { "type": "text", "label": "Prompt", "id": "text-in-0" },
-          { "type": "image", "label": "Reference", "id": "image-in-0" }
+          { "type": "text", "label": "Prompt", "id": "text-target-0" },
+          { "type": "image", "label": "Reference", "id": "image-target-1" }
         ],
-        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-source-0" }]
       }
     },
     {
@@ -50,10 +50,10 @@
         "selectedImageIndex": 0,
         "mode": "image-to-image",
         "inputs": [
-          { "type": "text", "label": "Prompt", "id": "text-in-0" },
-          { "type": "image", "label": "Reference", "id": "image-in-0" }
+          { "type": "text", "label": "Prompt", "id": "text-target-0" },
+          { "type": "image", "label": "Reference", "id": "image-target-1" }
         ],
-        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-source-0" }]
       }
     }
   ],

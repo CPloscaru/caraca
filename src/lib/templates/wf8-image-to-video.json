@@ -12,7 +12,7 @@
         "type": "textInput",
         "value": "A serene Japanese garden with cherry blossoms and a stone bridge over a koi pond",
         "inputs": [],
-        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-source-0" }]
       }
     },
     {
@@ -29,10 +29,10 @@
         "images": [],
         "selectedImageIndex": 0,
         "inputs": [
-          { "type": "text", "label": "Prompt", "id": "text-in-0" },
-          { "type": "image", "label": "Reference", "id": "image-in-0" }
+          { "type": "text", "label": "Prompt", "id": "text-target-0" },
+          { "type": "image", "label": "Reference", "id": "image-target-1" }
         ],
-        "outputs": [{ "type": "image", "label": "Output", "id": "image-out-0" }]
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-source-0" }]
       }
     },
     {
@@ -44,7 +44,7 @@
         "type": "textInput",
         "value": "Cherry blossom petals gently falling, koi fish swimming, soft breeze rippling the water",
         "inputs": [],
-        "outputs": [{ "type": "text", "label": "Text", "id": "text-out-0" }]
+        "outputs": [{ "type": "text", "label": "Text", "id": "text-source-0" }]
       }
     },
     {
@@ -62,10 +62,10 @@
         "videoUrl": null,
         "cdnUrl": null,
         "inputs": [
-          { "type": "image", "label": "Image", "id": "image-in-0" },
-          { "type": "text", "label": "Prompt", "id": "text-in-0" }
+          { "type": "image", "label": "Image", "id": "image-target-0" },
+          { "type": "text", "label": "Prompt", "id": "text-target-0" }
         ],
-        "outputs": [{ "type": "video", "label": "Video", "id": "video-out-0" }]
+        "outputs": [{ "type": "video", "label": "Video", "id": "video-source-0" }]
       }
     }
   ],
