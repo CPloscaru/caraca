@@ -172,6 +172,18 @@ const NODE_REGISTRY_ARRAY = [
     order: 80,
     available: true,
   },
+  {
+    type: 'canvasNote',
+    label: 'Note',
+    description: 'Annotation note for documenting workflows',
+    tags: ['note', 'annotation', 'documentation', 'tools'],
+    inputs: [],
+    outputs: [],
+    resultFields: {},
+    stripOnExport: [],
+    order: 200,
+    available: true,
+  },
 ] as const satisfies readonly NodeRegistryEntry[];
 
 export const NODE_REGISTRY: readonly NodeRegistryEntry[] = NODE_REGISTRY_ARRAY;

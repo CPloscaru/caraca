@@ -551,6 +551,9 @@ const batchParameterExecutor: NodeExecutor = async (_nodeId, nodeData) => {
   return { text: values[0] ?? '' };
 };
 
+// Canvas note is a no-op annotation node — silently skipped during execution
+const canvasNoteExecutor: NodeExecutor = async () => ({});
+
 const executors: Record<string, NodeExecutor> = {
   textInput: textInputExecutor,
   imageImport: imageImportExecutor,
@@ -560,6 +563,7 @@ const executors: Record<string, NodeExecutor> = {
   textToVideo: textToVideoExecutor,
   imageToVideo: imageToVideoExecutor,
   batchParameter: batchParameterExecutor,
+  canvasNote: canvasNoteExecutor,
 };
 
 // ---------------------------------------------------------------------------
@@ -686,12 +690,19 @@ export async function runAllWorkflow(): Promise<void> {
   if (nodes.length === 0) return;
 
   const nodeIds = nodes.map((n) => n.id);
-  const edgesSimple = edges.map((e) => ({
-    source: e.source,
-    target: e.target,
-    sourceHandle: e.sourceHandle ?? '',
-    targetHandle: e.targetHandle ?? '',
-  }));
+
+  // Filter out edges originating from annotation nodes (canvasNote) to prevent DAG corruption
+  const noteNodeIds = new Set(
+    nodes.filter((n) => (n.data as Record<string, unknown>).type === 'canvasNote').map((n) => n.id),
+  );
+  const edgesSimple = edges
+    .filter((e) => !noteNodeIds.has(e.source) && !noteNodeIds.has(e.target))
+    .map((e) => ({
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle ?? '',
+      targetHandle: e.targetHandle ?? '',
+    }));
 
   // Check for cycles
   const cycle = detectCycle(nodeIds, edgesSimple);

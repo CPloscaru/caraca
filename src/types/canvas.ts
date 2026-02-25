@@ -116,6 +116,11 @@ export type BatchParameterData = NodeData & {
   batchResults: BatchResultItem[] | null; // Collected results
 };
 
+export type NoteNodeData = NodeData & {
+  noteTitle: string;
+  noteBody: string;
+};
+
 /** Union type for all node data variants */
 export type AnyNodeData =
   | NodeData
@@ -126,7 +131,8 @@ export type AnyNodeData =
   | ImageUpscaleData
   | TextToVideoData
   | ImageToVideoData
-  | BatchParameterData;
+  | BatchParameterData
+  | NoteNodeData;
 
 // ---------------------------------------------------------------------------
 // Workflow JSON — serialized React Flow state for project persistence
@@ -159,3 +165,4 @@ export type ImageUpscaleNode = Node<ImageUpscaleData>;
 export type TextToVideoNode = Node<TextToVideoData>;
 export type ImageToVideoNode = Node<ImageToVideoData>;
 export type BatchParameterNode = Node<BatchParameterData>;
+export type NoteNode = Node<NoteNodeData>;
