@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-type TypedHandleProps = Omit<HandleProps, 'id'> & {
+type TypedHandleProps = Omit<HandleProps, 'id' | 'isConnectable'> & {
   portType: PortType;
   portId: string;
   index: number;
@@ -51,7 +51,7 @@ export function TypedHandle({ portType, portId, index,
       id={id}
       type={type}
       position={position}
-      isConnectable={isConnectable}
+      isConnectable={isConnectable as unknown as boolean | undefined}
       style={{
         ...(rest as Record<string, unknown>).style as CSSProperties | undefined,
         width: 12,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
+import { type NodeProps, Position, useEdges, useHandleConnections, useNodeId } from '@xyflow/react';
 import { Video, Play, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
@@ -21,8 +21,10 @@ import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import {
   fetchModelSchema,
   deriveNodeConfig,
+  getSchemaImageFields,
   type ModelNodeConfig,
   type ModelInputField,
+  type DynamicImagePort,
 } from '@/lib/fal/schema-introspection';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { CollapsibleSettings, SchemaFieldRenderer } from './schema-widgets';
@@ -49,6 +51,48 @@ const DEFAULT_CONFIG: ModelNodeConfig = {
 };
 
 const DEFAULT_MODEL = 'fal-ai/minimax/video-01-live';
+
+// ---------------------------------------------------------------------------
+// Dynamic image port helpers
+// ---------------------------------------------------------------------------
+
+function buildPortTooltip(port: DynamicImagePort, connectionCount: number): string {
+  const parts: string[] = [];
+  if (port.description) parts.push(port.description);
+  parts.push(port.required ? 'Required' : 'Optional');
+  parts.push(port.multi ? `Multi (${connectionCount}/${port.maxConnections})` : 'Single image');
+  return parts.join('. ') + '.';
+}
+
+function DynamicImageHandle({
+  port,
+  handleId,
+  topPercent,
+}: {
+  port: DynamicImagePort;
+  handleId: string;
+  topPercent: number;
+  nodeId: string;
+}) {
+  const connections = useHandleConnections({ type: 'target', id: handleId });
+
+  return (
+    <TypedHandle
+      type="target"
+      position={Position.Left}
+      portType="image"
+      portId={handleId}
+      handleId={handleId}
+      index={0}
+      label={port.label}
+      required={port.required && connections.length === 0}
+      isConnectable={port.maxConnections}
+      badgeText={port.multi ? `${connections.length}/${port.maxConnections}` : undefined}
+      tooltip={buildPortTooltip(port, connections.length)}
+      style={{ top: `${topPercent}%` }}
+    />
+  );
+}
 
 // ---------------------------------------------------------------------------
 // TextToVideoNode
@@ -125,12 +169,14 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
   // Schema-driven config
   const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_CONFIG);
   const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
+  const [dynamicImagePorts, setDynamicImagePorts] = useState<DynamicImagePort[]>([]);
 
   // Debug mode (per-session, not persisted)
   const [debugMode, setDebugMode] = useState(false);
 
-  // Track previous hasPrompt to auto-disconnect edges
+  // Track previous port states to auto-disconnect edges on model change
   const prevHasPrompt = useRef(config.hasPrompt);
+  const prevDynamicPortFields = useRef<Set<string>>(new Set());
 
   // Fetch schema on model change
   useEffect(() => {
@@ -140,12 +186,24 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
       setSchemaFields(fields.length > 0 ? fields : null);
       if (fields.length > 0) {
         setConfig(deriveNodeConfig(fields));
+        const imagePorts = getSchemaImageFields(fields);
+        setDynamicImagePorts(imagePorts);
+        // Store port config on node data for the executor
+        updateNodeData(nodeId, {
+          dynamicImagePorts: imagePorts.map(p => ({
+            fieldName: p.fieldName,
+            multi: p.multi,
+            maxConnections: p.maxConnections,
+          })),
+        });
       } else {
         setConfig(DEFAULT_CONFIG);
+        setDynamicImagePorts([]);
+        updateNodeData(nodeId, { dynamicImagePorts: undefined });
       }
     });
     return () => { cancelled = true; };
-  }, [model]);
+  }, [model, nodeId, updateNodeData]);
 
   // Auto-disconnect prompt edge when model no longer supports prompt
   useEffect(() => {
@@ -162,6 +220,25 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
     }
     prevHasPrompt.current = config.hasPrompt;
   }, [config.hasPrompt, edges, nodeId, model, deleteEdge]);
+
+  // Auto-disconnect stale dynamic image port edges on model change
+  useEffect(() => {
+    const newFieldNames = new Set(dynamicImagePorts.map(p => p.fieldName));
+
+    for (const oldField of prevDynamicPortFields.current) {
+      if (!newFieldNames.has(oldField)) {
+        const handleId = `image-target-${oldField}`;
+        const staleEdge = edges.find(
+          e => e.target === nodeId && e.targetHandle === handleId,
+        );
+        if (staleEdge) {
+          deleteEdge(staleEdge.id);
+        }
+      }
+    }
+
+    prevDynamicPortFields.current = newFieldNames;
+  }, [dynamicImagePorts, edges, nodeId, deleteEdge]);
 
   // Update helpers
   const updateData = useCallback(
@@ -204,7 +281,25 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
       }`}
       style={{ minWidth: 320, maxWidth: 400 }}
     >
-      {/* Input handles */}
+      {/* Dynamic image input handles */}
+      {dynamicImagePorts.map((port, idx) => {
+        const handleId = `image-target-${port.fieldName}`;
+        const totalDynamic = dynamicImagePorts.length;
+        const spacing = totalDynamic > 1 ? 60 / (totalDynamic + 1) : 30;
+        const topPercent = spacing * (idx + 1);
+
+        return (
+          <DynamicImageHandle
+            key={handleId}
+            port={port}
+            handleId={handleId}
+            topPercent={topPercent}
+            nodeId={nodeId}
+          />
+        );
+      })}
+
+      {/* Text prompt input handle */}
       {config.hasPrompt && (
         <TypedHandle
           type="target"
@@ -212,7 +307,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           portType="text"
           portId="text-in-0"
           index={0}
-          style={{ top: '30%' }}
+          style={{ top: `${dynamicImagePorts.length > 0 ? 75 : 30}%` }}
         />
       )}
 
