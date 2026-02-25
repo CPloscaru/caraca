@@ -4,5 +4,8 @@ export { SchemaToggle } from './SchemaToggle';
 export { SchemaSeed } from './SchemaSeed';
 export { SchemaText } from './SchemaText';
 export { SchemaFieldRenderer } from './SchemaFieldRenderer';
+export { SchemaNodeRenderer } from './SchemaNodeRenderer';
+export { SchemaGroup } from './SchemaGroup';
+export { RepeatableBlock } from './RepeatableBlock';
 export { CollapsibleSettings } from './CollapsibleSettings';
 export { FieldLabel } from './FieldLabel';

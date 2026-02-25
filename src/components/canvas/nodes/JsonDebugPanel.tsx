@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Braces, Copy, Check } from 'lucide-react';
 import { JsonTreeView } from './JsonTreeView';
+import { SchemaTreeView } from './SchemaTreeView';
+import type { SchemaNode } from '@/lib/fal/schema-tree';
 
 // ---------------------------------------------------------------------------
 // DebugToggleButton
@@ -31,10 +33,11 @@ export function DebugToggleButton({ active, onClick }: DebugToggleButtonProps) {
 // JsonDebugPanel
 // ---------------------------------------------------------------------------
 
-type TabId = 'schema' | 'request' | 'response';
+type TabId = 'schema' | 'tree' | 'request' | 'response';
 
 type JsonDebugPanelProps = {
   schema?: unknown;
+  schemaTree?: SchemaNode[];
   config?: Record<string, unknown>;
   request?: unknown;
   response?: unknown;
@@ -43,6 +46,7 @@ type JsonDebugPanelProps = {
 
 export function JsonDebugPanel({
   schema,
+  schemaTree,
   config,
   request,
   response,
@@ -50,6 +54,7 @@ export function JsonDebugPanel({
 }: JsonDebugPanelProps) {
   // Build available tabs
   const tabs: { id: TabId; label: string }[] = [{ id: 'schema', label: 'Schema' }];
+  if (schemaTree && schemaTree.length > 0) tabs.push({ id: 'tree', label: 'Tree' });
   if (request) tabs.push({ id: 'request', label: 'Request' });
   if (response || error) tabs.push({ id: 'response', label: 'Response' });
 
@@ -72,6 +77,8 @@ export function JsonDebugPanel({
     switch (currentTab) {
       case 'schema':
         return config ? { schema, currentConfig: config } : schema;
+      case 'tree':
+        return schemaTree;
       case 'request':
         return request;
       case 'response':
@@ -79,7 +86,7 @@ export function JsonDebugPanel({
       default:
         return null;
     }
-  }, [currentTab, schema, config, request, response, error]);
+  }, [currentTab, schema, schemaTree, config, request, response, error]);
 
   const handleCopy = useCallback(() => {
     const data = getTabData();
@@ -125,7 +132,11 @@ export function JsonDebugPanel({
         {currentTab === 'response' && !!error && (
           <div className="text-red-400 text-[10px] mb-1">Error Response</div>
         )}
-        <JsonTreeView data={getTabData()} />
+        {currentTab === 'tree' && schemaTree ? (
+          <SchemaTreeView tree={schemaTree} />
+        ) : (
+          <JsonTreeView data={getTabData()} />
+        )}
       </div>
     </div>
   );

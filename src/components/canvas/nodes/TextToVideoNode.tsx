@@ -20,6 +20,7 @@ import { VideoResultCarousel } from './VideoResultCarousel';
 import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import {
   fetchModelSchema,
+  fetchSchemaTree,
   deriveNodeConfig,
   getSchemaImageFields,
   type ModelNodeConfig,
@@ -179,6 +180,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
   const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
   const [dynamicImagePorts, setDynamicImagePorts] = useState<DynamicImagePort[]>([]);
   const [schemaLoading, setSchemaLoading] = useState(false);
+  const [schemaTree, setSchemaTree] = useState<import('@/lib/fal/schema-tree').SchemaNode[]>([]);
 
   // Debug mode (per-session, not persisted)
   const [debugMode, setDebugMode] = useState(false);
@@ -191,13 +193,14 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
   useEffect(() => {
     let cancelled = false;
     setSchemaLoading(true);
-    fetchModelSchema(model).then((fields) => {
+    Promise.all([fetchModelSchema(model), fetchSchemaTree(model)]).then(([fields, tree]) => {
       if (cancelled) return;
       setSchemaLoading(false);
+      setSchemaTree(tree);
       setSchemaFields(fields.length > 0 ? fields : null);
       if (fields.length > 0) {
         setConfig(deriveNodeConfig(fields));
-        const imagePorts = getSchemaImageFields(fields);
+        const imagePorts = getSchemaImageFields(fields, tree);
         setDynamicImagePorts(imagePorts);
         // Store port config on node data for the executor
         updateNodeData(nodeId, {
@@ -321,6 +324,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
         {debugMode ? (
           <JsonDebugPanel
             schema={schemaFields}
+            schemaTree={schemaTree}
             config={{ model, prompt: nodeData.prompt, aspectRatio, duration, seed }}
             request={nodeData.debugRequest}
             response={nodeData.debugResponse}
@@ -401,7 +405,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
               Duration
             </label>
-            <div className="flex gap-0.5">
+            <div className="flex flex-wrap gap-0.5">
               {durationOptions.map((d) => (
                 <button
                   key={d}
