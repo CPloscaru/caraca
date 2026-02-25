@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type NodeProps, Position, useEdges, useHandleConnections, useNodeId } from '@xyflow/react';
+import { type NodeProps, Position, useEdges, useNodeConnections, useNodeId } from '@xyflow/react';
 import { Video, Play, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
@@ -71,7 +71,7 @@ function DynamicImageHandle({
   port: DynamicImagePort;
   handleId: string;
 }) {
-  const connections = useHandleConnections({ type: 'target', id: handleId });
+  const connections = useNodeConnections({ handleType: 'target', handleId });
   const connected = connections.length > 0;
 
   return (
@@ -176,6 +176,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
   const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_CONFIG);
   const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
   const [dynamicImagePorts, setDynamicImagePorts] = useState<DynamicImagePort[]>([]);
+  const [schemaLoading, setSchemaLoading] = useState(false);
 
   // Debug mode (per-session, not persisted)
   const [debugMode, setDebugMode] = useState(false);
@@ -187,8 +188,10 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
   // Fetch schema on model change
   useEffect(() => {
     let cancelled = false;
+    setSchemaLoading(true);
     fetchModelSchema(model).then((fields) => {
       if (cancelled) return;
+      setSchemaLoading(false);
       setSchemaFields(fields.length > 0 ? fields : null);
       if (fields.length > 0) {
         setConfig(deriveNodeConfig(fields));
@@ -455,7 +458,17 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
         )}
 
         {/* Dynamic image ports */}
-        {dynamicImagePorts.length > 0 && (
+        {schemaLoading ? (
+          <div className="mb-2 space-y-1">
+            <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
+              Image Inputs
+            </label>
+            <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5">
+              <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
+              <span className="text-xs text-gray-500">Loading ports...</span>
+            </div>
+          </div>
+        ) : dynamicImagePorts.length > 0 ? (
           <div className="mb-2 space-y-1">
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
               Image Inputs
@@ -471,7 +484,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
               );
             })}
           </div>
-        )}
+        ) : null}
 
         {/* Prompt (inline) when text input not connected */}
         {config.hasPrompt && (
