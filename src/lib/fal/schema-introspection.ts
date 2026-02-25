@@ -11,6 +11,9 @@ export type ModelInputField = {
   default?: unknown;
   enum?: unknown[];
   format?: string;
+  minimum?: number;
+  maximum?: number;
+  nullable?: boolean;
 };
 
 export type ModelNodeConfig = {
@@ -137,6 +140,27 @@ export async function fetchModelSchema(
           }
         }
 
+        // Extract min/max from direct properties or anyOf variants
+        let minimum = prop.minimum as number | undefined;
+        let maximum = prop.maximum as number | undefined;
+        let nullable = false;
+
+        const variants =
+          (prop.anyOf as Record<string, unknown>[] | undefined) ??
+          (prop.allOf as Record<string, unknown>[] | undefined);
+        if (variants) {
+          // Detect nullable (anyOf includes { type: "null" })
+          if (variants.some((v) => v.type === "null")) {
+            nullable = true;
+          }
+          // Extract min/max from non-null variants
+          for (const v of variants) {
+            if (v.type === "null") continue;
+            if (minimum == null && typeof v.minimum === "number") minimum = v.minimum as number;
+            if (maximum == null && typeof v.maximum === "number") maximum = v.maximum as number;
+          }
+        }
+
         return {
           name,
           type: fieldType ?? "string",
@@ -145,6 +169,9 @@ export async function fetchModelSchema(
           ...(prop.default !== undefined ? { default: prop.default } : {}),
           ...(enumValues ? { enum: enumValues } : {}),
           ...(prop.format ? { format: prop.format as string } : {}),
+          ...(minimum != null ? { minimum } : {}),
+          ...(maximum != null ? { maximum } : {}),
+          ...(nullable ? { nullable } : {}),
         };
       },
     );
@@ -154,6 +181,50 @@ export async function fetchModelSchema(
   } catch {
     return [];
   }
+}
+
+/**
+ * Derive a node configuration from model input fields.
+ * Inspects field names to determine what the model supports.
+ */
+// ---------------------------------------------------------------------------
+// Default set of fields excluded from "More Settings" (handled by dedicated UI)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_EXCLUDED_FIELDS = new Set([
+  'prompt',
+  'image_url',
+  'image',
+  'last_frame_image_url',
+  'tail_image_url',
+  'sync_mode',
+  'enable_safety_checker',
+  'image_size',
+  'aspect_ratio',
+  'duration',
+  'num_images',
+]);
+
+// Types that indicate complex/nested structures we can't render generically
+const COMPLEX_TYPES = new Set(['object', 'array']);
+
+/**
+ * Filter schema fields to only those suitable for dynamic "More Settings" UI.
+ * Excludes fields with dedicated UI, complex types, and $ref-only fields.
+ */
+export function getSchemaExtraFields(
+  fields: ModelInputField[],
+  excludeSet?: Set<string>,
+): ModelInputField[] {
+  const excluded = excludeSet
+    ? new Set([...DEFAULT_EXCLUDED_FIELDS, ...excludeSet])
+    : DEFAULT_EXCLUDED_FIELDS;
+
+  return fields.filter((f) => {
+    if (excluded.has(f.name)) return false;
+    if (COMPLEX_TYPES.has(f.type)) return false;
+    return true;
+  });
 }
 
 /**

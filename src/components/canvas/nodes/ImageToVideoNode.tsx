@@ -25,7 +25,11 @@ import {
   type ModelInputField,
 } from '@/lib/fal/schema-introspection';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
+import { CollapsibleSettings, SchemaFieldRenderer } from './schema-widgets';
+import { useSchemaParams } from '@/lib/fal/use-schema-params';
 import type { ImageToVideoData } from '@/types/canvas';
+
+const I2V_EXCLUDE = new Set(['seed']);
 
 // ---------------------------------------------------------------------------
 // Default config (fallback before schema introspection runs)
@@ -199,6 +203,11 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
         (e) => e.target === nodeId && e.targetHandle === 'text-target-0',
       ),
     [edges, nodeId],
+  );
+
+  // Schema-driven extra params
+  const { extraFields, paramValues, setParam } = useSchemaParams(
+    nodeId, model, nodeData.schemaParams, updateNodeData, I2V_EXCLUDE,
   );
 
   // Aspect ratio options
@@ -411,6 +420,20 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         )}
       </div>
+
+      {/* Dynamic schema params */}
+      {extraFields.length > 0 && (
+        <CollapsibleSettings>
+          {extraFields.map((field) => (
+            <SchemaFieldRenderer
+              key={field.name}
+              field={field}
+              value={paramValues[field.name]}
+              onChange={(v) => setParam(field.name, v)}
+            />
+          ))}
+        </CollapsibleSettings>
+      )}
 
       {/* Batch cost dialog */}
       <BatchCostDialog

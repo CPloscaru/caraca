@@ -11,6 +11,8 @@ import { fetchModelSchema, deriveNodeConfig, type ModelNodeConfig, type ModelInp
 import { ModelSelector, formatFalPrice } from './ModelSelector';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { BatchCostDialog, isCostDialogDismissed } from './BatchCostDialog';
+import { CollapsibleSettings, SchemaFieldRenderer } from './schema-widgets';
+import { useSchemaParams } from '@/lib/fal/use-schema-params';
 import {
   Tooltip,
   TooltipContent,
@@ -218,6 +220,11 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
       updateNodeData(nodeId, { selectedImageIndex: index });
     },
     [nodeId, updateNodeData],
+  );
+
+  // Schema-driven extra params
+  const { extraFields, paramValues, setParam } = useSchemaParams(
+    nodeId, model, nodeData.schemaParams, updateNodeData,
   );
 
   const prompt = nodeData.prompt ?? '';
@@ -442,6 +449,20 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
           )}
         </div>
       </div>
+
+      {/* Dynamic schema params */}
+      {extraFields.length > 0 && (
+        <CollapsibleSettings>
+          {extraFields.map((field) => (
+            <SchemaFieldRenderer
+              key={field.name}
+              field={field}
+              value={paramValues[field.name]}
+              onChange={(v) => setParam(field.name, v)}
+            />
+          ))}
+        </CollapsibleSettings>
+      )}
 
       {/* Batch cost dialog */}
       <BatchCostDialog

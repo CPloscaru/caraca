@@ -58,6 +58,24 @@ const ASPECT_RATIO_PRESETS: Record<string, { width: number; height: number }> =
   };
 
 // ---------------------------------------------------------------------------
+// Schema params helper
+// ---------------------------------------------------------------------------
+
+/** Merge user-set schemaParams into falInput, without overwriting dedicated keys. */
+function applySchemaParams(
+  falInput: Record<string, unknown>,
+  data: Record<string, unknown>,
+): void {
+  const schemaParams = data.schemaParams as Record<string, unknown> | undefined;
+  if (!schemaParams) return;
+  for (const [key, val] of Object.entries(schemaParams)) {
+    if (val !== undefined && val !== null && !(key in falInput)) {
+      falInput[key] = val;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Video default models
 // ---------------------------------------------------------------------------
 
@@ -174,6 +192,9 @@ const imageGeneratorExecutor: NodeExecutor = async (
   if (resolvedImageUrl) {
     falInput.image_url = resolvedImageUrl;
   }
+
+  // Merge dynamic schema params (won't overwrite dedicated keys)
+  applySchemaParams(falInput, nodeData as Record<string, unknown>);
 
   // Capture debug request payload
   const debugRequest = { model, ...falInput };
@@ -338,6 +359,9 @@ const imageUpscaleExecutor: NodeExecutor = async (
     }
   }
 
+  // Merge dynamic schema params (won't overwrite dedicated keys)
+  applySchemaParams(falInput, nodeData as Record<string, unknown>);
+
   // Capture debug request payload
   const debugRequest = { model, ...falInput };
 
@@ -396,6 +420,9 @@ const textToVideoExecutor: NodeExecutor = async (
   if (data.aspectRatio) falInput.aspect_ratio = data.aspectRatio;
   if (data.duration) falInput.duration = data.duration;
   if (data.seed != null) falInput.seed = data.seed;
+
+  // Merge dynamic schema params (won't overwrite dedicated keys)
+  applySchemaParams(falInput, nodeData as Record<string, unknown>);
 
   // Capture debug request payload
   const debugRequest = { model, ...falInput };
@@ -467,6 +494,9 @@ const imageToVideoExecutor: NodeExecutor = async (
   if (data.aspectRatio) falInput.aspect_ratio = data.aspectRatio;
   if (data.duration) falInput.duration = data.duration;
   if (data.seed != null) falInput.seed = data.seed;
+
+  // Merge dynamic schema params (won't overwrite dedicated keys)
+  applySchemaParams(falInput, nodeData as Record<string, unknown>);
 
   // Capture debug request payload
   const debugRequest = { model, ...falInput };

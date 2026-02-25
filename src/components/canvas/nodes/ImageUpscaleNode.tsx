@@ -21,7 +21,11 @@ import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
 import { getModelParams, DEFAULT_UPSCALE_MODEL } from '@/lib/upscale/model-params';
 import { fetchModelSchema, type ModelInputField } from '@/lib/fal/schema-introspection';
+import { CollapsibleSettings, SchemaFieldRenderer } from './schema-widgets';
+import { useSchemaParams } from '@/lib/fal/use-schema-params';
 import type { ImageUpscaleData } from '@/types/canvas';
+
+const UPSCALE_EXCLUDE = new Set(['scale', 'upscale_factor', 'prompt']);
 
 // ---------------------------------------------------------------------------
 // ImageUpscaleNode
@@ -129,6 +133,11 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
     });
     return () => { cancelled = true; };
   }, [model]);
+
+  // Schema-driven extra params
+  const { extraFields, paramValues, setParam } = useSchemaParams(
+    nodeId, model, nodeData.schemaParams, updateNodeData, UPSCALE_EXCLUDE,
+  );
 
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -302,6 +311,20 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
           </div>
         )}
       </div>
+
+      {/* Dynamic schema params */}
+      {extraFields.length > 0 && (
+        <CollapsibleSettings>
+          {extraFields.map((field) => (
+            <SchemaFieldRenderer
+              key={field.name}
+              field={field}
+              value={paramValues[field.name]}
+              onChange={(v) => setParam(field.name, v)}
+            />
+          ))}
+        </CollapsibleSettings>
+      )}
 
       {/* Run button — flow-based bottom-right */}
       <div className="flex justify-end p-2 pt-0">
