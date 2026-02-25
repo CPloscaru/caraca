@@ -39,7 +39,6 @@ export function ImageUpscaleNode({ id, data, selected }: NodeProps) {
   const execState = useExecutionStore((s) => s.nodeStates[nodeId]);
   const isRunning = execState?.status === 'running';
   const hasError = execState?.status === 'error';
-  const isDone = execState?.status === 'done';
 
   // Canvas store
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);

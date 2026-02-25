@@ -63,7 +63,6 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
   const isRunning = execState?.status === 'running';
   const isPending = execState?.status === 'pending';
   const hasError = execState?.status === 'error';
-  const isDone = execState?.status === 'done';
 
   // Canvas store
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);

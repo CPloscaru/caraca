@@ -258,12 +258,10 @@ export function VideoLightbox({
 
 export function VideoResult({
   videoUrl,
-  cdnUrl,
-  nodeId,
 }: {
   videoUrl: string | null;
-  cdnUrl: string | null;
-  nodeId: string;
+  cdnUrl?: string | null;
+  nodeId?: string;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 

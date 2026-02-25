@@ -10,10 +10,8 @@ type TypedHandleProps = Omit<HandleProps, 'id'> & {
   index: number;
 };
 
-export function TypedHandle({
-  portType,
-  portId,
-  index,
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function TypedHandle({ portType, portId, index,
   type,
   position,
   ...rest

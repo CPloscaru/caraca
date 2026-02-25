@@ -247,7 +247,6 @@ function useDownloadAll(
     try {
       const zip = new JSZip();
       const successful = results.filter((r) => r.status === 'done' && r.result);
-      const total = successful.length;
 
       for (const item of successful) {
         const slug = slugify(item.inputValue);
@@ -291,11 +290,11 @@ function useDownloadAll(
 // ---------------------------------------------------------------------------
 
 export function BatchResultDisplay({ results, nodeLabel }: BatchResultDisplayProps) {
-  if (!results || results.length === 0) return null;
+  const resultType = detectResultType(results ?? []);
+  const hasSuccessful = (results ?? []).some((r) => r.status === 'done');
+  const { downloading, handleDownload } = useDownloadAll(results ?? [], resultType, nodeLabel);
 
-  const resultType = detectResultType(results);
-  const hasSuccessful = results.some((r) => r.status === 'done');
-  const { downloading, handleDownload } = useDownloadAll(results, resultType, nodeLabel);
+  if (!results || results.length === 0) return null;
 
   const TypeIcon =
     resultType === 'image' ? ImageIcon : resultType === 'video' ? Video : FileText;

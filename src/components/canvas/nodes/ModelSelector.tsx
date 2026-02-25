@@ -375,7 +375,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
           });
       }
     },
-    [mode],
+    [mode, onPricingInfo, value],
   );
 
   // Focus search input when popover opens
