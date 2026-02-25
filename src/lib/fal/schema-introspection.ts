@@ -319,6 +319,8 @@ export function getSchemaExtraFields(
   return fields.filter((f) => {
     if (excluded.has(f.name)) return false;
     if (COMPLEX_TYPES.has(f.type)) return false;
+    // Exclude image fields handled by dynamic image ports
+    if (isImageField(f)) return false;
     return true;
   });
 }

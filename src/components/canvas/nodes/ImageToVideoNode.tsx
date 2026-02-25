@@ -67,30 +67,36 @@ function buildPortTooltip(port: DynamicImagePort, connectionCount: number): stri
 function DynamicImageHandle({
   port,
   handleId,
-  topPercent,
 }: {
   port: DynamicImagePort;
   handleId: string;
-  topPercent: number;
-  nodeId: string;
 }) {
   const connections = useHandleConnections({ type: 'target', id: handleId });
+  const connected = connections.length > 0;
 
   return (
-    <TypedHandle
-      type="target"
-      position={Position.Left}
-      portType="image"
-      portId={handleId}
-      handleId={handleId}
-      index={0}
-      label={port.label}
-      required={port.required && connections.length === 0}
-      isConnectable={port.maxConnections}
-      badgeText={port.multi ? `${connections.length}/${port.maxConnections}` : undefined}
-      tooltip={buildPortTooltip(port, connections.length)}
-      style={{ top: `${topPercent}%` }}
-    />
+    <div className="relative flex items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5">
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="image"
+        portId={handleId}
+        handleId={handleId}
+        index={0}
+        required={port.required && !connected}
+        isConnectable={port.maxConnections}
+        tooltip={buildPortTooltip(port, connections.length)}
+        style={{ left: -24 }}
+      />
+      <span className="text-xs text-gray-400">
+        {connected ? `${port.label} ✓` : port.label}
+      </span>
+      {port.multi && (
+        <span className="ml-auto text-[9px] text-gray-500">
+          {connections.length}/{port.maxConnections}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -292,25 +298,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
       }`}
       style={{ minWidth: 320, maxWidth: 400 }}
     >
-      {/* Dynamic image input handles */}
-      {dynamicImagePorts.map((port, idx) => {
-        const handleId = `image-target-${port.fieldName}`;
-        const totalDynamic = dynamicImagePorts.length;
-        const spacing = totalDynamic > 1 ? 60 / (totalDynamic + 1) : 30;
-        const topPercent = spacing * (idx + 1);
-
-        return (
-          <DynamicImageHandle
-            key={handleId}
-            port={port}
-            handleId={handleId}
-            topPercent={topPercent}
-            nodeId={nodeId}
-          />
-        );
-      })}
-
-      {/* Text prompt input handle */}
+      {/* Text prompt input handle — positioned at container level */}
       {config.hasPrompt && (
         <TypedHandle
           type="target"
@@ -318,7 +306,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
           portType="text"
           portId="text-in-0"
           index={0}
-          style={{ top: `${dynamicImagePorts.length > 0 ? 75 : 45}%` }}
+          style={{ top: '45%' }}
         />
       )}
 
@@ -463,6 +451,25 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
                 updateData('seed', v === '' ? null : Number(v));
               }}
             />
+          </div>
+        )}
+
+        {/* Dynamic image ports */}
+        {dynamicImagePorts.length > 0 && (
+          <div className="mb-2 space-y-1">
+            <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
+              Image Inputs
+            </label>
+            {dynamicImagePorts.map((port) => {
+              const handleId = `image-target-${port.fieldName}`;
+              return (
+                <DynamicImageHandle
+                  key={handleId}
+                  port={port}
+                  handleId={handleId}
+                />
+              );
+            })}
           </div>
         )}
 
