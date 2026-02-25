@@ -2,45 +2,24 @@
 
 import { useCallback } from 'react';
 import { Dices } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { FieldLabel } from './FieldLabel';
 
 type SchemaSeedProps = {
   label: string;
   value: number | null | undefined;
   onChange: (v: number | null) => void;
   description?: string;
+  required?: boolean;
 };
 
-export function SchemaSeed({ label, value, onChange, description }: SchemaSeedProps) {
+export function SchemaSeed({ label, value, onChange, description, required }: SchemaSeedProps) {
   const randomize = useCallback(() => {
     onChange(Math.floor(Math.random() * 2147483647));
   }, [onChange]);
 
-  const labelEl = (
-    <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-      {label}
-    </label>
-  );
-
   return (
     <div className="mb-1.5">
-      {description ? (
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>{labelEl}</TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[240px] text-xs">
-              {description}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : (
-        labelEl
-      )}
+      <FieldLabel label={label} description={description} required={required} />
       <div className="flex items-center gap-1">
         <input
           type="number"

@@ -1,12 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { FieldLabel } from './FieldLabel';
 
 type SchemaEnumProps = {
   label: string;
@@ -14,6 +9,7 @@ type SchemaEnumProps = {
   onChange: (v: string) => void;
   options: string[];
   description?: string;
+  required?: boolean;
 };
 
 const PILL_THRESHOLD = 8;
@@ -24,6 +20,7 @@ export function SchemaEnum({
   onChange,
   options,
   description,
+  required,
 }: SchemaEnumProps) {
   // Detect grouped options (contain '/')
   const groups = useMemo(() => {
@@ -50,23 +47,8 @@ export function SchemaEnum({
     [onChange],
   );
 
-  const labelEl = (
-    <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-      {label}
-    </label>
-  );
-
-  const wrappedLabel = description ? (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>{labelEl}</TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[240px] text-xs">
-          {description}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  ) : (
-    labelEl
+  const wrappedLabel = (
+    <FieldLabel label={label} description={description} required={required} />
   );
 
   if (usePills) {

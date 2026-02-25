@@ -27,7 +27,7 @@ import {
   type DynamicImagePort,
 } from '@/lib/fal/schema-introspection';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
-import { CollapsibleSettings, SchemaFieldRenderer } from './schema-widgets';
+import { CollapsibleSettings, SchemaFieldRenderer, FieldLabel } from './schema-widgets';
 import { useSchemaParams } from '@/lib/fal/use-schema-params';
 import type { TextToVideoData } from '@/types/canvas';
 
@@ -85,12 +85,14 @@ function DynamicImageHandle({
         index={0}
         required={port.required && !connected}
         isConnectable={port.maxConnections}
-        tooltip={buildPortTooltip(port, connections.length)}
         style={{ left: -24 }}
       />
-      <span className="text-xs text-gray-400">
-        {connected ? `${port.label} ✓` : port.label}
-      </span>
+      <FieldLabel
+        label={connected ? `${port.label} ✓` : port.label}
+        description={buildPortTooltip(port, connections.length)}
+        required={port.required && !connected}
+        as="span"
+      />
       {port.multi && (
         <span className="ml-auto text-[9px] text-gray-500">
           {connections.length}/{port.maxConnections}
@@ -290,17 +292,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
       }`}
       style={{ minWidth: 320, maxWidth: 400 }}
     >
-      {/* Text prompt input handle — positioned at container level */}
-      {config.hasPrompt && (
-        <TypedHandle
-          type="target"
-          position={Position.Left}
-          portType="text"
-          portId="text-in-0"
-          index={0}
-          style={{ top: '30%' }}
-        />
-      )}
+      {/* Note: prompt handle is rendered inline next to the Prompt label below */}
 
       {/* Output handle - video */}
       <TypedHandle
@@ -477,7 +469,15 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
 
         {/* Prompt (inline) when text input not connected */}
         {config.hasPrompt && (
-          <div>
+          <div className="relative">
+            <TypedHandle
+              type="target"
+              position={Position.Left}
+              portType="text"
+              portId="text-in-0"
+              index={0}
+              style={{ left: -24 }}
+            />
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
               Prompt
             </label>

@@ -1,12 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { FieldLabel } from './FieldLabel';
 
 type SchemaSliderProps = {
   label: string;
@@ -17,6 +12,7 @@ type SchemaSliderProps = {
   step?: number;
   description?: string;
   defaultValue?: number;
+  required?: boolean;
 };
 
 export function SchemaSlider({
@@ -28,6 +24,7 @@ export function SchemaSlider({
   step,
   description,
   defaultValue,
+  required,
 }: SchemaSliderProps) {
   const displayValue = value ?? defaultValue ?? min;
 
@@ -42,26 +39,9 @@ export function SchemaSlider({
     [onChange],
   );
 
-  const labelEl = (
-    <label className="mb-0.5 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-      {label}
-    </label>
-  );
-
   return (
     <div className="mb-1.5">
-      {description ? (
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>{labelEl}</TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[240px] text-xs">
-              {description}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : (
-        labelEl
-      )}
+      <FieldLabel label={label} description={description} required={required} />
       <div className="flex items-center gap-2">
         <input
           type="range"

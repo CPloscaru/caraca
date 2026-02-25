@@ -5,3 +5,4 @@ export { SchemaSeed } from './SchemaSeed';
 export { SchemaText } from './SchemaText';
 export { SchemaFieldRenderer } from './SchemaFieldRenderer';
 export { CollapsibleSettings } from './CollapsibleSettings';
+export { FieldLabel } from './FieldLabel';
