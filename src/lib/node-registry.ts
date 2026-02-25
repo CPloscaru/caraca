@@ -141,7 +141,7 @@ const NODE_REGISTRY_ARRAY = [
     inputs: [{ id: 'text-target-0', type: 'text' as const, label: 'Prompt' }],
     outputs: [{ id: 'video-source-0', type: 'video' as const, label: 'Video' }],
     resultFields: { __videoUrl: 'videoUrl', __cdnUrl: 'cdnUrl', __videoResults: 'videoResults', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
-    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
+    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 60,
     available: true,
   },
@@ -151,12 +151,12 @@ const NODE_REGISTRY_ARRAY = [
     description: 'Generate video from image',
     tags: ['video', 'generate', 'ai', 'fal'],
     inputs: [
-      { id: 'image-target-0', type: 'image' as const, label: 'Image' },
       { id: 'text-target-0', type: 'text' as const, label: 'Prompt' },
+      // image inputs are now dynamic — not declared in registry
     ],
     outputs: [{ id: 'video-source-0', type: 'video' as const, label: 'Video' }],
     resultFields: { __videoUrl: 'videoUrl', __cdnUrl: 'cdnUrl', __videoResults: 'videoResults', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
-    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
+    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 70,
     available: true,
   },

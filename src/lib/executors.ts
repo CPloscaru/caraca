@@ -83,6 +83,39 @@ const DEFAULT_TEXT_TO_VIDEO_MODEL = 'fal-ai/wan/v2.1/1.3b/text-to-video';
 const DEFAULT_IMAGE_TO_VIDEO_MODEL = 'fal-ai/minimax-video/image-to-video';
 
 // ---------------------------------------------------------------------------
+// Dynamic image port helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Handle elements array port mapping for Kling O3 style models.
+ * Reconstructs the nested `elements: [{ frontal_image_url, reference_image_urls }]` structure.
+ */
+async function handleElementsPort(
+  falInput: Record<string, unknown>,
+  fieldName: string,
+  inputValue: unknown,
+): Promise<void> {
+  const parts = fieldName.split('.');
+  const innerField = parts[2]; // "frontal_image_url" or "reference_image_urls"
+
+  if (!falInput.elements) {
+    falInput.elements = [{}];
+  }
+  const elements = falInput.elements as Record<string, unknown>[];
+  if (!elements[0]) elements[0] = {};
+
+  if (innerField === 'reference_image_urls') {
+    const urls = Array.isArray(inputValue) ? inputValue : [inputValue];
+    const resolved = await Promise.all(
+      urls.map(u => ensureFalCdnUrl(u as string))
+    );
+    elements[0][innerField] = resolved;
+  } else {
+    elements[0][innerField] = await ensureFalCdnUrl(inputValue as string);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Video helpers
 // ---------------------------------------------------------------------------
 
@@ -421,6 +454,30 @@ const textToVideoExecutor: NodeExecutor = async (
   if (data.duration) falInput.duration = data.duration;
   if (data.seed != null) falInput.seed = data.seed;
 
+  // Dynamic image port input mapping (text-to-video models that also accept images)
+  const dynamicPorts = (nodeData as Record<string, unknown>).dynamicImagePorts as
+    Array<{ fieldName: string; multi: boolean; maxConnections: number }> | undefined;
+
+  if (dynamicPorts) {
+    for (const port of dynamicPorts) {
+      const handleId = `image-target-${port.fieldName}`;
+      const inputValue = inputs[handleId];
+      if (!inputValue) continue;
+
+      if (port.fieldName.startsWith('elements.')) {
+        await handleElementsPort(falInput, port.fieldName, inputValue);
+      } else if (port.multi) {
+        const urls = Array.isArray(inputValue) ? inputValue : [inputValue];
+        const resolved = await Promise.all(
+          urls.map(u => ensureFalCdnUrl(u as string))
+        );
+        falInput[port.fieldName] = resolved;
+      } else {
+        falInput[port.fieldName] = await ensureFalCdnUrl(inputValue as string);
+      }
+    }
+  }
+
   // Merge dynamic schema params (won't overwrite dedicated keys)
   applySchemaParams(falInput, nodeData as Record<string, unknown>);
 
@@ -476,24 +533,46 @@ const imageToVideoExecutor: NodeExecutor = async (
   const data = nodeData as unknown as ImageToVideoData;
   const model = data.model || DEFAULT_IMAGE_TO_VIDEO_MODEL;
 
-  // Resolve image URL from connected input
-  const imageInput = inputs['image-target-0'] as string | undefined;
-  let resolvedImageUrl = imageInput;
-  if (imageInput) {
-    resolvedImageUrl = await ensureFalCdnUrl(imageInput);
-  }
-
   // Resolve prompt (optional for some models)
   const resolvedPrompt =
     (inputs['text-target-0'] as string) ?? data.prompt ?? '';
 
   // Build fal.ai input
   const falInput: Record<string, unknown> = {};
-  if (resolvedImageUrl) falInput.image_url = resolvedImageUrl;
   if (resolvedPrompt.trim()) falInput.prompt = resolvedPrompt;
   if (data.aspectRatio) falInput.aspect_ratio = data.aspectRatio;
   if (data.duration) falInput.duration = data.duration;
   if (data.seed != null) falInput.seed = data.seed;
+
+  // Dynamic image port input mapping
+  const dynamicPorts = (nodeData as Record<string, unknown>).dynamicImagePorts as
+    Array<{ fieldName: string; multi: boolean; maxConnections: number }> | undefined;
+
+  if (dynamicPorts) {
+    for (const port of dynamicPorts) {
+      const handleId = `image-target-${port.fieldName}`;
+      const inputValue = inputs[handleId];
+      if (!inputValue) continue;
+
+      if (port.fieldName.startsWith('elements.')) {
+        await handleElementsPort(falInput, port.fieldName, inputValue);
+      } else if (port.multi) {
+        const urls = Array.isArray(inputValue) ? inputValue : [inputValue];
+        const resolved = await Promise.all(
+          urls.map(u => ensureFalCdnUrl(u as string))
+        );
+        falInput[port.fieldName] = resolved;
+      } else {
+        falInput[port.fieldName] = await ensureFalCdnUrl(inputValue as string);
+      }
+    }
+  } else {
+    // Legacy fallback for pre-Phase-25 workflows
+    const imageInput = inputs['image-target-0'] as string | undefined;
+    if (imageInput) {
+      falInput.image_url = await ensureFalCdnUrl(imageInput);
+    }
+  }
 
   // Merge dynamic schema params (won't overwrite dedicated keys)
   applySchemaParams(falInput, nodeData as Record<string, unknown>);
