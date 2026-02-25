@@ -22,6 +22,7 @@ import { ImageUpscaleNode } from '@/components/canvas/nodes/ImageUpscaleNode';
 import { TextToVideoNode } from '@/components/canvas/nodes/TextToVideoNode';
 import { ImageToVideoNode } from '@/components/canvas/nodes/ImageToVideoNode';
 import { BatchParameterNode } from '@/components/canvas/nodes/BatchParameterNode';
+import { NoteNode } from '@/components/canvas/nodes/NoteNode';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import {
   ContextMenu,
@@ -32,12 +33,23 @@ import type { NodeTemplate } from '@/lib/node-registry';
 import type { NodeData } from '@/types/canvas';
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
-const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode, textToVideo: TextToVideoNode, imageToVideo: ImageToVideoNode, batchParameter: BatchParameterNode };
+const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode, textToVideo: TextToVideoNode, imageToVideo: ImageToVideoNode, batchParameter: BatchParameterNode, canvasNote: NoteNode };
 const edgeTypes = { turbo: TurboEdge };
 
 let nodeIdCounter = 0;
 function getNextNodeId() {
   return `node_${Date.now()}_${nodeIdCounter++}`;
+}
+
+/** Build extra props for note nodes (initial size + default data fields) */
+function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; extraData?: Record<string, unknown> } {
+  if (nodeType === 'canvasNote') {
+    return {
+      style: { width: 300, height: 200 },
+      extraData: { noteTitle: '', noteBody: '' },
+    };
+  }
+  return {};
 }
 
 function getNodeColor(node: Node): string {
@@ -50,6 +62,7 @@ function getNodeColor(node: Node): string {
     case 'imageUpscale': return '#ae53ba';
     case 'textToVideo': return '#f59e0b';
     case 'imageToVideo': return '#f59e0b';
+    case 'canvasNote': return '#ae53ba';
     default: return '#666';
   }
 }
@@ -94,15 +107,18 @@ export function Canvas() {
         x: window.innerWidth / 2,
         y: window.innerHeight / 2,
       });
+      const { style, extraData } = getNoteNodeExtras(template.nodeType);
       const newNode: Node = {
         id: getNextNodeId(),
         type: template.nodeType,
         position,
+        ...(style ? { style } : {}),
         data: {
           label: template.label,
           type: template.nodeType,
           inputs: template.inputs,
           outputs: template.outputs,
+          ...extraData,
         } satisfies NodeData,
       };
       addNode(newNode);
@@ -136,15 +152,18 @@ export function Canvas() {
         y: event.clientY,
       });
 
+      const { style, extraData } = getNoteNodeExtras(parsed.nodeType);
       const newNode: Node = {
         id: getNextNodeId(),
         type: parsed.nodeType,
         position,
+        ...(style ? { style } : {}),
         data: {
           label: parsed.label,
           type: parsed.nodeType,
           inputs: parsed.inputs,
           outputs: parsed.outputs,
+          ...extraData,
         } satisfies NodeData,
       };
 
@@ -172,15 +191,18 @@ export function Canvas() {
 
   const onContextMenuAddNode = useCallback(
     (template: NodeTemplate, flowX: number, flowY: number) => {
+      const { style, extraData } = getNoteNodeExtras(template.nodeType);
       const newNode: Node = {
         id: getNextNodeId(),
         type: template.nodeType,
         position: { x: flowX, y: flowY },
+        ...(style ? { style } : {}),
         data: {
           label: template.label,
           type: template.nodeType,
           inputs: template.inputs,
           outputs: template.outputs,
+          ...extraData,
         } satisfies NodeData,
       };
       addNode(newNode);
