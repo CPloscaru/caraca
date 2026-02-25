@@ -696,7 +696,7 @@ export async function runAllWorkflow(): Promise<void> {
     nodes.filter((n) => (n.data as Record<string, unknown>).type === 'canvasNote').map((n) => n.id),
   );
   const edgesSimple = edges
-    .filter((e) => !noteNodeIds.has(e.source) && !noteNodeIds.has(e.target))
+    .filter((e) => e.type !== 'annotationEdge' && !noteNodeIds.has(e.source) && !noteNodeIds.has(e.target))
     .map((e) => ({
       source: e.source,
       target: e.target,

@@ -32,6 +32,9 @@ export function getPortTypeFromHandleId(handleId: string | null): PortType | nul
 
 /** Validate whether a connection between two ports is allowed */
 export function isValidConnection(connection: Edge | Connection): boolean {
+  // Annotation edges from note nodes are always allowed (visual-only)
+  if (connection.sourceHandle === 'annotation-out') return true;
+
   const sourceType = getPortTypeFromHandleId(connection.sourceHandle ?? null);
   const targetType = getPortTypeFromHandleId(connection.targetHandle ?? null);
   if (!sourceType || !targetType) return false;

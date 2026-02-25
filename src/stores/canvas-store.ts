@@ -41,6 +41,11 @@ export const useCanvasStore = create<CanvasState>()(
       },
 
       onConnect: (connection) => {
+        // Annotation edges from note nodes bypass port validation
+        if (connection.sourceHandle === 'annotation-out') {
+          set({ edges: addEdge({ ...connection, type: 'annotationEdge' }, get().edges) });
+          return;
+        }
         // Validate port type compatibility before connecting
         if (!isValidConnection(connection)) return;
         set({ edges: addEdge({ ...connection, type: 'turbo' }, get().edges) });

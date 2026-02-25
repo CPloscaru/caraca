@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { type NodeProps, NodeResizer } from '@xyflow/react';
+import { type NodeProps, NodeResizer, Handle, Position } from '@xyflow/react';
 import { StickyNote } from 'lucide-react';
 import { useEditor, EditorContent, Extension } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -278,6 +278,24 @@ export function NoteNode({ id, data, selected }: NodeProps) {
           padding: 0;
         }
       `}</style>
+
+      {/* Annotation source handle — small, subtle, at bottom-right */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="annotation-out"
+        className="nodrag"
+        style={{
+          width: 6,
+          height: 6,
+          background: '#ae53ba',
+          border: 'none',
+          opacity: selected ? 0.6 : 0.2,
+          transition: 'opacity 0.2s ease',
+          bottom: 12,
+          top: 'auto',
+        }}
+      />
     </div>
   );
 }
