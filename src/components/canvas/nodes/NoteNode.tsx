@@ -60,6 +60,7 @@ export function NoteNode({ id, data, selected }: NodeProps) {
     extensions,
     content: nodeData.noteBody || '',
     editable: false,
+    immediatelyRender: false,
     onUpdate: ({ editor: ed }) => {
       localBodyRef.current = ed.getHTML();
     },
