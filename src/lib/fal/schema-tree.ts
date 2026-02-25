@@ -178,15 +178,17 @@ function parseProperty(
   // Unwrap anyOf/allOf
   const unwrapped = unwrapVariants(spec, prop);
 
-  // Determine effective type
-  let effectiveType = (prop.type as string | undefined) ?? unwrapped.type;
+  // Determine effective type and effective prop to use for items/properties.
+  // When prop is an anyOf wrapper (no own type), switch to the resolved variant
+  // so we can access items, properties, etc.
+  const propType = prop.type as string | undefined;
   let effectiveProp = prop;
 
-  // If prop itself has no type but the unwrap resolved a complex schema, use it
-  if (!effectiveType && unwrapped.resolved) {
+  if (!propType && unwrapped.resolved) {
     effectiveProp = unwrapped.resolved;
-    effectiveType = effectiveProp.type as string | undefined;
   }
+
+  const effectiveType = propType ?? unwrapped.type ?? (effectiveProp.type as string | undefined);
 
   // Extract enum
   const enumValues = (prop.enum as unknown[] | undefined) ?? unwrapped.enum;
@@ -196,10 +198,13 @@ function parseProperty(
   const maximum = (prop.maximum as number | undefined) ?? unwrapped.maximum;
   const nullable = unwrapped.nullable || (prop.nullable === true);
 
-  // UI hints from fal.ai extensions
+  // UI hints from fal.ai extensions (check both original prop and effective prop)
   const uiHint =
     (prop['x-fal-widget'] as string | undefined) ??
-    ((prop.ui as RawSchema | undefined)?.field as string | undefined);
+    ((prop.ui as RawSchema | undefined)?.field as string | undefined) ??
+    (effectiveProp['x-fal-widget'] as string | undefined) ??
+    ((effectiveProp.ui as RawSchema | undefined)?.field as string | undefined) ??
+    (effectiveProp['_fal_ui_field'] as string | undefined);
 
   // Determine kind
   let kind: SchemaNodeKind;
