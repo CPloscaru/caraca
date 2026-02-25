@@ -27,8 +27,9 @@ Thumbs.db
 /brainstorming/
 /.claude/
 /.planning*/
+.planning/*
 .audit-exceptions.md
-/.playwright-mcp/
+.playwright-mcp/*
 
 /tests/
 

@@ -205,6 +205,17 @@ function ModelDetails({ model }: { model: CachedModel }) {
               {model.description}
             </p>
           )}
+          {model.unit_price != null && model.price_unit != null && (
+            <div className="mb-2 text-xs text-gray-500">
+              {formatFalPrice(model.unit_price, model.price_unit) ? (
+                <span>{formatFalPrice(model.unit_price, model.price_unit)}</span>
+              ) : (
+                <span className="italic">
+                  GPU pricing only: ${model.unit_price.toFixed(6)}/{model.price_unit}
+                </span>
+              )}
+            </div>
+          )}
           {model.duration_estimate != null && (
             <div className="mb-2 flex items-center gap-1 text-xs text-gray-500">
               <Clock className="h-3 w-3" />
@@ -233,6 +244,9 @@ function ModelDetails({ model }: { model: CachedModel }) {
 // Price formatting
 // ---------------------------------------------------------------------------
 
+// Only display pricing for user-comprehensible units.
+// The fal.ai pricing API returns "compute seconds" (GPU time) for some models,
+// which is meaningless to end-users — hide those entirely.
 const UNIT_LABELS: Record<string, string> = {
   image: '/image',
   images: '/image',
@@ -240,16 +254,12 @@ const UNIT_LABELS: Record<string, string> = {
   megapixel: '/MP',
   megapixels: '/MP',
   'processed megapixels': '/MP',
-  second: '/sec',
-  'compute seconds': '/sec',
-  generations: '/gen',
-  units: '/unit',
-  credits: '/credit',
 };
 
 export function formatFalPrice(unitPrice: number | null, unit: string | null): string | null {
   if (unitPrice == null || unit == null) return null;
-  const label = UNIT_LABELS[unit] ?? `/${unit}`;
+  const label = UNIT_LABELS[unit];
+  if (!label) return null;
   const formatted = unitPrice < 0.01 ? unitPrice.toFixed(4) : unitPrice.toFixed(3);
   return `$${formatted}${label}`;
 }
@@ -384,14 +394,18 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
     const filterModels = (models: CachedModel[]) =>
       q ? models.filter((m) => m.display_name.toLowerCase().includes(q)) : models;
 
-    // When sorting by price, flatten all models into a single sorted list
+    // When sorting by price, flatten all models into a single sorted list.
+    // Only models with displayable pricing (image/video/megapixel) sort to the top;
+    // models with GPU-only pricing or no pricing sort to the bottom.
     if (sortByPrice) {
       const allFiltered = filterModels(data.models);
       const sorted = [...allFiltered].sort((a, b) => {
-        if (a.unit_price == null && b.unit_price == null) return 0;
-        if (a.unit_price == null) return 1;
-        if (b.unit_price == null) return -1;
-        return a.unit_price - b.unit_price;
+        const aPrice = formatFalPrice(a.unit_price, a.price_unit) ? a.unit_price! : null;
+        const bPrice = formatFalPrice(b.unit_price, b.price_unit) ? b.unit_price! : null;
+        if (aPrice == null && bPrice == null) return 0;
+        if (aPrice == null) return 1;
+        if (bPrice == null) return -1;
+        return aPrice - bPrice;
       });
       return { recommended: [] as CachedModel[], groups: {} as Record<string, { label: string; models: CachedModel[] }>, flatSorted: sorted };
     }

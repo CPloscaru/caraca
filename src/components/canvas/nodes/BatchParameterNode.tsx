@@ -2,22 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { List, Play, Loader2, X, RotateCcw } from 'lucide-react';
+import { List, X, RotateCcw } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { runBatchNode, retryFailedBatchItems } from '@/lib/executors';
+import { retryFailedBatchItems } from '@/lib/executors';
 import { getPortTypeFromHandleId, type PortType } from '@/lib/port-types';
 import { BatchValueEditor } from './BatchValueEditor';
 import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { formatFalPrice } from './ModelSelector';
-import { BatchCostDialog, isCostDialogDismissed } from './BatchCostDialog';
 import type { BatchParameterData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -37,7 +29,6 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
 
   // Canvas store
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
-  const nodes = useCanvasStore((s) => s.nodes);
   const edges = useEdges();
 
   // Derived data
@@ -47,9 +38,6 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
   const batchResults = nodeData.batchResults ?? null;
 
   const statusBorder = getStatusBorderClass(execState?.status);
-
-  // Cost dialog state
-  const [costDialogOpen, setCostDialogOpen] = useState(false);
 
   // Summary toast state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -90,35 +78,6 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
   }, []);
 
   // ---------------------------------------------------------------------------
-  // Downstream node pricing info (for cost dialog)
-  // ---------------------------------------------------------------------------
-  const downstreamPricing = useMemo(() => {
-    const outEdge = edges.find((e) => e.source === nodeId);
-    if (!outEdge) return { unitPrice: null, priceUnit: null, modelName: 'Unknown model' };
-    const targetNode = nodes.find((n) => n.id === outEdge.target);
-    if (!targetNode) return { unitPrice: null, priceUnit: null, modelName: 'Unknown model' };
-    const targetData = targetNode.data as Record<string, unknown>;
-    return {
-      unitPrice: (targetData.unitPrice as number | null) ?? null,
-      priceUnit: (targetData.priceUnit as string | null) ?? null,
-      modelName: (targetData.model as string) ?? 'Unknown model',
-    };
-  }, [edges, nodeId, nodes]);
-
-  // ---------------------------------------------------------------------------
-  // Batch cost tooltip from downstream node pricing
-  // ---------------------------------------------------------------------------
-  const batchCostTooltip = useMemo(() => {
-    if (values.length === 0) return null;
-    const { unitPrice, priceUnit } = downstreamPricing;
-    const priceLabel = formatFalPrice(unitPrice, priceUnit);
-    if (!priceLabel || unitPrice == null) return null;
-    const total = unitPrice * values.length;
-    const totalFormatted = total < 0.01 ? total.toFixed(4) : total < 1 ? total.toFixed(3) : total.toFixed(2);
-    return `~$${totalFormatted} total (${priceLabel} x ${values.length})`;
-  }, [downstreamPricing, values.length]);
-
-  // ---------------------------------------------------------------------------
   // Dynamic output port type
   // ---------------------------------------------------------------------------
   const outputPortType: PortType = useMemo(() => {
@@ -148,23 +107,6 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
     [nodeId, updateNodeData],
   );
 
-  const handleRunBatch = useCallback(() => {
-    if (isCostDialogDismissed()) {
-      runBatchNode(nodeId).catch((err) => {
-        console.error('Batch execution failed:', err);
-      });
-    } else {
-      setCostDialogOpen(true);
-    }
-  }, [nodeId]);
-
-  const handleCostConfirm = useCallback(() => {
-    setCostDialogOpen(false);
-    runBatchNode(nodeId).catch((err) => {
-      console.error('Batch execution failed:', err);
-    });
-  }, [nodeId]);
-
   const handleRetryFailed = useCallback(() => {
     retryFailedBatchItems(nodeId).catch((err) => {
       console.error('Batch retry failed:', err);
@@ -180,17 +122,6 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
       }`}
       style={{ minWidth: 280, maxWidth: 360 }}
     >
-      {/* Cost confirmation dialog */}
-      <BatchCostDialog
-        open={costDialogOpen}
-        onConfirm={handleCostConfirm}
-        onCancel={() => setCostDialogOpen(false)}
-        itemCount={values.length}
-        unitPrice={downstreamPricing.unitPrice}
-        priceUnit={downstreamPricing.priceUnit}
-        modelName={downstreamPricing.modelName}
-      />
-
       {/* Output handle - dynamic type */}
       <TypedHandle
         type="source"
@@ -376,36 +307,6 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {/* Run Batch button -- flow-based bottom-right */}
-      <div className="flex justify-end p-2 pt-0">
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-white shadow-lg transition-all hover:bg-teal-500"
-                disabled={values.length === 0 && !isRunning && !isPending}
-                onClick={() => {
-                  if (isRunning || isPending) {
-                    useExecutionStore.getState().cancelExecution();
-                  } else {
-                    handleRunBatch();
-                  }
-                }}
-                title={isRunning || isPending ? 'Cancel' : undefined}
-              >
-                {isRunning || isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
-            </TooltipTrigger>
-            {batchCostTooltip && !(isRunning || isPending) && (
-              <TooltipContent>{batchCostTooltip}</TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      </div>
     </div>
   );
 }
