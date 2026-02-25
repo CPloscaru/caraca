@@ -183,20 +183,116 @@ export async function fetchModelSchema(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Dynamic image port extraction
+// ---------------------------------------------------------------------------
+
+export type DynamicImagePort = {
+  fieldName: string;      // Original schema field name (e.g. "start_image_url")
+  label: string;          // Human-readable label (e.g. "Start Image")
+  required: boolean;      // From schema required array
+  description?: string;   // Schema description for tooltip
+  multi: boolean;         // true for array fields (multi-connection)
+  maxConnections: number; // 1 for single, N for arrays
+};
+
 /**
- * Derive a node configuration from model input fields.
- * Inspects field names to determine what the model supports.
+ * Convert a snake_case field name to a human-readable Title Case label.
+ * Strips `_url` and `_urls` suffixes before converting.
  */
+export function humanizeFieldName(name: string): string {
+  const stripped = name.replace(/_urls?$/, '');
+  return stripped
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+const IMAGE_FIELD_PATTERNS = [
+  /image_url$/,
+  /^image$/,
+  /^start_image/,
+  /^end_image/,
+  /^last_frame/,
+  /^tail_image/,
+  /^frontal_image/,
+  /^reference_image/,
+];
+
+function isImageField(field: ModelInputField): boolean {
+  return (
+    field.type === 'string' &&
+    IMAGE_FIELD_PATTERNS.some((pattern) => pattern.test(field.name))
+  );
+}
+
+/**
+ * Extract dynamic image ports from model input fields.
+ * Handles single image fields, array image fields, and the special
+ * `elements` array (e.g. Kling O3).
+ */
+export function getSchemaImageFields(
+  fields: ModelInputField[],
+): DynamicImagePort[] {
+  const ports: DynamicImagePort[] = [];
+
+  for (const field of fields) {
+    // Special case: elements array (Kling O3 style)
+    if (field.name === 'elements' && field.type === 'array') {
+      ports.push({
+        fieldName: 'elements.0.frontal_image_url',
+        label: 'Frontal Image',
+        required: false,
+        description: field.description,
+        multi: false,
+        maxConnections: 1,
+      });
+      ports.push({
+        fieldName: 'elements.0.reference_image_urls',
+        label: 'Reference Images',
+        required: false,
+        description: field.description,
+        multi: true,
+        maxConnections: 3,
+      });
+      continue;
+    }
+
+    // Array fields with "image" in the name → multi-connection port
+    if (field.type === 'array' && field.name.includes('image')) {
+      ports.push({
+        fieldName: field.name,
+        label: humanizeFieldName(field.name),
+        required: field.required,
+        description: field.description,
+        multi: true,
+        maxConnections: field.maximum ?? 4,
+      });
+      continue;
+    }
+
+    // Single image fields
+    if (isImageField(field)) {
+      ports.push({
+        fieldName: field.name,
+        label: humanizeFieldName(field.name),
+        required: field.required,
+        description: field.description,
+        multi: false,
+        maxConnections: 1,
+      });
+    }
+  }
+
+  return ports;
+}
+
 // ---------------------------------------------------------------------------
 // Default set of fields excluded from "More Settings" (handled by dedicated UI)
 // ---------------------------------------------------------------------------
 
 const DEFAULT_EXCLUDED_FIELDS = new Set([
   'prompt',
-  'image_url',
-  'image',
-  'last_frame_image_url',
-  'tail_image_url',
   'sync_mode',
   'enable_safety_checker',
   'image_size',

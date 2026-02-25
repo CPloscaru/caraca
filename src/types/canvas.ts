@@ -71,6 +71,12 @@ export type ImageUpscaleData = NodeData & {
   debugError?: unknown;
 };
 
+export type DynamicImagePortConfig = {
+  fieldName: string;
+  multi: boolean;
+  maxConnections: number;
+};
+
 export type TextToVideoData = NodeData & {
   model: string;
   prompt: string;
@@ -81,6 +87,7 @@ export type TextToVideoData = NodeData & {
   cdnUrl: string | null;
   videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
   schemaParams?: Record<string, unknown>;
+  dynamicImagePorts?: DynamicImagePortConfig[];
   debugRequest?: unknown;
   debugResponse?: unknown;
   debugError?: unknown;
@@ -96,6 +103,7 @@ export type ImageToVideoData = NodeData & {
   cdnUrl: string | null;
   videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
   schemaParams?: Record<string, unknown>;
+  dynamicImagePorts?: DynamicImagePortConfig[];
   debugRequest?: unknown;
   debugResponse?: unknown;
   debugError?: unknown;
