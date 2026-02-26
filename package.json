@@ -46,6 +46,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.5.0",
+    "zod": "^3.25.76",
     "zundo": "^2.3.0",
     "zustand": "^5.0.11"
   },
