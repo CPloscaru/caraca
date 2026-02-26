@@ -151,7 +151,10 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Load default model on first mount if no value set
+  const didLoadDefault = useRef(false);
   useEffect(() => {
+    if (didLoadDefault.current) return;
+    didLoadDefault.current = true;
     if (!value) {
       fetch('/api/settings/default-llm-model')
         .then((r) => (r.ok ? r.json() : null))
@@ -160,8 +163,7 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
         })
         .catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [value, onSelect]);
 
   // Fetch models on first open
   const handleOpenChange = useCallback((isOpen: boolean) => {

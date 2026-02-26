@@ -436,8 +436,10 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
   );
 
   // Eagerly fetch models on mount so the display label is correct after page refresh
+  const didEagerFetch = useRef(false);
   useEffect(() => {
-    if (fetchedRef.current || !value) return;
+    if (didEagerFetch.current || fetchedRef.current || !value) return;
+    didEagerFetch.current = true;
     fetchedRef.current = true;
     fetch(`/api/models?mode=${mode}`)
       .then((r) => {
@@ -457,7 +459,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
         // Silently fail — user can still open dropdown to retry
         fetchedRef.current = false;
       });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [value, mode, onPricingInfo]);
 
   // Focus search input when popover opens
   useEffect(() => {

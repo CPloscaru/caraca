@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   fetchModelSchema,
   getSchemaExtraFields,
@@ -55,10 +55,14 @@ export function useSchemaParams(
   // Track whether this hook instance owns a loading increment
   const ownsLoading = useRef(false);
 
-  // Build combined exclusion set
-  const allExcluded = excludeFields
-    ? new Set([...DEDICATED_FIELDS, ...excludeFields])
-    : DEDICATED_FIELDS;
+  // Build combined exclusion set (memoized to keep effect deps stable)
+  const allExcluded = useMemo(
+    () =>
+      excludeFields
+        ? new Set([...DEDICATED_FIELDS, ...excludeFields])
+        : DEDICATED_FIELDS,
+    [excludeFields],
+  );
 
   // Fetch schema and derive extra fields + tree on model change
   useEffect(() => {
@@ -89,8 +93,7 @@ export function useSchemaParams(
         ownsLoading.current = false;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model, nodeId, updateNodeData]);
+  }, [model, nodeId, updateNodeData, startSchemaLoading, stopSchemaLoading, allExcluded, excludeFields]);
 
   // Dismiss loading overlay once filteredTree is rendered (post-paint)
   useEffect(() => {

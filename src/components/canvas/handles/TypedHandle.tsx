@@ -28,8 +28,7 @@ type TypedHandleProps = Omit<HandleProps, 'id' | 'isConnectable'> & {
   tooltip?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function TypedHandle({ portType, portId, index,
+export function TypedHandle({ portType, portId: _portId, index,
   type,
   position,
   handleId,

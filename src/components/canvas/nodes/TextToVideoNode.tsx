@@ -361,8 +361,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
         maxConnections: p.maxConnections,
       })),
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemaTree, nodeData.schemaParams, nodeId]);
+  }, [schemaTree, nodeData.schemaParams, nodeId, dynamicImagePorts, updateNodeData]);
 
   // Build port lookup map for renderImagePort callback
   const portMap = useMemo(() => {
