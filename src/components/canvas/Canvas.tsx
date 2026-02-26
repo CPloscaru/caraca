@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/shallow';
 import { Hand, Loader2, MousePointer2 } from 'lucide-react';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { useAppStore } from '@/stores/app-store';
+import { useFavoritesStore } from '@/stores/favorites-store';
 import { isValidConnection } from '@/lib/port-types';
 import { PlaceholderNode } from '@/components/canvas/nodes/PlaceholderNode';
 import { TextInputNode } from '@/components/canvas/nodes/TextInputNode';
@@ -94,6 +95,11 @@ export function Canvas() {
 
   // Interaction mode: 'pan' (hand drag) or 'select' (box selection)
   const [interactionMode, setInteractionMode] = useState<'pan' | 'select'>('pan');
+
+  // Load favorites from SQLite on mount
+  useEffect(() => {
+    useFavoritesStore.getState().loadFavorites();
+  }, []);
 
   // Ensure edges render above selected nodes (z-index 1000)
   useEffect(() => {

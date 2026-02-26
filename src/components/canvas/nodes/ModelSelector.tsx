@@ -13,6 +13,7 @@ import {
   Loader2,
   ArrowUpDown,
 } from 'lucide-react';
+import { useFavoritesStore } from '@/stores/favorites-store';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -272,10 +273,18 @@ function ModelRow({
   model,
   isSelected,
   onSelect,
+  isFavorited,
+  isTogglingFav,
+  onToggleFavorite,
+  disabled,
 }: {
   model: CachedModel;
   isSelected: boolean;
   onSelect: () => void;
+  isFavorited: boolean;
+  isTogglingFav: boolean;
+  onToggleFavorite: (endpointId: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div
@@ -283,13 +292,34 @@ function ModelRow({
       aria-selected={isSelected}
       className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5 ${
         isSelected ? 'bg-white/10' : ''
-      }`}
-      onClick={onSelect}
+      }${disabled ? ' opacity-50 cursor-default' : ''}`}
+      onClick={disabled ? undefined : onSelect}
     >
+      {/* Star toggle */}
+      <button
+        className={`shrink-0 rounded p-1 transition-colors hover:bg-white/5 ${
+          isFavorited
+            ? 'text-yellow-500'
+            : 'text-gray-600 hover:text-gray-400'
+        }`}
+        disabled={isTogglingFav}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(model.endpoint_id);
+        }}
+      >
+        <Star
+          className="h-3.5 w-3.5"
+          {...(isFavorited ? { fill: 'currentColor' } : {})}
+        />
+      </button>
       <ModelThumb url={model.thumbnail_url} name={model.display_name} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-xs font-medium text-gray-200">
+        <div className={`truncate text-xs font-medium ${disabled ? 'text-gray-500' : 'text-gray-200'}`}>
           {model.display_name}
+          {disabled && (
+            <span className="ml-1 text-[10px] text-gray-600">(indisponible)</span>
+          )}
         </div>
         {model.group_label && (
           <div className="truncate text-[10px] text-gray-500">
@@ -323,8 +353,35 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sortByPrice, setSortByPrice] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const fetchedRef = useRef(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Favorites store
+  const favoriteIds = useFavoritesStore((s) => s.favoriteIds);
+  const toggling = useFavoritesStore((s) => s.toggling);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Handle favorite toggle with toast feedback
+  const handleToggleFavorite = useCallback(async (endpointId: string) => {
+    try {
+      const result = await useFavoritesStore.getState().toggleFavorite(endpointId);
+      if (result.ok) {
+        setToast({
+          message: result.added ? 'Modele ajoute aux favoris' : 'Modele retire des favoris',
+          type: 'success',
+        });
+      }
+    } catch {
+      setToast({ message: 'Erreur lors de la mise a jour', type: 'error' });
+    }
+  }, []);
 
   // Fetch models on first open
   const handleOpenChange = useCallback(
@@ -410,6 +467,46 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
       setSearch('');
     }
   }, [open]);
+
+  // Build favorite models list (including deprecated/removed ones)
+  const favoriteModels = useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    const allModelMap = new Map(data.models.map((m) => [m.endpoint_id, m]));
+
+    const favModels: (CachedModel & { _deprecated?: boolean })[] = [];
+    for (const id of favoriteIds) {
+      const model = allModelMap.get(id);
+      if (model) {
+        // Filter by search query
+        if (q && !model.display_name.toLowerCase().includes(q)) continue;
+        favModels.push(model);
+      } else {
+        // Deprecated/removed model — show greyed out
+        if (q && !id.toLowerCase().includes(q)) continue;
+        favModels.push({
+          endpoint_id: id,
+          category: '',
+          display_name: id,
+          group_key: null,
+          group_label: null,
+          thumbnail_url: null,
+          description: null,
+          highlighted: null,
+          pinned: null,
+          duration_estimate: null,
+          model_url: null,
+          unit_price: null,
+          price_unit: null,
+          price_currency: null,
+          _deprecated: true,
+        });
+      }
+    }
+    // Sort alphabetically by display_name
+    favModels.sort((a, b) => a.display_name.localeCompare(b.display_name));
+    return favModels;
+  }, [data, favoriteIds, search]);
 
   // Filter models by search (and optionally sort by price)
   const filtered = useMemo(() => {
@@ -517,7 +614,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
           </div>
 
           {/* Content */}
-          <div className="max-h-64 overflow-y-auto">
+          <div className="relative max-h-64 overflow-y-auto">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-8 text-xs text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -533,6 +630,28 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
 
             {filtered && !loading && (
               <>
+                {/* Favorites section — always before other sections */}
+                {favoriteModels.length > 0 && !filtered.flatSorted && (
+                  <div>
+                    <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-yellow-500">
+                      <Star className="h-3 w-3" fill="currentColor" />
+                      Favoris
+                    </div>
+                    {favoriteModels.map((m) => (
+                      <ModelRow
+                        key={`fav-${m.endpoint_id}`}
+                        model={m}
+                        isSelected={m.endpoint_id === value}
+                        onSelect={() => handleModelSelect(m)}
+                        isFavorited={true}
+                        isTogglingFav={toggling.has(m.endpoint_id)}
+                        onToggleFavorite={handleToggleFavorite}
+                        disabled={'_deprecated' in m && (m as CachedModel & { _deprecated?: boolean })._deprecated}
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {/* Price-sorted flat list */}
                 {filtered.flatSorted ? (
                   <>
@@ -542,6 +661,9 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
                         model={m}
                         isSelected={m.endpoint_id === value}
                         onSelect={() => handleModelSelect(m)}
+                        isFavorited={favoriteIds.has(m.endpoint_id)}
+                        isTogglingFav={toggling.has(m.endpoint_id)}
+                        onToggleFavorite={handleToggleFavorite}
                       />
                     ))}
                     {filtered.flatSorted.length === 0 && (
@@ -565,6 +687,9 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
                             model={m}
                             isSelected={m.endpoint_id === value}
                             onSelect={() => handleModelSelect(m)}
+                            isFavorited={favoriteIds.has(m.endpoint_id)}
+                            isTogglingFav={toggling.has(m.endpoint_id)}
+                            onToggleFavorite={handleToggleFavorite}
                           />
                         ))}
                       </div>
@@ -582,6 +707,9 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
                             model={m}
                             isSelected={m.endpoint_id === value}
                             onSelect={() => handleModelSelect(m)}
+                            isFavorited={favoriteIds.has(m.endpoint_id)}
+                            isTogglingFav={toggling.has(m.endpoint_id)}
+                            onToggleFavorite={handleToggleFavorite}
                           />
                         ))}
                       </div>
@@ -589,7 +717,8 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
 
                     {/* Empty search results */}
                     {filtered.recommended.length === 0 &&
-                      Object.keys(filtered.groups).length === 0 && (
+                      Object.keys(filtered.groups).length === 0 &&
+                      favoriteModels.length === 0 && (
                         <div className="py-6 text-center text-xs text-gray-500">
                           No models match &quot;{search}&quot;
                         </div>
@@ -597,6 +726,19 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
                   </>
                 )}
               </>
+            )}
+
+            {/* Toast notification */}
+            {toast && (
+              <div
+                className={`sticky bottom-0 left-0 right-0 px-3 py-1.5 text-center text-xs rounded-b-lg ${
+                  toast.type === 'success'
+                    ? 'bg-yellow-500/15 text-yellow-300'
+                    : 'bg-red-500/15 text-red-300'
+                }`}
+              >
+                {toast.message}
+              </div>
             )}
           </div>
         </PopoverPrimitive.Content>
