@@ -378,6 +378,30 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
     [mode, onPricingInfo, value],
   );
 
+  // Eagerly fetch models on mount so the display label is correct after page refresh
+  useEffect(() => {
+    if (fetchedRef.current || !value) return;
+    fetchedRef.current = true;
+    fetch(`/api/models?mode=${mode}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status}`);
+        return r.json();
+      })
+      .then((json: ModelsResponse) => {
+        setData(json);
+        if (onPricingInfo) {
+          const selected = json.models.find((m: CachedModel) => m.endpoint_id === value);
+          if (selected) {
+            onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
+          }
+        }
+      })
+      .catch(() => {
+        // Silently fail — user can still open dropdown to retry
+        fetchedRef.current = false;
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Focus search input when popover opens
   useEffect(() => {
     if (open) {

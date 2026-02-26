@@ -1,15 +1,18 @@
 import { toPng } from 'html-to-image';
-import { getNodesBounds, getViewportForBounds, type Node } from '@xyflow/react';
+import { getViewportForBounds, type Node, type Rect } from '@xyflow/react';
 
 const THUMBNAIL_WIDTH = 400;
 const THUMBNAIL_HEIGHT = 300;
 
 /**
  * Capture a PNG thumbnail of the current canvas state.
+ * Accepts `getNodesBounds` from `useReactFlow()` to avoid the deprecated
+ * standalone import (which lacks nodeLookup for sub-flows).
  * Returns a Blob on success, null on failure (thumbnail is non-critical).
  */
 export async function captureCanvasThumbnail(
   nodes: Node[],
+  getNodesBounds: (nodes: Node[]) => Rect,
 ): Promise<Blob | null> {
   try {
     if (nodes.length === 0) return null;

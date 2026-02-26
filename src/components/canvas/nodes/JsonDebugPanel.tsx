@@ -113,18 +113,6 @@ export function JsonDebugPanel({
             {tab.label}
           </button>
         ))}
-        {/* Copy button — right-aligned */}
-        <button
-          className="nodrag ml-auto text-gray-400 hover:text-gray-200 transition-colors"
-          onClick={handleCopy}
-          title="Copy JSON"
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-green-400" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" />
-          )}
-        </button>
       </div>
 
       {/* Tab content */}
@@ -137,6 +125,21 @@ export function JsonDebugPanel({
         ) : (
           <JsonTreeView data={getTabData()} />
         )}
+      </div>
+
+      {/* Copy button — bottom left */}
+      <div className="mt-1 pt-1 border-t border-white/10">
+        <button
+          className="nodrag text-gray-400 hover:text-gray-200 transition-colors"
+          onClick={handleCopy}
+          title="Copy JSON"
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-green-400" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
+        </button>
       </div>
     </div>
   );

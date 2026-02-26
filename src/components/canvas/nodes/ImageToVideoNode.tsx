@@ -23,13 +23,16 @@ import {
   fetchSchemaTree,
   deriveNodeConfig,
   getSchemaImageFields,
+  humanizeFieldName,
   type ModelNodeConfig,
   type ModelInputField,
   type DynamicImagePort,
 } from '@/lib/fal/schema-introspection';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
-import { CollapsibleSettings, SchemaFieldRenderer, FieldLabel } from './schema-widgets';
+import { FieldLabel, SchemaNodeRenderer } from './schema-widgets';
 import { useSchemaParams } from '@/lib/fal/use-schema-params';
+import type { SchemaNode } from '@/lib/fal/schema-tree';
+import { isImageNode, isImageArrayNode, isTextNode, computePerElementPorts } from '@/lib/fal/schema-ports';
 import type { ImageToVideoData } from '@/types/canvas';
 
 const I2V_EXCLUDE = new Set(['seed']);
@@ -86,7 +89,7 @@ function DynamicImageHandle({
         index={0}
         required={port.required && !connected}
         isConnectable={port.maxConnections}
-        style={{ left: -24 }}
+        style={{ left: 0 }}
       />
       <FieldLabel
         label={connected ? `${port.label} ✓` : port.label}
@@ -99,6 +102,50 @@ function DynamicImageHandle({
           {connections.length}/{port.maxConnections}
         </span>
       )}
+    </div>
+  );
+}
+
+function DynamicTextHandle({
+  node,
+  handleId,
+  value,
+  onChange,
+}: {
+  node: SchemaNode;
+  handleId: string;
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+}) {
+  const connections = useNodeConnections({ handleType: 'target', handleId });
+  const connected = connections.length > 0;
+  const label = node.name
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return (
+    <div className="relative mb-1.5">
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="text"
+        portId={handleId}
+        handleId={handleId}
+        index={0}
+        style={{ left: 0 }}
+      />
+      <FieldLabel
+        label={connected ? `${label} ✓` : label}
+        description={node.description}
+        required={node.required && !connected}
+      />
+      <textarea
+        className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
+        placeholder={node.description ?? label}
+        rows={2}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      />
     </div>
   );
 }
@@ -179,7 +226,6 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
   const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_CONFIG);
   const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
   const [dynamicImagePorts, setDynamicImagePorts] = useState<DynamicImagePort[]>([]);
-  const [schemaLoading, setSchemaLoading] = useState(false);
   const [schemaTree, setSchemaTree] = useState<import('@/lib/fal/schema-tree').SchemaNode[]>([]);
 
   // Debug mode (per-session, not persisted)
@@ -192,10 +238,8 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
   // Fetch schema on model change
   useEffect(() => {
     let cancelled = false;
-    setSchemaLoading(true);
     Promise.all([fetchModelSchema(model), fetchSchemaTree(model)]).then(([fields, tree]) => {
       if (cancelled) return;
-      setSchemaLoading(false);
       setSchemaTree(tree);
       setSchemaFields(fields.length > 0 ? fields : null);
       if (fields.length > 0) {
@@ -289,10 +333,99 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
     [edges, nodeId],
   );
 
-  // Schema-driven extra params
-  const { extraFields, paramValues, setParam } = useSchemaParams(
+  // Schema-driven extra params + filtered tree
+  const { paramValues, setParam, filteredTree } = useSchemaParams(
     nodeId, model, nodeData.schemaParams, updateNodeData, I2V_EXCLUDE,
   );
+
+  // Recompute per-element ports when element counts change in paramValues
+  const prevPortKeyRef = useRef('');
+  useEffect(() => {
+    if (schemaTree.length === 0) return;
+
+    // Derive element counts from schemaParams
+    const schemaParams = nodeData.schemaParams as Record<string, unknown> | undefined;
+    const counts: Record<string, number> = {};
+    for (const n of schemaTree) {
+      if (n.kind === 'array' && n.itemSchema?.kind === 'object' && n.itemSchema.children) {
+        const arr = schemaParams?.[n.path];
+        counts[n.path] = Array.isArray(arr) ? Math.max(arr.length, 1) : 1;
+      }
+    }
+
+    const topPorts = dynamicImagePorts.filter(
+      (p) => !p.fieldName.includes('.'),
+    );
+    // Also keep top-level nested object ports (like multi_prompt.0.something)
+    // by checking if port came from extractImagePorts (no array-of-object nesting)
+    const perElemPorts = computePerElementPorts(schemaTree, counts);
+    const allPorts = [...topPorts, ...perElemPorts];
+
+    const portKey = allPorts.map((p) => p.fieldName).join(',');
+    if (portKey === prevPortKeyRef.current) return;
+    prevPortKeyRef.current = portKey;
+
+    setDynamicImagePorts(allPorts);
+    updateNodeData(nodeId, {
+      dynamicImagePorts: allPorts.map((p) => ({
+        fieldName: p.fieldName,
+        multi: p.multi,
+        maxConnections: p.maxConnections,
+      })),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schemaTree, nodeData.schemaParams, nodeId]);
+
+  // Build port lookup map for renderImagePort callback
+  const portMap = useMemo(() => {
+    const map = new Map<string, DynamicImagePort>();
+    for (const port of dynamicImagePorts) {
+      map.set(port.fieldName, port);
+    }
+    return map;
+  }, [dynamicImagePorts]);
+
+  // Callback that renders image fields as DynamicImageHandle within the tree.
+  // Creates ports on-the-fly for nested array image fields (per-element handles).
+  const renderImagePort = useCallback((node: SchemaNode) => {
+    // Check portMap first (top-level ports)
+    const port = portMap.get(node.path);
+    if (port) {
+      const handleId = `image-target-${port.fieldName}`;
+      return <DynamicImageHandle port={port} handleId={handleId} />;
+    }
+
+    // Create on-the-fly for nested image fields (inside repeatable blocks)
+    const isImg = isImageNode(node);
+    const isImgArr = isImageArrayNode(node);
+    if (!isImg && !isImgArr) return null;
+
+    const dynPort: DynamicImagePort = {
+      fieldName: node.path,
+      label: humanizeFieldName(node.name),
+      required: node.required,
+      description: node.description,
+      multi: isImgArr,
+      maxConnections: isImgArr ? (node.maxItems ?? 4) : 1,
+    };
+    const handleId = `image-target-${node.path}`;
+    return <DynamicImageHandle port={dynPort} handleId={handleId} />;
+  }, [portMap]);
+
+  // Callback that renders text fields as DynamicTextHandle within the tree.
+  const renderTextPort = useCallback((node: SchemaNode) => {
+    if (!isTextNode(node)) return null;
+    const handleId = `text-target-${node.path}`;
+    const val = paramValues[node.path] as string | undefined;
+    return (
+      <DynamicTextHandle
+        node={node}
+        handleId={handleId}
+        value={val}
+        onChange={(v) => setParam(node.path, v)}
+      />
+    );
+  }, [paramValues, setParam]);
 
   // Aspect ratio options
   const aspectOptions = config.aspectRatioOptions ?? ['16:9', '9:16', '1:1'];
@@ -421,7 +554,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
                 <button
                   key={d}
                   className={`nodrag rounded px-2 py-0.5 text-[10px] transition-colors ${
-                    duration === d
+                    String(duration) === String(d)
                       ? 'bg-amber-500/20 text-amber-300'
                       : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
                   }`}
@@ -453,32 +586,19 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Dynamic image ports */}
-        {schemaLoading ? (
+        {/* Unified tree rendering: image ports + scalar fields */}
+        {filteredTree.length > 0 ? (
           <div className="mb-2 space-y-1">
-            <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-              Image Inputs
-            </label>
-            <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-1.5">
-              <Loader2 className="h-3 w-3 animate-spin text-gray-500" />
-              <span className="text-xs text-gray-500">Loading ports...</span>
-            </div>
-          </div>
-        ) : dynamicImagePorts.length > 0 ? (
-          <div className="mb-2 space-y-1">
-            <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
-              Image Inputs
-            </label>
-            {dynamicImagePorts.map((port) => {
-              const handleId = `image-target-${port.fieldName}`;
-              return (
-                <DynamicImageHandle
-                  key={handleId}
-                  port={port}
-                  handleId={handleId}
-                />
-              );
-            })}
+            {filteredTree.map((node) => (
+              <SchemaNodeRenderer
+                key={node.path}
+                node={node}
+                values={paramValues}
+                onChange={setParam}
+                renderImagePort={renderImagePort}
+                renderTextPort={renderTextPort}
+              />
+            ))}
           </div>
         ) : null}
 
@@ -491,7 +611,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
               portType="text"
               portId="text-in-0"
               index={0}
-              style={{ left: -24 }}
+              style={{ left: 0 }}
             />
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
               Prompt
@@ -512,20 +632,6 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         )}
       </div>
-
-      {/* Dynamic schema params */}
-      {extraFields.length > 0 && (
-        <CollapsibleSettings>
-          {extraFields.map((field) => (
-            <SchemaFieldRenderer
-              key={field.name}
-              field={field}
-              value={paramValues[field.name]}
-              onChange={(v) => setParam(field.name, v)}
-            />
-          ))}
-        </CollapsibleSettings>
-      )}
 
       {/* Batch cost dialog */}
       <BatchCostDialog

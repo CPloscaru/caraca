@@ -32,7 +32,7 @@ import type {
   BatchResultItem,
 } from '@/types/canvas';
 import { getModelParams, DEFAULT_UPSCALE_MODEL } from '@/lib/upscale/model-params';
-import { buildImagePayload } from '@/lib/fal/schema-payload';
+import { buildImagePayload, applyTextPortInputs } from '@/lib/fal/schema-payload';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,7 +62,21 @@ const ASPECT_RATIO_PRESETS: Record<string, { width: number; height: number }> =
 // Schema params helper
 // ---------------------------------------------------------------------------
 
-/** Merge user-set schemaParams into falInput, without overwriting dedicated keys. */
+/** Check if a value is an "empty" array (only contains empty objects). */
+function isEmptyArray(val: unknown): boolean {
+  if (!Array.isArray(val)) return false;
+  if (val.length === 0) return true;
+  return val.every(
+    (item) =>
+      item != null &&
+      typeof item === 'object' &&
+      !Array.isArray(item) &&
+      Object.keys(item as Record<string, unknown>).length === 0,
+  );
+}
+
+/** Merge user-set schemaParams into falInput, without overwriting dedicated keys.
+ *  Arrays that contain only empty objects (auto-init placeholders) are skipped. */
 function applySchemaParams(
   falInput: Record<string, unknown>,
   data: Record<string, unknown>,
@@ -70,9 +84,11 @@ function applySchemaParams(
   const schemaParams = data.schemaParams as Record<string, unknown> | undefined;
   if (!schemaParams) return;
   for (const [key, val] of Object.entries(schemaParams)) {
-    if (val !== undefined && val !== null && !(key in falInput)) {
-      falInput[key] = val;
-    }
+    if (val === undefined || val === null) continue;
+    if (key in falInput) continue;
+    // Skip auto-init placeholder arrays (e.g. multi_prompt: [{}])
+    if (isEmptyArray(val)) continue;
+    falInput[key] = val;
   }
 }
 
@@ -435,6 +451,9 @@ const textToVideoExecutor: NodeExecutor = async (
     Object.assign(falInput, imagePayload);
   }
 
+  // Apply text port inputs (connected Text Input nodes override inline values)
+  applyTextPortInputs(inputs, falInput);
+
   // Merge dynamic schema params (won't overwrite dedicated keys)
   applySchemaParams(falInput, nodeData as Record<string, unknown>);
 
@@ -515,6 +534,9 @@ const imageToVideoExecutor: NodeExecutor = async (
       falInput.image_url = await ensureFalCdnUrl(imageInput);
     }
   }
+
+  // Apply text port inputs (connected Text Input nodes override inline values)
+  applyTextPortInputs(inputs, falInput);
 
   // Merge dynamic schema params (won't overwrite dedicated keys)
   applySchemaParams(falInput, nodeData as Record<string, unknown>);

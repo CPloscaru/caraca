@@ -49,7 +49,7 @@ export function useAutoSave(projectId: string) {
         // Capture thumbnail periodically (every Nth save) — fire-and-forget
         if (saveCountRef.current % THUMBNAIL_EVERY_N_SAVES === 0) {
           const nodes = useCanvasStore.getState().nodes;
-          captureCanvasThumbnail(nodes).then((blob) => {
+          captureCanvasThumbnail(nodes, rfInstance.getNodesBounds).then((blob) => {
             if (blob) uploadThumbnail(projectId, blob);
           });
         }
@@ -151,7 +151,7 @@ export function useAutoSave(projectId: string) {
         }
         // Capture and upload thumbnail on navigation away (fire-and-forget)
         const nodes = useCanvasStore.getState().nodes;
-        captureCanvasThumbnail(nodes).then((blob) => {
+        captureCanvasThumbnail(nodes, rfInstance.getNodesBounds).then((blob) => {
           if (blob) uploadThumbnail(projectId, blob);
         });
       }

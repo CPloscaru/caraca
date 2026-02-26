@@ -9,6 +9,100 @@ import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import { BUILTIN_TEMPLATES } from '@/lib/templates';
 import type { Node, Edge } from '@xyflow/react';
 
+// ---------------------------------------------------------------------------
+// Media inlining — converts image/video URLs to base64 data URIs
+// ---------------------------------------------------------------------------
+
+/** Fetch a URL and return a base64 data URI, or null on failure. */
+async function urlToDataUri(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Walk all workflow nodes and replace media URLs with base64 data URIs. */
+async function inlineMediaAsBase64(
+  nodes: Array<{ data: Record<string, unknown> }>,
+): Promise<void> {
+  const jobs: Array<Promise<void>> = [];
+
+  for (const node of nodes) {
+    const d = node.data;
+
+    // ImageImport: imageUrl
+    if (typeof d.imageUrl === 'string' && !d.imageUrl.startsWith('data:')) {
+      jobs.push(
+        urlToDataUri(d.imageUrl).then((uri) => {
+          if (uri) d.imageUrl = uri;
+        }),
+      );
+    }
+
+    // ImageGenerator: images array
+    if (Array.isArray(d.images)) {
+      for (const img of d.images as Array<{ url: string }>) {
+        if (typeof img.url === 'string' && !img.url.startsWith('data:')) {
+          jobs.push(
+            urlToDataUri(img.url).then((uri) => {
+              if (uri) img.url = uri;
+            }),
+          );
+        }
+      }
+    }
+
+    // ImageUpscale: outputImage
+    const upOut = d.outputImage as { url: string } | null | undefined;
+    if (upOut && typeof upOut.url === 'string' && !upOut.url.startsWith('data:')) {
+      jobs.push(
+        urlToDataUri(upOut.url).then((uri) => {
+          if (uri) upOut.url = uri;
+        }),
+      );
+    }
+
+    // Video nodes: videoUrl, cdnUrl, videoResults
+    for (const key of ['videoUrl', 'cdnUrl'] as const) {
+      if (typeof d[key] === 'string' && !(d[key] as string).startsWith('data:')) {
+        const url = d[key] as string;
+        jobs.push(
+          urlToDataUri(url).then((uri) => {
+            if (uri) d[key] = uri;
+          }),
+        );
+      }
+    }
+    if (Array.isArray(d.videoResults)) {
+      for (const vr of d.videoResults as Array<{ videoUrl: string; cdnUrl: string }>) {
+        for (const vk of ['videoUrl', 'cdnUrl'] as const) {
+          if (typeof vr[vk] === 'string' && !vr[vk].startsWith('data:')) {
+            const url = vr[vk];
+            jobs.push(
+              urlToDataUri(url).then((uri) => {
+                if (uri) vr[vk] = uri;
+              }),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  await Promise.all(jobs);
+}
+
+// ---------------------------------------------------------------------------
+
 type Project = {
   id: string;
   title: string;
@@ -137,19 +231,26 @@ export function Dashboard() {
       if (!srcRes.ok) return;
       const srcProject = await srcRes.json();
 
+      // Inline media assets as base64 data URIs so templates are self-contained
+      const workflow = srcProject.workflow_json as {
+        nodes: Array<{ data: Record<string, unknown> }>;
+      } | null;
+      if (workflow?.nodes) {
+        await inlineMediaAsBase64(workflow.nodes);
+      }
+
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: srcProject.title,
-          workflow_json: srcProject.workflow_json,
+          workflow_json: workflow,
           is_template: true,
           template_source: 'user',
           template_description: `Custom template from ${srcProject.title}`,
         }),
       });
       if (res.ok) {
-        // Brief visual feedback — could be a toast in a full UI
         console.log('Saved as template successfully');
       }
     } catch (err) {

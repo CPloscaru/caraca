@@ -1,26 +1,54 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Handle, Position } from '@xyflow/react';
 import { Plus, Trash2, ChevronDown } from 'lucide-react';
 import type { SchemaNode } from '@/lib/fal/schema-tree';
+import { isImageNode, isImageArrayNode, isTextNode } from '@/lib/fal/schema-ports';
 import { SchemaNodeRenderer } from './SchemaNodeRenderer';
 
 type RepeatableBlockProps = {
   node: SchemaNode;
   values: Record<string, unknown>;
   onChange: (path: string, value: unknown) => void;
+  renderImagePort?: (node: SchemaNode) => ReactNode;
+  renderTextPort?: (node: SchemaNode) => ReactNode;
 };
 
 /**
- * Renders an array-of-objects as repeatable blocks.
- * Each block contains the item schema's children rendered recursively.
- * Users can add/remove blocks.
+ * Collect all handle IDs from direct children of a repeatable block.
+ * Used to render proxy handles on the header when collapsed.
  */
-export function RepeatableBlock({ node, values, onChange }: RepeatableBlockProps) {
-  const [open, setOpen] = useState(false);
+function collectChildHandleIds(
+  children: SchemaNode[],
+  itemCount: number,
+  basePath: string,
+): string[] {
+  const ids: string[] = [];
+  for (let i = 0; i < itemCount; i++) {
+    for (const child of children) {
+      const childPath = `${basePath}.${i}.${child.name}`;
+      if (isImageNode(child) || isImageArrayNode(child)) {
+        ids.push(`image-target-${childPath}`);
+      }
+      if (isTextNode(child)) {
+        ids.push(`text-target-${childPath}`);
+      }
+    }
+  }
+  return ids;
+}
 
+/**
+ * Renders an array-of-objects as repeatable blocks.
+ * ALL children (including image handles) render inside each block card,
+ * matching the fal.ai layout where each element contains its own images.
+ */
+export function RepeatableBlock({ node, values, onChange, renderImagePort, renderTextPort }: RepeatableBlockProps) {
   const itemSchema = node.itemSchema;
   const children = itemSchema?.kind === 'object' ? itemSchema.children : undefined;
+
+  const [open, setOpen] = useState(true);
 
   // Get current array value
   const items = useMemo(() => {
@@ -28,6 +56,19 @@ export function RepeatableBlock({ node, values, onChange }: RepeatableBlockProps
     if (Array.isArray(currentArray)) return currentArray as Record<string, unknown>[];
     return [] as Record<string, unknown>[];
   }, [values, node.path]);
+
+  // Auto-init one empty item so handles exist in DOM
+  useEffect(() => {
+    if (items.length === 0) {
+      onChange(node.path, [{}]);
+    }
+  }, [items.length, onChange, node.path]);
+
+  // Proxy handle IDs for collapsed state
+  const proxyHandleIds = useMemo(() => {
+    if (open || !children) return [];
+    return collectChildHandleIds(children, items.length, node.path);
+  }, [open, children, items.length, node.path]);
 
   const label = node.name
     .replace(/_/g, ' ')
@@ -58,21 +99,36 @@ export function RepeatableBlock({ node, values, onChange }: RepeatableBlockProps
 
   return (
     <div className="mb-1.5 rounded-md border border-white/10 bg-white/[0.02]">
-      <button
-        type="button"
-        className="nodrag flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <ChevronDown
-          className={`h-3 w-3 text-gray-500 transition-transform ${open ? '' : '-rotate-90'}`}
-        />
-        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
-          {label}
-        </span>
-        <span className="ml-auto text-[9px] text-gray-600">
-          {items.length} item{items.length !== 1 ? 's' : ''}
-        </span>
-      </button>
+      {/* Toggle header — relative so proxy handles position against it */}
+      <div className="relative">
+        <button
+          type="button"
+          className="nodrag flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <ChevronDown
+            className={`h-3 w-3 text-gray-500 transition-transform ${open ? '' : '-rotate-90'}`}
+          />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">
+            {label}
+          </span>
+          <span className="ml-auto text-[9px] text-gray-600">
+            {items.length} item{items.length !== 1 ? 's' : ''}
+          </span>
+        </button>
+        {/* Proxy handles when collapsed — wires point to header */}
+        {!open && proxyHandleIds.map((id) => (
+          <Handle
+            key={id}
+            type="target"
+            position={Position.Left}
+            id={id}
+            style={{ left: 0, opacity: 0, width: 0, height: 0, minWidth: 0, minHeight: 0 }}
+          />
+        ))}
+      </div>
+
+      {/* Content only rendered when open */}
       {open && (
         <div className="border-t border-white/5 px-2.5 py-2">
           {items.map((item, index) => (
@@ -102,6 +158,8 @@ export function RepeatableBlock({ node, values, onChange }: RepeatableBlockProps
                       node={{ ...child, path: childPath }}
                       values={{ ...values, [childPath]: childValue }}
                       onChange={(path, value) => handleChildChange(index, path, value)}
+                      renderImagePort={renderImagePort}
+                      renderTextPort={renderTextPort}
                     />
                   );
                 })}

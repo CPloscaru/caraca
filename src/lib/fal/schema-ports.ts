@@ -27,7 +27,7 @@ function isImageFieldName(name: string): boolean {
 }
 
 /** Check if a leaf node represents an image URL field. */
-function isImageNode(node: SchemaNode): boolean {
+export function isImageNode(node: SchemaNode): boolean {
   // ui hint takes priority
   if (node.uiHint === 'image' || node.uiHint === 'file') return true;
   // string field matching known image patterns
@@ -35,8 +35,19 @@ function isImageNode(node: SchemaNode): boolean {
   return false;
 }
 
+/** Check if a leaf node represents a connectable text field (non-enum, non-image string). */
+export function isTextNode(node: SchemaNode): boolean {
+  if (node.kind !== 'string') return false;
+  if (node.enum && node.enum.length > 0) return false;
+  if (isImageNode(node)) return false;
+  if (node.name === 'seed') return false;
+  if (node.format === 'uri') return false;
+  if (/_url$/.test(node.name) || /^url$/.test(node.name)) return false;
+  return true;
+}
+
 /** Check if an array node contains image URLs. */
-function isImageArrayNode(node: SchemaNode): boolean {
+export function isImageArrayNode(node: SchemaNode): boolean {
   if (node.kind !== 'array') return false;
   // Array of strings with image-like name
   if (node.itemSchema?.kind === 'string' && node.name.includes('image')) return true;
@@ -93,11 +104,9 @@ function collectImagePorts(node: SchemaNode, ports: DynamicImagePort[]): void {
     return;
   }
 
-  // Array of objects — recurse into itemSchema to find nested image fields
+  // Array of objects — skip. Per-element image ports are created dynamically
+  // by RepeatableBlock based on the current element count, not statically here.
   if (node.kind === 'array' && node.itemSchema?.kind === 'object' && node.itemSchema.children) {
-    for (const child of node.itemSchema.children) {
-      collectImagePorts(child, ports);
-    }
     return;
   }
 
@@ -108,4 +117,44 @@ function collectImagePorts(node: SchemaNode, ports: DynamicImagePort[]): void {
     }
     return;
   }
+}
+
+/**
+ * Compute per-element image ports for arrays of objects with image children.
+ * Called dynamically when element counts change (not during static extraction).
+ */
+export function computePerElementPorts(
+  root: SchemaNode[],
+  elementCounts: Record<string, number>,
+): DynamicImagePort[] {
+  const ports: DynamicImagePort[] = [];
+
+  for (const node of root) {
+    if (node.kind !== 'array' || node.itemSchema?.kind !== 'object' || !node.itemSchema.children) {
+      continue;
+    }
+
+    const imgChildren = node.itemSchema.children.filter(
+      (c) => isImageNode(c) || isImageArrayNode(c),
+    );
+    if (imgChildren.length === 0) continue;
+
+    const count = elementCounts[node.path] ?? 1;
+
+    for (let i = 0; i < count; i++) {
+      for (const child of imgChildren) {
+        const isMulti = isImageArrayNode(child);
+        ports.push({
+          fieldName: `${node.path}.${i}.${child.name}`,
+          label: humanizeFieldName(child.name),
+          required: child.required,
+          description: child.description,
+          multi: isMulti,
+          maxConnections: isMulti ? (child.maxItems ?? 4) : 1,
+        });
+      }
+    }
+  }
+
+  return ports;
 }

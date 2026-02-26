@@ -1,6 +1,8 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { SchemaNode } from '@/lib/fal/schema-tree';
+import { isImageNode, isImageArrayNode, isTextNode } from '@/lib/fal/schema-ports';
 import { SchemaSlider } from './SchemaSlider';
 import { SchemaEnum } from './SchemaEnum';
 import { SchemaToggle } from './SchemaToggle';
@@ -10,10 +12,12 @@ import { FieldLabel } from './FieldLabel';
 import { SchemaGroup } from './SchemaGroup';
 import { RepeatableBlock } from './RepeatableBlock';
 
-type SchemaNodeRendererProps = {
+export type SchemaNodeRendererProps = {
   node: SchemaNode;
   values: Record<string, unknown>;
   onChange: (path: string, value: unknown) => void;
+  renderImagePort?: (node: SchemaNode) => ReactNode;
+  renderTextPort?: (node: SchemaNode) => ReactNode;
 };
 
 function formatLabel(name: string): string {
@@ -30,18 +34,30 @@ export function SchemaNodeRenderer({
   node,
   values,
   onChange,
+  renderImagePort,
+  renderTextPort,
 }: SchemaNodeRendererProps) {
   const label = formatLabel(node.name);
   const value = values[node.path] ?? node.default;
 
+  // Image field → delegate to renderImagePort callback
+  if (isImageNode(node) && renderImagePort) {
+    return <>{renderImagePort(node)}</>;
+  }
+
+  // Image array field → delegate to renderImagePort callback
+  if (isImageArrayNode(node) && renderImagePort) {
+    return <>{renderImagePort(node)}</>;
+  }
+
   // Object → collapsible group
   if (node.kind === 'object' && node.children) {
-    return <SchemaGroup node={node} values={values} onChange={onChange} />;
+    return <SchemaGroup node={node} values={values} onChange={onChange} renderImagePort={renderImagePort} renderTextPort={renderTextPort} />;
   }
 
   // Array of objects → repeatable block
   if (node.kind === 'array' && node.itemSchema?.kind === 'object' && node.itemSchema.children) {
-    return <RepeatableBlock node={node} values={values} onChange={onChange} />;
+    return <RepeatableBlock node={node} values={values} onChange={onChange} renderImagePort={renderImagePort} renderTextPort={renderTextPort} />;
   }
 
   // Seed field
@@ -122,6 +138,11 @@ export function SchemaNodeRenderer({
         />
       </div>
     );
+  }
+
+  // Text field with port → delegate to renderTextPort callback
+  if (isTextNode(node) && renderTextPort) {
+    return <>{renderTextPort(node)}</>;
   }
 
   // String

@@ -86,6 +86,31 @@ export async function buildImagePayload(
 }
 
 // ---------------------------------------------------------------------------
+// Text port input mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply text port inputs to the fal payload.
+ * Reads all `text-target-{path}` inputs (except `text-target-0` which is the
+ * main prompt) and injects them into the payload via setDeep.
+ * This handles nested paths like `multi_prompt.0.prompt`.
+ */
+export function applyTextPortInputs(
+  inputs: Record<string, unknown>,
+  payload: Record<string, unknown>,
+): void {
+  for (const [key, value] of Object.entries(inputs)) {
+    if (!key.startsWith('text-target-')) continue;
+    // Skip the main prompt handle (text-target-0 / text-in-0)
+    if (key === 'text-target-0') continue;
+    if (value == null || value === '') continue;
+
+    const fieldPath = key.slice('text-target-'.length);
+    setDeep(payload, fieldPath, value);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
 

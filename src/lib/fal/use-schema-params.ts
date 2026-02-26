@@ -6,17 +6,37 @@ import {
   getSchemaExtraFields,
   type ModelInputField,
 } from './schema-introspection';
+import { fetchSchemaTree } from './schema-introspection';
+import { useAppStore } from '@/stores/app-store';
+import type { SchemaNode } from './schema-tree';
+
+/** Fields with dedicated UI — excluded from the generic tree rendering. */
+const DEDICATED_FIELDS = new Set([
+  'prompt',
+  'sync_mode',
+  'enable_safety_checker',
+  'image_size',
+  'aspect_ratio',
+  'duration',
+  'num_images',
+]);
 
 type UseSchemaParamsResult = {
   extraFields: ModelInputField[];
   paramValues: Record<string, unknown>;
   setParam: (key: string, value: unknown) => void;
   resetParams: () => void;
+  /** Filtered schema tree (dedicated fields excluded) for tree-based rendering. */
+  filteredTree: SchemaNode[];
 };
 
 /**
  * Hook that fetches schema for a fal.ai model, filters extra fields,
  * merges schema defaults with user overrides, and syncs to node data.
+ * Also returns a filtered schema tree for unified tree-based rendering.
+ *
+ * Manages a global loading overlay via appStore while the schema is being
+ * fetched and the UI is settling.
  */
 export function useSchemaParams(
   nodeId: string,
@@ -26,15 +46,35 @@ export function useSchemaParams(
   excludeFields?: Set<string>,
 ): UseSchemaParamsResult {
   const [extraFields, setExtraFields] = useState<ModelInputField[]>([]);
+  const [filteredTree, setFilteredTree] = useState<SchemaNode[]>([]);
   const prevModel = useRef(model);
 
-  // Fetch schema and derive extra fields on model change
+  const startSchemaLoading = useAppStore((s) => s.startSchemaLoading);
+  const stopSchemaLoading = useAppStore((s) => s.stopSchemaLoading);
+
+  // Track whether this hook instance owns a loading increment
+  const ownsLoading = useRef(false);
+
+  // Build combined exclusion set
+  const allExcluded = excludeFields
+    ? new Set([...DEDICATED_FIELDS, ...excludeFields])
+    : DEDICATED_FIELDS;
+
+  // Fetch schema and derive extra fields + tree on model change
   useEffect(() => {
     let cancelled = false;
-    fetchModelSchema(model).then((fields) => {
+
+    startSchemaLoading();
+    ownsLoading.current = true;
+
+    Promise.all([fetchModelSchema(model), fetchSchemaTree(model)]).then(([fields, tree]) => {
       if (cancelled) return;
       const extra = getSchemaExtraFields(fields, excludeFields);
       setExtraFields(extra);
+
+      // Filter tree: exclude dedicated fields
+      const filtered = tree.filter((n) => !allExcluded.has(n.name));
+      setFilteredTree(filtered);
 
       // Reset schemaParams when model changes (old params may not apply)
       if (prevModel.current !== model) {
@@ -44,15 +84,40 @@ export function useSchemaParams(
     });
     return () => {
       cancelled = true;
+      if (ownsLoading.current) {
+        stopSchemaLoading();
+        ownsLoading.current = false;
+      }
     };
-  }, [model, nodeId, updateNodeData, excludeFields]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, nodeId, updateNodeData]);
 
-  // Compute merged values: schema defaults + user overrides
+  // Dismiss loading overlay once filteredTree is rendered (post-paint)
+  useEffect(() => {
+    if (!ownsLoading.current || filteredTree.length === 0) return;
+    // Wait 2 frames: 1st for React commit, 2nd for browser paint
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (ownsLoading.current) {
+          stopSchemaLoading();
+          ownsLoading.current = false;
+        }
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [filteredTree, stopSchemaLoading]);
+
+  // Compute merged values: all user overrides + schema defaults for scalars
   const paramValues: Record<string, unknown> = {};
+  // Include ALL currentParams (needed for complex types like arrays/objects in the tree)
+  if (currentParams) {
+    Object.assign(paramValues, currentParams);
+  }
+  // Overlay schema defaults for scalar extra fields not yet set by user
   for (const field of extraFields) {
-    const userValue = currentParams?.[field.name];
-    paramValues[field.name] =
-      userValue !== undefined ? userValue : field.default;
+    if (paramValues[field.name] === undefined && field.default !== undefined) {
+      paramValues[field.name] = field.default;
+    }
   }
 
   const setParam = useCallback(
@@ -67,5 +132,5 @@ export function useSchemaParams(
     updateNodeData(nodeId, { schemaParams: undefined });
   }, [nodeId, updateNodeData]);
 
-  return { extraFields, paramValues, setParam, resetParams };
+  return { extraFields, paramValues, setParam, resetParams, filteredTree };
 }

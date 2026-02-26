@@ -29,7 +29,7 @@ export type ModelNodeConfig = {
   hasDuration: boolean;
   hasAspectRatio: boolean;
   aspectRatioOptions?: string[];
-  durationOptions?: number[];
+  durationOptions?: (number | string)[];
   hasNumImages: boolean;
   hasGuidanceScale: boolean;
   hasNegativePrompt: boolean;
@@ -40,6 +40,28 @@ export type ModelNodeConfig = {
 // Module-level caches
 const schemaCache = new Map<string, ModelInputField[]>();
 const treeCache = new Map<string, SchemaNode[]>();
+
+/** sessionStorage key for persisting raw OpenAPI specs across page reloads. */
+const STORAGE_PREFIX = 'fal_schema_';
+
+function readSpecFromStorage(endpointId: string): Record<string, unknown> | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_PREFIX + endpointId);
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSpecToStorage(endpointId: string, spec: Record<string, unknown>) {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_PREFIX + endpointId, JSON.stringify(spec));
+  } catch {
+    // Storage full — ignore
+  }
+}
 
 /**
  * Fetch the OpenAPI schema for a fal.ai model endpoint and extract input fields.
@@ -53,10 +75,16 @@ export async function fetchModelSchema(
   if (cached) return cached;
 
   try {
-    const response = await fetch(`/api/fal/schema?endpoint_id=${encodeURIComponent(endpointId)}`);
-    if (!response.ok) return [];
+    // Try sessionStorage first (survives page reloads)
+    let spec = readSpecFromStorage(endpointId);
 
-    const spec = (await response.json()) as Record<string, unknown>;
+    if (!spec) {
+      const response = await fetch(`/api/fal/schema?endpoint_id=${encodeURIComponent(endpointId)}`);
+      if (!response.ok) return [];
+      spec = (await response.json()) as Record<string, unknown>;
+      writeSpecToStorage(endpointId, spec);
+    }
+
     const result = parseSchemaTree(spec);
     if (!result) return [];
 
@@ -259,7 +287,7 @@ export function deriveNodeConfig(fields: ModelInputField[]): ModelNodeConfig {
       ? { aspectRatioOptions: aspectRatioField.enum as string[] }
       : {}),
     ...(durationField?.enum
-      ? { durationOptions: durationField.enum as number[] }
+      ? { durationOptions: durationField.enum as (number | string)[] }
       : {}),
     hasNumImages: fieldMap.has("num_images"),
     hasGuidanceScale: fieldMap.has("guidance_scale"),
