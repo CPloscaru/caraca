@@ -4,6 +4,7 @@ import {
   getCacheFreshness,
   getCachedModels,
 } from '@/lib/models/cache-warmer';
+import { apiError } from '@/lib/api/validation';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -73,9 +74,6 @@ export async function GET(request: NextRequest) {
     // No cache and fetch failed — 503
     const message =
       error instanceof Error ? error.message : 'Failed to fetch models';
-    return NextResponse.json(
-      { error: message, models: [], grouped: { recommended: [], groups: {} } },
-      { status: 503 },
-    );
+    return apiError(503, message);
   }
 }
