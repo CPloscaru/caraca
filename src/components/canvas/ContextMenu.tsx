@@ -211,4 +211,4 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
   );
 }
 
-export type { ContextMenuPosition, NodeTemplate };
+export type { ContextMenuPosition };

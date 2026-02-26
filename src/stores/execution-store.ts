@@ -5,7 +5,7 @@ import type { NodeStatus } from '@/lib/dag';
 // Types
 // ---------------------------------------------------------------------------
 
-export type NodeExecutionState = {
+type NodeExecutionState = {
   status: NodeStatus;
   result?: Record<string, unknown>;
   error?: string;
@@ -141,7 +141,7 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
   clearNodeQueueLogs: (nodeId) => {
     set((state) => {
       const existing = getOrCreateNodeState(state.nodeStates, nodeId);
-      const { queueLogs: _, queuePosition: __, generationStartedAt: ___, ...rest } = existing;
+      const { queueLogs: _ql, queuePosition: _qp, generationStartedAt: _gs, ...rest } = existing;
       return {
         nodeStates: {
           ...state.nodeStates,
@@ -167,7 +167,7 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
 
   clearBatchProgress: (nodeId) => {
     set((state) => {
-      const { [nodeId]: _, ...rest } = state.batchProgress;
+      const { [nodeId]: _removed, ...rest } = state.batchProgress;
       return { batchProgress: rest };
     });
   },
@@ -195,7 +195,7 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
 
   clearNode: (nodeId) => {
     set((state) => {
-      const { [nodeId]: _, ...rest } = state.nodeStates;
+      const { [nodeId]: _removed, ...rest } = state.nodeStates;
       return { nodeStates: rest };
     });
   },

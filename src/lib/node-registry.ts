@@ -18,7 +18,7 @@ export type PortDefinition = {
   label: string;
 };
 
-export type NodeRegistryEntry = {
+type NodeRegistryEntry = {
   type: string;
   label: string;
   description: string;
@@ -186,7 +186,7 @@ const NODE_REGISTRY_ARRAY = [
   },
 ] as const satisfies readonly NodeRegistryEntry[];
 
-export const NODE_REGISTRY: readonly NodeRegistryEntry[] = NODE_REGISTRY_ARRAY;
+const NODE_REGISTRY: readonly NodeRegistryEntry[] = NODE_REGISTRY_ARRAY;
 
 // ---------------------------------------------------------------------------
 // Lookup index (built once)
@@ -204,11 +204,6 @@ for (const entry of NODE_REGISTRY) {
 /** Get a single registry entry by node type, or undefined if not found. */
 export function getRegistryEntry(type: string): NodeRegistryEntry | undefined {
   return registryMap.get(type);
-}
-
-/** Get all registry entries. */
-export function getRegistryEntries(): readonly NodeRegistryEntry[] {
-  return NODE_REGISTRY;
 }
 
 /** Get the set of all known node type strings. */

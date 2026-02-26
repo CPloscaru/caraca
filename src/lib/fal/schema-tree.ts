@@ -56,7 +56,7 @@ export type SchemaNode = {
  * Result of parsing a full model schema.
  * Contains the tree (root children) plus a flat list for backward compatibility.
  */
-export type SchemaTreeResult = {
+type SchemaTreeResult = {
   /** Top-level fields as tree nodes */
   root: SchemaNode[];
   /** Flat list of all top-level fields as ModelInputField (backward-compat) */
@@ -64,7 +64,7 @@ export type SchemaTreeResult = {
 };
 
 /** Backward-compatible flat field representation */
-export type FlatField = {
+type FlatField = {
   name: string;
   type: string;
   required: boolean;
@@ -360,48 +360,3 @@ function nodeToFlatField(node: SchemaNode): FlatField {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Tree traversal utilities
-// ---------------------------------------------------------------------------
-
-/** Find a node by dot-path in the tree. */
-export function findNode(root: SchemaNode[], path: string): SchemaNode | undefined {
-  const segments = path.split('.');
-  let nodes = root;
-  let current: SchemaNode | undefined;
-
-  for (const seg of segments) {
-    current = nodes.find(n => n.name === seg);
-    if (!current) return undefined;
-
-    if (current.kind === 'object' && current.children) {
-      nodes = current.children;
-    } else if (current.kind === 'array' && current.itemSchema) {
-      nodes = current.itemSchema.children ?? [current.itemSchema];
-    } else {
-      nodes = [];
-    }
-  }
-
-  return current;
-}
-
-/** Collect all leaf nodes (scalars) from the tree. */
-export function collectLeaves(root: SchemaNode[]): SchemaNode[] {
-  const leaves: SchemaNode[] = [];
-
-  function walk(nodes: SchemaNode[]) {
-    for (const node of nodes) {
-      if (node.kind === 'object' && node.children) {
-        walk(node.children);
-      } else if (node.kind === 'array' && node.itemSchema?.children) {
-        walk(node.itemSchema.children);
-      } else {
-        leaves.push(node);
-      }
-    }
-  }
-
-  walk(root);
-  return leaves;
-}

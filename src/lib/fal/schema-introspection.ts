@@ -6,8 +6,6 @@
 import { parseSchemaTree, type SchemaNode } from './schema-tree';
 import { extractImagePorts } from './schema-ports';
 
-export type { SchemaNode } from './schema-tree';
-
 export type ModelInputField = {
   name: string;
   type: string;

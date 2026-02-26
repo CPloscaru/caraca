@@ -4,8 +4,6 @@
 // Replaces handleElementsPort and manual port mapping in executors.
 // ---------------------------------------------------------------------------
 
-import type { SchemaNode } from './schema-tree';
-
 // ---------------------------------------------------------------------------
 // Security: prototype pollution guard
 // ---------------------------------------------------------------------------
@@ -23,7 +21,7 @@ const POISONED_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
  * Example: setDeep(obj, "elements.0.frontal_image_url", "http://...") creates
  * obj.elements = [{ frontal_image_url: "http://..." }]
  */
-export function setDeep(
+function setDeep(
   obj: Record<string, unknown>,
   dotPath: string,
   value: unknown,
@@ -125,84 +123,3 @@ export function applyTextPortInputs(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
-export type ValidationError = {
-  path: string;
-  message: string;
-};
-
-/**
- * Validate a payload against a schema tree. Returns an array of validation
- * errors (empty = valid). Only checks required fields currently.
- */
-export function validatePayload(
-  root: SchemaNode[],
-  payload: Record<string, unknown>,
-  imagePortInputs?: Record<string, unknown>,
-): ValidationError[] {
-  const errors: ValidationError[] = [];
-
-  for (const node of root) {
-    validateNode(node, payload, errors, imagePortInputs);
-  }
-
-  return errors;
-}
-
-function validateNode(
-  node: SchemaNode,
-  payload: Record<string, unknown>,
-  errors: ValidationError[],
-  imagePortInputs?: Record<string, unknown>,
-): void {
-  if (!node.required) return;
-
-  const value = getDeep(payload, node.path);
-
-  // Image ports are provided via connected handles, not inline values
-  if (imagePortInputs) {
-    const handleId = `image-target-${node.path}`;
-    if (handleId in imagePortInputs && imagePortInputs[handleId] != null) return;
-  }
-
-  if (value == null || value === '') {
-    errors.push({
-      path: node.path,
-      message: `Required field "${node.name}" is missing`,
-    });
-  }
-
-  // Recurse into children for object nodes
-  if (node.kind === 'object' && node.children && typeof value === 'object' && value !== null) {
-    for (const child of node.children) {
-      validateNode(child, payload, errors, imagePortInputs);
-    }
-  }
-}
-
-/** Get a value at a dot-path from a nested object. */
-function getDeep(obj: Record<string, unknown>, dotPath: string): unknown {
-  const segments = dotPath.split('.');
-
-  // Guard against prototype pollution (defense-in-depth)
-  for (const seg of segments) {
-    if (POISONED_SEGMENTS.has(seg)) return undefined;
-  }
-
-  let current: unknown = obj;
-
-  for (const seg of segments) {
-    if (current == null || typeof current !== 'object') return undefined;
-    if (Array.isArray(current)) {
-      const idx = Number(seg);
-      current = current[idx];
-    } else {
-      current = (current as Record<string, unknown>)[seg];
-    }
-  }
-
-  return current;
-}

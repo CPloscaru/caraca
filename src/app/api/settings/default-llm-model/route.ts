@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { settings } from '@/lib/db/schema';
-import { withValidation, apiError } from '@/lib/api/validation';
+import { withValidation } from '@/lib/api/validation';
 
 const KEY = 'default_llm_model';
 

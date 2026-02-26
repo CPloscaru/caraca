@@ -11,7 +11,7 @@ export const PORT_TYPES = {
 export type PortType = keyof typeof PORT_TYPES;
 
 /** Compatibility map: which output types can connect to which input types */
-export const COMPATIBLE_PORTS: Record<PortType, PortType[]> = {
+const COMPATIBLE_PORTS: Record<PortType, PortType[]> = {
   image: ['image', 'video'],
   text: ['text', 'video'],
   mask: ['mask'],

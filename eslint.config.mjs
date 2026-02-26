@@ -17,6 +17,12 @@ const eslintConfig = defineConfig([
       "security/detect-object-injection": "off",
       // All fs operations use Phase 28 path-traversal-safe resolved paths
       "security/detect-non-literal-fs-filename": "off",
+      // Allow underscore-prefixed unused args/vars (common destructure-to-omit pattern)
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        destructuredArrayIgnorePattern: "^_",
+      }],
     },
   },
   // Override default ignores of eslint-config-next.

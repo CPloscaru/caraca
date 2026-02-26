@@ -12,7 +12,7 @@ import { FieldLabel } from './FieldLabel';
 import { SchemaGroup } from './SchemaGroup';
 import { RepeatableBlock } from './RepeatableBlock';
 
-export type SchemaNodeRendererProps = {
+type SchemaNodeRendererProps = {
   node: SchemaNode;
   values: Record<string, unknown>;
   onChange: (path: string, value: unknown) => void;

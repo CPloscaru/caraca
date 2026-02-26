@@ -4,7 +4,7 @@ import { fal } from '@/lib/fal/client';
  * Detect whether a URL points to a locally served image.
  * Local URLs: /api/images/*, http://localhost*, http://127.0.0.1*
  */
-export function isLocalImageUrl(url: string): boolean {
+function isLocalImageUrl(url: string): boolean {
   return (
     url.startsWith('/api/images/') ||
     url.startsWith('http://localhost') ||

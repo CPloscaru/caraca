@@ -616,7 +616,7 @@ const executors: Record<string, NodeExecutor> = {
 /**
  * Execute a single node by its type, given its data and resolved inputs.
  */
-export async function executeNodeByType(
+async function executeNodeByType(
   nodeId: string,
   nodeType: string,
   nodeData: Record<string, unknown>,
@@ -1213,4 +1213,3 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
   }
 }
 
-export { executors };

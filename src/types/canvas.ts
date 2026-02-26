@@ -1,7 +1,4 @@
-import type { Node, Edge } from '@xyflow/react';
 import type { PortType } from '@/lib/port-types';
-
-export type { PortType } from '@/lib/port-types';
 
 export type PortDefinition = {
   type: PortType;
@@ -15,10 +12,6 @@ export type NodeData = {
   inputs: PortDefinition[];
   outputs: PortDefinition[];
 };
-
-export type AppNode = Node<NodeData>;
-
-export type AppEdge = Edge;
 
 // ---------------------------------------------------------------------------
 // Extended node data types for Phase 2 core nodes
@@ -129,19 +122,6 @@ export type NoteNodeData = NodeData & {
   noteBody: string;
 };
 
-/** Union type for all node data variants */
-export type AnyNodeData =
-  | NodeData
-  | TextInputData
-  | ImageImportData
-  | ImageGeneratorData
-  | LLMAssistantData
-  | ImageUpscaleData
-  | TextToVideoData
-  | ImageToVideoData
-  | BatchParameterData
-  | NoteNodeData;
-
 // ---------------------------------------------------------------------------
 // Workflow JSON — serialized React Flow state for project persistence
 // ---------------------------------------------------------------------------
@@ -164,13 +144,3 @@ export type WorkflowJson = {
   viewport: { x: number; y: number; zoom: number };
 };
 
-/** Typed node variants */
-export type TextInputNode = Node<TextInputData>;
-export type ImageImportNode = Node<ImageImportData>;
-export type ImageGeneratorNode = Node<ImageGeneratorData>;
-export type LLMAssistantNode = Node<LLMAssistantData>;
-export type ImageUpscaleNode = Node<ImageUpscaleData>;
-export type TextToVideoNode = Node<TextToVideoData>;
-export type ImageToVideoNode = Node<ImageToVideoData>;
-export type BatchParameterNode = Node<BatchParameterData>;
-export type NoteNode = Node<NoteNodeData>;
