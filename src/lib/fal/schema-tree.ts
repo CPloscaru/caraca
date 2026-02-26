@@ -85,8 +85,10 @@ type RawSchema = Record<string, unknown>;
 type RawSpec = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
-// $ref resolution
+// $ref resolution (depth-limited with circular ref detection)
 // ---------------------------------------------------------------------------
+
+const MAX_REF_DEPTH = 10;
 
 function resolveRef(spec: RawSpec, ref: string): RawSchema | undefined {
   if (!ref.startsWith('#/')) return undefined;
@@ -100,10 +102,18 @@ function resolveRef(spec: RawSpec, ref: string): RawSchema | undefined {
 }
 
 /** Recursively resolve a schema, following $ref pointers. */
-function resolve(spec: RawSpec, schema: RawSchema): RawSchema {
+function resolve(
+  spec: RawSpec,
+  schema: RawSchema,
+  depth: number = 0,
+  visited: Set<string> = new Set(),
+): RawSchema {
+  if (depth >= MAX_REF_DEPTH) return schema;
   if (schema.$ref && typeof schema.$ref === 'string') {
+    if (visited.has(schema.$ref)) return schema; // Circular ref detected
+    visited.add(schema.$ref);
     const resolved = resolveRef(spec, schema.$ref);
-    if (resolved) return resolve(spec, resolved);
+    if (resolved) return resolve(spec, resolved, depth + 1, visited);
   }
   return schema;
 }
@@ -125,7 +135,12 @@ type UnwrapResult = {
  * Unwrap anyOf/allOf to extract type info, enum, constraints, and nullable.
  * Resolves $ref inside variants.
  */
-function unwrapVariants(spec: RawSpec, schema: RawSchema): UnwrapResult {
+function unwrapVariants(
+  spec: RawSpec,
+  schema: RawSchema,
+  depth: number = 0,
+  visited: Set<string> = new Set(),
+): UnwrapResult {
   const variants = (
     (schema.anyOf as RawSchema[] | undefined) ??
     (schema.allOf as RawSchema[] | undefined)
@@ -140,7 +155,7 @@ function unwrapVariants(spec: RawSpec, schema: RawSchema): UnwrapResult {
   let resolved: RawSchema | undefined;
 
   for (const rawVariant of variants) {
-    const v = resolve(spec, rawVariant);
+    const v = resolve(spec, rawVariant, depth, visited);
 
     if (v.type === 'null') {
       nullable = true;
@@ -171,12 +186,14 @@ function parseProperty(
   rawProp: RawSchema,
   parentPath: string,
   requiredSet: Set<string>,
+  depth: number = 0,
+  visited: Set<string> = new Set(),
 ): SchemaNode {
-  const prop = resolve(spec, rawProp);
+  const prop = resolve(spec, rawProp, depth, visited);
   const path = parentPath ? `${parentPath}.${name}` : name;
 
   // Unwrap anyOf/allOf
-  const unwrapped = unwrapVariants(spec, prop);
+  const unwrapped = unwrapVariants(spec, prop, depth, visited);
 
   // Determine effective type and effective prop to use for items/properties.
   // When prop is an anyOf wrapper (no own type), switch to the resolved variant
@@ -248,7 +265,7 @@ function parseProperty(
       (effectiveProp.required as string[] | undefined) ?? [],
     );
     node.children = Object.entries(properties).map(([childName, childProp]) =>
-      parseProperty(spec, childName, childProp, path, childRequired),
+      parseProperty(spec, childName, childProp, path, childRequired, depth + 1, visited),
     );
   }
 
@@ -256,8 +273,8 @@ function parseProperty(
   if (kind === 'array') {
     const rawItems = effectiveProp.items as RawSchema | undefined;
     if (rawItems) {
-      const itemResolved = resolve(spec, rawItems);
-      node.itemSchema = parseProperty(spec, '0', itemResolved, path, new Set());
+      const itemResolved = resolve(spec, rawItems, depth, visited);
+      node.itemSchema = parseProperty(spec, '0', itemResolved, path, new Set(), depth + 1, visited);
     }
     if (typeof effectiveProp.minItems === 'number') node.minItems = effectiveProp.minItems as number;
     if (typeof effectiveProp.maxItems === 'number') node.maxItems = effectiveProp.maxItems as number;
