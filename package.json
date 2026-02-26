@@ -31,7 +31,6 @@
   },
   "dependencies": {
     "@fal-ai/client": "^1.9.3",
-    "@fal-ai/server-proxy": "^1.2.1",
     "@xyflow/react": "^12.10.1",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
