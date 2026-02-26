@@ -124,7 +124,7 @@ export type DynamicImagePort = {
   required: boolean;      // From schema required array
   description?: string;   // Schema description for tooltip
   multi: boolean;         // true for array fields (multi-connection)
-  maxConnections: number; // 1 for single, N for arrays
+  maxConnections?: number; // 1 for single, N for arrays, undefined = unlimited
 };
 
 /**
@@ -191,7 +191,7 @@ export function getSchemaImageFields(
         required: false,
         description: field.description,
         multi: true,
-        maxConnections: 3,
+        maxConnections: undefined,
       });
       continue;
     }
@@ -204,7 +204,7 @@ export function getSchemaImageFields(
         required: field.required,
         description: field.description,
         multi: true,
-        maxConnections: field.maximum ?? 4,
+        maxConnections: field.maximum,
       });
       continue;
     }

@@ -444,7 +444,7 @@ const textToVideoExecutor: NodeExecutor = async (
 
   // Dynamic image port input mapping via generic payload builder
   const dynamicPorts = (nodeData as Record<string, unknown>).dynamicImagePorts as
-    Array<{ fieldName: string; multi: boolean; maxConnections: number }> | undefined;
+    Array<{ fieldName: string; multi: boolean; maxConnections?: number }> | undefined;
 
   if (dynamicPorts) {
     const imagePayload = await buildImagePayload(dynamicPorts, inputs, ensureFalCdnUrl);
@@ -522,7 +522,7 @@ const imageToVideoExecutor: NodeExecutor = async (
 
   // Dynamic image port input mapping via generic payload builder
   const dynamicPorts = (nodeData as Record<string, unknown>).dynamicImagePorts as
-    Array<{ fieldName: string; multi: boolean; maxConnections: number }> | undefined;
+    Array<{ fieldName: string; multi: boolean; maxConnections?: number }> | undefined;
 
   if (dynamicPorts) {
     const imagePayload = await buildImagePayload(dynamicPorts, inputs, ensureFalCdnUrl);

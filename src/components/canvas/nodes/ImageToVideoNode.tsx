@@ -64,7 +64,11 @@ function buildPortTooltip(port: DynamicImagePort, connectionCount: number): stri
   const parts: string[] = [];
   if (port.description) parts.push(port.description);
   parts.push(port.required ? 'Required' : 'Optional');
-  parts.push(port.multi ? `Multi (${connectionCount}/${port.maxConnections})` : 'Single image');
+  if (port.multi) {
+    parts.push(port.maxConnections != null ? `Multi (${connectionCount}/${port.maxConnections})` : `Multi (${connectionCount})`);
+  } else {
+    parts.push('Single image');
+  }
   return parts.join('. ') + '.';
 }
 
@@ -88,7 +92,7 @@ function DynamicImageHandle({
         handleId={handleId}
         index={0}
         required={port.required && !connected}
-        isConnectable={port.maxConnections}
+        isConnectable={port.maxConnections ?? undefined}
         style={{ left: 0 }}
       />
       <FieldLabel
@@ -97,7 +101,7 @@ function DynamicImageHandle({
         required={port.required && !connected}
         as="span"
       />
-      {port.multi && (
+      {port.multi && port.maxConnections != null && (
         <span className="ml-auto text-[9px] text-gray-500">
           {connections.length}/{port.maxConnections}
         </span>
@@ -406,7 +410,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
       required: node.required,
       description: node.description,
       multi: isImgArr,
-      maxConnections: isImgArr ? (node.maxItems ?? 4) : 1,
+      maxConnections: isImgArr ? node.maxItems : 1,
     };
     const handleId = `image-target-${node.path}`;
     return <DynamicImageHandle port={dynPort} handleId={handleId} />;

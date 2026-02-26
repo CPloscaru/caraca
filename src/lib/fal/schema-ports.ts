@@ -99,7 +99,7 @@ function collectImagePorts(node: SchemaNode, ports: DynamicImagePort[]): void {
       required: node.required,
       description: node.description,
       multi: true,
-      maxConnections: node.maxItems ?? 4,
+      maxConnections: node.maxItems,
     });
     return;
   }
@@ -150,7 +150,7 @@ export function computePerElementPorts(
           required: child.required,
           description: child.description,
           multi: isMulti,
-          maxConnections: isMulti ? (child.maxItems ?? 4) : 1,
+          maxConnections: isMulti ? child.maxItems : 1,
         });
       }
     }
