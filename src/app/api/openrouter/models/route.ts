@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const freshness = getLLMCacheFreshness();
 
-    // Case 1: Cache is fresh — return immediately
+    // Case 1: Cache is fresh -- return immediately
     if (freshness.isFresh) {
       const data = getCachedLLMModels();
       return NextResponse.json({
@@ -19,7 +19,7 @@ export async function GET() {
       });
     }
 
-    // Case 2: Cache is stale — return cached data and trigger background refresh
+    // Case 2: Cache is stale -- return cached data and trigger background refresh
     if (freshness.isStale) {
       const data = getCachedLLMModels();
       // Fire-and-forget background refresh
@@ -33,7 +33,7 @@ export async function GET() {
       });
     }
 
-    // Case 3: Cache is empty (first load) — fetch synchronously
+    // Case 3: Cache is empty (first load) -- fetch synchronously
     await fetchAndCacheLLMModels();
     const data = getCachedLLMModels();
     const updatedFreshness = getLLMCacheFreshness();
@@ -54,7 +54,7 @@ export async function GET() {
       });
     }
 
-    // No cache and fetch failed — 503
+    // No cache and fetch failed -- 503 with empty data for UI compatibility
     const message =
       error instanceof Error ? error.message : 'Failed to fetch LLM models';
     return NextResponse.json(

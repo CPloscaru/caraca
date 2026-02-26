@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api/validation';
 
 export async function GET() {
   const key = process.env.OPENROUTER_KEY;
@@ -23,6 +24,6 @@ export async function POST() {
     const valid = res.ok;
     return NextResponse.json({ configured: true, valid });
   } catch {
-    return NextResponse.json({ configured: true, valid: false });
+    return apiError(502, 'Cannot validate OpenRouter key', undefined, 'SERVICE_UNAVAILABLE');
   }
 }

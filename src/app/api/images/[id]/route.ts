@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { readFile, mkdir } from "node:fs/promises";
-import path from "node:path";
+import { NextRequest, NextResponse } from 'next/server';
+import { readFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { apiError } from '@/lib/api/validation';
 
 const STORAGE_PATH =
-  process.env.IMAGE_STORAGE_PATH || "./storage/images";
+  process.env.IMAGE_STORAGE_PATH || './storage/images';
 
 const MIME_TYPES: Record<string, string> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
 };
 
 let storageInitialized = false;
@@ -23,7 +24,7 @@ async function ensureStorageDir() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -32,28 +33,25 @@ export async function GET(
   const filePath = path.resolve(STORAGE_PATH, id);
   if (!filePath.startsWith(storageDir + path.sep) && filePath !== storageDir) {
     console.warn(
-      `[SECURITY] Path traversal blocked: ip=${request.headers.get("x-forwarded-for") ?? "local"}, path=${id}, type=path-traversal`
+      `[SECURITY] Path traversal blocked: ip=${request.headers.get('x-forwarded-for') ?? 'local'}, path=${id}, type=path-traversal`,
     );
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return apiError(403, 'Forbidden', undefined, 'FORBIDDEN');
   }
 
   await ensureStorageDir();
   const ext = path.extname(id).toLowerCase();
-  const contentType = MIME_TYPES[ext] || "application/octet-stream";
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
   try {
     const data = await readFile(filePath);
     return new NextResponse(data, {
       status: 200,
       headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });
   } catch {
-    return NextResponse.json(
-      { error: "Image not found" },
-      { status: 404 }
-    );
+    return apiError(404, 'Image not found', undefined, 'NOT_FOUND');
   }
 }

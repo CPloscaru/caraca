@@ -4,6 +4,7 @@ import { projects } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { apiError } from '@/lib/api/validation';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
@@ -49,7 +50,7 @@ export async function POST(
     const file = formData.get('file') as File | null;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return apiError(400, 'No file provided', undefined, 'VALIDATION_ERROR');
     }
 
     // Validate extension
@@ -58,7 +59,7 @@ export async function POST(
       console.warn(
         `[SECURITY] Thumbnail rejected: ip=${request.headers.get('x-forwarded-for') ?? 'local'}, reason=invalid-extension, ext=${ext}, project=${id}, type=upload-validation`,
       );
-      return NextResponse.json({ error: 'Fichier invalide' }, { status: 403 });
+      return apiError(403, 'Fichier invalide', undefined, 'FORBIDDEN');
     }
 
     // Validate size
@@ -66,7 +67,7 @@ export async function POST(
       console.warn(
         `[SECURITY] Thumbnail rejected: ip=${request.headers.get('x-forwarded-for') ?? 'local'}, reason=size-exceeded, size=${file.size}, project=${id}, type=upload-validation`,
       );
-      return NextResponse.json({ error: 'Fichier invalide' }, { status: 403 });
+      return apiError(403, 'Fichier invalide', undefined, 'FORBIDDEN');
     }
 
     // Validate magic bytes
@@ -75,7 +76,7 @@ export async function POST(
       console.warn(
         `[SECURITY] Thumbnail rejected: ip=${request.headers.get('x-forwarded-for') ?? 'local'}, reason=magic-bytes-mismatch, ext=${ext}, project=${id}, type=upload-validation`,
       );
-      return NextResponse.json({ error: 'Fichier invalide' }, { status: 403 });
+      return apiError(403, 'Fichier invalide', undefined, 'FORBIDDEN');
     }
 
     // Ensure uploads directory exists
@@ -96,9 +97,6 @@ export async function POST(
     return NextResponse.json({ thumbnail_path: thumbnailPath });
   } catch (error) {
     console.error('POST /api/projects/[id]/thumbnail error:', error);
-    return NextResponse.json(
-      { error: 'Failed to upload thumbnail' },
-      { status: 500 },
-    );
+    return apiError(500, 'Failed to upload thumbnail', undefined, 'INTERNAL_ERROR');
   }
 }
