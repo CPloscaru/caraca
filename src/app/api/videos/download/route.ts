@@ -5,6 +5,24 @@ import crypto from "node:crypto";
 const STORAGE_PATH =
   process.env.VIDEO_STORAGE_PATH || "./storage/videos";
 
+const ALLOWED_CDN_HOSTS = [
+  "fal.media",
+  "v3.fal.media",
+  "storage.googleapis.com",
+];
+
+function isFalCdnUrl(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString);
+    return ALLOWED_CDN_HOSTS.some(
+      (host) =>
+        parsed.hostname === host || parsed.hostname.endsWith("." + host)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url } = (await request.json()) as { url: string };
@@ -14,6 +32,14 @@ export async function POST(request: NextRequest) {
         { error: "Missing or invalid url" },
         { status: 400 }
       );
+    }
+
+    // SSRF protection: only allow fal.ai CDN domains
+    if (!isFalCdnUrl(url)) {
+      console.warn(
+        `[SECURITY] SSRF blocked: ip=${request.headers.get("x-forwarded-for") ?? "local"}, url=${url}, type=ssrf`
+      );
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Generate filename: YYYY-MM-DD_shortId.mp4

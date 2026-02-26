@@ -20,22 +20,22 @@ async function ensureStorageDir() {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
 
-  // Path traversal protection
-  if (id.includes("..") || id.includes("/") || id.includes("\\")) {
-    return NextResponse.json(
-      { error: "Invalid video ID" },
-      { status: 400 }
+  // Canonical path traversal protection
+  const storageDir = path.resolve(STORAGE_PATH);
+  const filePath = path.resolve(STORAGE_PATH, id);
+  if (!filePath.startsWith(storageDir + path.sep) && filePath !== storageDir) {
+    console.warn(
+      `[SECURITY] Path traversal blocked: ip=${request.headers.get("x-forwarded-for") ?? "local"}, path=${id}, type=path-traversal`
     );
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await ensureStorageDir();
-
-  const filePath = path.join(STORAGE_PATH, id);
   const ext = path.extname(id).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
