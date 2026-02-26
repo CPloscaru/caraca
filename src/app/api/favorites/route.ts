@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
 import { favoriteModels } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { withValidation, apiError } from '@/lib/api/validation';
+
+const favoriteSchema = z.object({ endpoint_id: z.string().min(1) }).strict();
 
 export async function GET() {
   try {
@@ -14,50 +18,23 @@ export async function GET() {
     });
   } catch (error) {
     console.error('GET /api/favorites error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch favorites' },
-      { status: 500 },
-    );
+    return apiError(500, 'Failed to fetch favorites', undefined, 'INTERNAL_ERROR');
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const { endpoint_id } = (await request.json()) as {
-      endpoint_id: string;
-    };
+export const POST = withValidation(favoriteSchema, async (_request, body) => {
+  await db
+    .insert(favoriteModels)
+    .values({ endpoint_id: body.endpoint_id, created_at: Date.now() })
+    .onConflictDoNothing();
 
-    await db
-      .insert(favoriteModels)
-      .values({ endpoint_id, created_at: Date.now() })
-      .onConflictDoNothing();
+  return NextResponse.json({ ok: true });
+});
 
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error('POST /api/favorites error:', error);
-    return NextResponse.json(
-      { error: 'Failed to add favorite' },
-      { status: 500 },
-    );
-  }
-}
+export const DELETE = withValidation(favoriteSchema, async (_request, body) => {
+  await db
+    .delete(favoriteModels)
+    .where(eq(favoriteModels.endpoint_id, body.endpoint_id));
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const { endpoint_id } = (await request.json()) as {
-      endpoint_id: string;
-    };
-
-    await db
-      .delete(favoriteModels)
-      .where(eq(favoriteModels.endpoint_id, endpoint_id));
-
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error('DELETE /api/favorites error:', error);
-    return NextResponse.json(
-      { error: 'Failed to remove favorite' },
-      { status: 500 },
-    );
-  }
-}
+  return NextResponse.json({ ok: true });
+});

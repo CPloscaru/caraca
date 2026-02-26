@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { withValidation, apiError } from '@/lib/api/validation';
+
+const projectUpdateSchema = z.object({
+  title: z.string().optional(),
+  workflow_json: z.unknown().optional(),
+  thumbnail_path: z.string().optional(),
+}).strict();
+
+const projectSaveSchema = z.object({
+  workflow_json: z.unknown().optional(),
+}).strict();
 
 export async function GET(
   _request: NextRequest,
@@ -18,88 +30,61 @@ export async function GET(
       .where(and(eq(projects.id, id), eq(projects.is_archived, false)));
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return apiError(404, 'Project not found', undefined, 'NOT_FOUND');
     }
 
     return NextResponse.json(rows[0]);
   } catch (error) {
     console.error('GET /api/projects/[id] error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch project' },
-      { status: 500 },
-    );
+    return apiError(500, 'Failed to fetch project', undefined, 'INTERNAL_ERROR');
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
+export const PUT = withValidation(projectUpdateSchema, async (_request, body, context) => {
+  const { id } = await context.params;
 
-    const updateData: Record<string, unknown> = {
-      updated_at: Date.now(),
-    };
+  const updateData: Record<string, unknown> = {
+    updated_at: Date.now(),
+  };
 
-    if (body.title !== undefined) updateData.title = body.title;
-    if (body.workflow_json !== undefined)
-      updateData.workflow_json = body.workflow_json;
-    if (body.thumbnail_path !== undefined)
-      updateData.thumbnail_path = body.thumbnail_path;
+  if (body.title !== undefined) updateData.title = body.title;
+  if (body.workflow_json !== undefined)
+    updateData.workflow_json = body.workflow_json;
+  if (body.thumbnail_path !== undefined)
+    updateData.thumbnail_path = body.thumbnail_path;
 
-    const result = await db
-      .update(projects)
-      .set(updateData)
-      .where(and(eq(projects.id, id), eq(projects.is_archived, false)))
-      .returning();
+  const result = await db
+    .update(projects)
+    .set(updateData)
+    .where(and(eq(projects.id, id), eq(projects.is_archived, false)))
+    .returning();
 
-    if (result.length === 0) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(result[0]);
-  } catch (error) {
-    console.error('PUT /api/projects/[id] error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update project' },
-      { status: 500 },
-    );
+  if (result.length === 0) {
+    return apiError(404, 'Project not found', undefined, 'NOT_FOUND');
   }
-}
+
+  return NextResponse.json(result[0]);
+});
 
 // POST handler for sendBeacon (tab close / navigation saves)
 // sendBeacon only sends POST requests, so we mirror the PUT update logic here.
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
+export const POST = withValidation(projectSaveSchema, async (_request, body, context) => {
+  const { id } = await context.params;
 
-    const updateData: Record<string, unknown> = {
-      updated_at: Date.now(),
-    };
+  const updateData: Record<string, unknown> = {
+    updated_at: Date.now(),
+  };
 
-    if (body.workflow_json !== undefined)
-      updateData.workflow_json = body.workflow_json;
+  if (body.workflow_json !== undefined)
+    updateData.workflow_json = body.workflow_json;
 
-    await db
-      .update(projects)
-      .set(updateData)
-      .where(and(eq(projects.id, id), eq(projects.is_archived, false)));
+  await db
+    .update(projects)
+    .set(updateData)
+    .where(and(eq(projects.id, id), eq(projects.is_archived, false)));
 
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error('POST /api/projects/[id] error:', error);
-    return NextResponse.json(
-      { error: 'Failed to save project' },
-      { status: 500 },
-    );
-  }
-}
+  return NextResponse.json({ ok: true });
+});
 
 export async function DELETE(
   _request: NextRequest,
@@ -115,7 +100,7 @@ export async function DELETE(
       .returning();
 
     if (result.length === 0) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      return apiError(404, 'Project not found', undefined, 'NOT_FOUND');
     }
 
     // Rename uploads folder to archived (if exists)
@@ -137,9 +122,6 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error('DELETE /api/projects/[id] error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete project' },
-      { status: 500 },
-    );
+    return apiError(500, 'Failed to delete project', undefined, 'INTERNAL_ERROR');
   }
 }
