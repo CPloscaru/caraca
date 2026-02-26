@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { apiError } from '@/lib/api/validation';
+import { ensureDir } from '@/lib/api/serve-static';
 
 const STORAGE_PATH =
   process.env.IMAGE_STORAGE_PATH || './storage/images';
 
 const ALLOWED_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp']);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-let storageInitialized = false;
-
-async function ensureStorageDir() {
-  if (storageInitialized) return;
-  await mkdir(STORAGE_PATH, { recursive: true });
-  storageInitialized = true;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +31,7 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'File too large. Maximum size is 10MB.', undefined, 'VALIDATION_ERROR');
     }
 
-    await ensureStorageDir();
+    await ensureDir(STORAGE_PATH);
 
     const filename = `${randomUUID()}${ext}`;
     const filePath = path.join(STORAGE_PATH, filename);
