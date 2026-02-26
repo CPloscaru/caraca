@@ -7,6 +7,12 @@
 import type { SchemaNode } from './schema-tree';
 
 // ---------------------------------------------------------------------------
+// Security: prototype pollution guard
+// ---------------------------------------------------------------------------
+
+const POISONED_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
+// ---------------------------------------------------------------------------
 // Payload builder
 // ---------------------------------------------------------------------------
 
@@ -23,6 +29,15 @@ export function setDeep(
   value: unknown,
 ): void {
   const segments = dotPath.split('.');
+
+  // Guard against prototype pollution attacks
+  for (const seg of segments) {
+    if (POISONED_SEGMENTS.has(seg)) {
+      console.warn(`[SECURITY] Prototype pollution blocked: segment="${seg}", path="${dotPath}", type=prototype-pollution`);
+      return;
+    }
+  }
+
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < segments.length - 1; i++) {
@@ -171,6 +186,12 @@ function validateNode(
 /** Get a value at a dot-path from a nested object. */
 function getDeep(obj: Record<string, unknown>, dotPath: string): unknown {
   const segments = dotPath.split('.');
+
+  // Guard against prototype pollution (defense-in-depth)
+  for (const seg of segments) {
+    if (POISONED_SEGMENTS.has(seg)) return undefined;
+  }
+
   let current: unknown = obj;
 
   for (const seg of segments) {
