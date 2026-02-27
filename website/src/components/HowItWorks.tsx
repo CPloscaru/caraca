@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { useScrollReveal } from '../hooks/useScrollReveal'
 
 const steps = [
   {
@@ -19,8 +20,10 @@ const steps = [
 ]
 
 export default function HowItWorks() {
+  const revealRef = useScrollReveal<HTMLElement>()
+
   return (
-    <section className="rv" id="how" aria-labelledby="hh">
+    <section ref={revealRef} className="rv" id="how" aria-labelledby="hh">
       <h2 className="st" id="hh">
         HOW IT <span className="gl">WORKS</span>
       </h2>

@@ -1,3 +1,5 @@
+import { useScrollReveal } from '../hooks/useScrollReveal'
+
 const techs = [
   'Next.js 16',
   'React 19',
@@ -12,8 +14,10 @@ const techs = [
 ]
 
 export default function TechStack() {
+  const revealRef = useScrollReveal<HTMLElement>()
+
   return (
-    <section className="rv tech">
+    <section ref={revealRef} className="rv tech">
       <h2 className="st">
         BUILT <span className="gl">WITH</span>
       </h2>

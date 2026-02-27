@@ -8,6 +8,7 @@ import Comparison from './components/Comparison'
 import TechStack from './components/TechStack'
 import CallToAction from './components/CallToAction'
 import Footer from './components/Footer'
+import CosmosCanvas from './components/CosmosCanvas'
 
 export default function App() {
   return (
@@ -15,7 +16,7 @@ export default function App() {
       <a href="#main" className="skip">
         Skip to main content
       </a>
-      <canvas id="cosmos" aria-hidden="true" />
+      <CosmosCanvas />
       <Navbar />
       <main id="main">
         <Hero />

@@ -1,3 +1,5 @@
+import { useScrollReveal } from '../hooks/useScrollReveal'
+
 interface Row {
   feature: string
   caraca: string
@@ -91,8 +93,10 @@ const rows: Row[] = [
 ]
 
 export default function Comparison() {
+  const revealRef = useScrollReveal<HTMLElement>()
+
   return (
-    <section className="rv" id="compare" aria-labelledby="cmh">
+    <section ref={revealRef} className="rv" id="compare" aria-labelledby="cmh">
       <h2 className="st" id="cmh">
         CARACA VS <span className="gl">ALTERNATIVES</span>
       </h2>

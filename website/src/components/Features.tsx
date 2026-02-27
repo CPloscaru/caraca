@@ -1,3 +1,5 @@
+import { useScrollReveal } from '../hooks/useScrollReveal'
+
 const features = [
   {
     title: 'Visual Workflow Editor',
@@ -32,8 +34,10 @@ const features = [
 ]
 
 export default function Features() {
+  const revealRef = useScrollReveal<HTMLElement>()
+
   return (
-    <section className="rv" id="features" aria-labelledby="fh">
+    <section ref={revealRef} className="rv" id="features" aria-labelledby="fh">
       <h2 className="st" id="fh">
         WHY <span className="gl">CARACA</span>
       </h2>
