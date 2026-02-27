@@ -10,15 +10,17 @@ import {
 } from '@/components/ui/tooltip';
 
 type NodeFooterProps = {
-  modelInfo: CachedModel | null;
+  modelInfo?: CachedModel | null;
+  infoSlot?: React.ReactNode;
   isRunning: boolean;
   onRun: () => void;
   costTooltip: string | null;
-  accentColor?: 'purple' | 'amber';
+  accentColor?: 'purple' | 'amber' | 'emerald';
 };
 
 export function NodeFooter({
   modelInfo,
+  infoSlot,
   isRunning,
   onRun,
   costTooltip,
@@ -27,11 +29,13 @@ export function NodeFooter({
   const btnClass =
     accentColor === 'amber'
       ? 'bg-amber-600 hover:bg-amber-500'
-      : 'bg-purple-600 hover:bg-purple-500';
+      : accentColor === 'emerald'
+        ? 'bg-emerald-600 hover:bg-emerald-500'
+        : 'bg-purple-600 hover:bg-purple-500';
 
   return (
     <div className="flex items-center justify-between p-2 pt-0">
-      {modelInfo ? <ModelDetails model={modelInfo} /> : <div />}
+      {infoSlot ?? (modelInfo ? <ModelDetails model={modelInfo} /> : <div />)}
       <TooltipProvider delayDuration={300}>
         <Tooltip>
           <TooltipTrigger asChild>
