@@ -27,6 +27,7 @@ import { TextToVideoNode } from '@/components/canvas/nodes/TextToVideoNode';
 import { ImageToVideoNode } from '@/components/canvas/nodes/ImageToVideoNode';
 import { BatchParameterNode } from '@/components/canvas/nodes/BatchParameterNode';
 import { NoteNode } from '@/components/canvas/nodes/NoteNode';
+import { withNodeErrorBoundary } from '@/components/canvas/nodes/NodeErrorBoundary';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import { AnnotationEdge } from '@/components/canvas/edges/AnnotationEdge';
 import {
@@ -38,7 +39,18 @@ import { getRegistryEntry, type NodeTemplate } from '@/lib/node-registry';
 import type { NodeData } from '@/types/canvas';
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
-const nodeTypes = { placeholder: PlaceholderNode, textInput: TextInputNode, imageImport: ImageImportNode, imageGenerator: ImageGeneratorNode, llmAssistant: LLMAssistantNode, imageUpscale: ImageUpscaleNode, textToVideo: TextToVideoNode, imageToVideo: ImageToVideoNode, batchParameter: BatchParameterNode, canvasNote: NoteNode };
+const nodeTypes = {
+  placeholder: PlaceholderNode,
+  textInput: withNodeErrorBoundary(TextInputNode),
+  imageImport: withNodeErrorBoundary(ImageImportNode),
+  imageGenerator: withNodeErrorBoundary(ImageGeneratorNode),
+  llmAssistant: withNodeErrorBoundary(LLMAssistantNode),
+  imageUpscale: withNodeErrorBoundary(ImageUpscaleNode),
+  textToVideo: withNodeErrorBoundary(TextToVideoNode),
+  imageToVideo: withNodeErrorBoundary(ImageToVideoNode),
+  batchParameter: withNodeErrorBoundary(BatchParameterNode),
+  canvasNote: withNodeErrorBoundary(NoteNode),
+};
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
 
 let nodeIdCounter = 0;
