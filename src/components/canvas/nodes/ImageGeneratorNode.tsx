@@ -2,19 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useNodeId } from '@xyflow/react';
-import { Sparkles, Play, Minus, Plus, Loader2 } from 'lucide-react';
+import { Sparkles, Minus, Plus } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { ModelSelector, ModelDetails, type CachedModel } from './ModelSelector';
+import { ModelSelector, type CachedModel } from './ModelSelector';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { BatchCostDialog } from './BatchCostDialog';
 import { SchemaNodeRenderer } from './schema-widgets';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { NodeFooter } from './shared/NodeFooter';
 import { ImageResultGrid } from './ImageResultGrid';
 import type { ImageGeneratorData } from '@/types/canvas';
 import { useFalNode } from '@/hooks/use-fal-node';
@@ -412,33 +407,12 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
       />
 
       {/* Model info + Run button */}
-      <div className="flex items-center justify-between p-2 pt-0">
-        {selectedModelInfo ? (
-          <ModelDetails model={selectedModelInfo} />
-        ) : (
-          <div />
-        )}
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg transition-all hover:bg-purple-500"
-                onClick={handleRun}
-                title={isRunning ? 'Cancel' : undefined}
-              >
-                {isRunning ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
-            </TooltipTrigger>
-            {costTooltip && !isRunning && (
-              <TooltipContent>~{costTooltip}</TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      <NodeFooter
+        modelInfo={selectedModelInfo}
+        isRunning={isRunning}
+        onRun={handleRun}
+        costTooltip={costTooltip}
+      />
 
     </div>
   );

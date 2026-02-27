@@ -1,18 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useNodeId } from '@xyflow/react';
-import { Video, Play, Loader2 } from 'lucide-react';
+import { Video } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { ModelSelector } from './ModelSelector';
+import { ModelSelector, type CachedModel } from './ModelSelector';
 import { BatchCostDialog } from './BatchCostDialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { NodeFooter } from './shared/NodeFooter';
 import { VideoResult, GenerationProgress } from './VideoPlayer';
 import { VideoResultCarousel } from './VideoResultCarousel';
 import { ShimmerPlaceholder } from './node-utils';
@@ -91,6 +86,8 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
     hasQueueStatus: true,
     clearBeforeRun: { videoUrl: null, cdnUrl: null, videoResults: null },
   });
+
+  const [selectedModelInfo, setSelectedModelInfo] = useState<CachedModel | null>(null);
 
   // Derived data
   const aspectRatio = nodeData.aspectRatio ?? '16:9';
@@ -238,6 +235,7 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
             onChange={handleModelChange}
             mode="image-to-video"
             onPricingInfo={(info) => updateNodeData(nodeId, { unitPrice: info.unitPrice, priceUnit: info.priceUnit })}
+            onModelInfo={setSelectedModelInfo}
           />
         </div>
 
@@ -360,28 +358,13 @@ export function ImageToVideoNode({ id, data, selected }: NodeProps) {
         modelName={model}
       />
 
-      <div className="flex justify-end p-2 pt-0">
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-all hover:bg-amber-500"
-                onClick={handleRun}
-                title={isRunning || isPending ? 'Cancel' : undefined}
-              >
-                {isRunning || isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
-            </TooltipTrigger>
-            {costTooltip && !(isRunning || isPending) && (
-              <TooltipContent>~{costTooltip}</TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      <NodeFooter
+        modelInfo={selectedModelInfo}
+        isRunning={isRunning || isPending}
+        onRun={handleRun}
+        costTooltip={costTooltip}
+        accentColor="amber"
+      />
 
     </div>
   );
