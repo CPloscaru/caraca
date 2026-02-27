@@ -112,10 +112,12 @@ export async function runSingleNode(nodeId: string): Promise<void> {
   const signal = controller.signal;
 
   // Build cached results from upstream nodes that already have 'done' status.
-  // The target node itself is never cached (user explicitly clicked Run on it).
+  // The target node itself and all downstream nodes are never cached — they must re-execute
+  // to receive fresh data from the target node.
+  const downstreamSet = new Set(downstreamIds);
   const cachedResults: Record<string, Record<string, unknown>> = {};
   for (const id of sortedIds) {
-    if (id === nodeId) continue;
+    if (id === nodeId || downstreamSet.has(id)) continue;
     const state = execStore.nodeStates[id];
     if (state?.status === 'done' && state.result) {
       cachedResults[id] = state.result as Record<string, unknown>;
