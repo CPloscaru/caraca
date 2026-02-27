@@ -20,8 +20,10 @@ type ExecutionStore = {
   isRunning: boolean;
   abortController: AbortController | null;
   batchProgress: Record<string, { current: number; total: number; accumulatedCost: number; currentItemText: string }>;
+  projectId: string | null;
 
   // Actions
+  setProjectId: (id: string) => void;
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
   setNodeResult: (nodeId: string, result: Record<string, unknown>) => void;
   setNodeError: (nodeId: string, error: string) => void;
@@ -63,6 +65,9 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
   isRunning: false,
   abortController: null,
   batchProgress: {},
+  projectId: null,
+
+  setProjectId: (id) => set({ projectId: id }),
 
   setNodeStatus: (nodeId, status) => {
     set((state) => ({
