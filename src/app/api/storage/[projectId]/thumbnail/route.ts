@@ -79,8 +79,10 @@ export async function POST(
     const filePath = path.join(storageDir, 'thumbnail.png');
     await writeFile(filePath, buffer);
 
-    // Store the API-servable path (not the filesystem path)
-    const thumbnailPath = `/api/storage/${projectId}/thumbnail.png`;
+    // Store the API-servable path with a cache-buster so the browser
+    // fetches the fresh thumbnail instead of serving a stale cached version
+    // (the static file route sends Cache-Control: immutable).
+    const thumbnailPath = `/api/storage/${projectId}/thumbnail.png?v=${Date.now()}`;
     await db
       .update(projects)
       .set({ thumbnail_path: thumbnailPath, updated_at: Date.now() })
