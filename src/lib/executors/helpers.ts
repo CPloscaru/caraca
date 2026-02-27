@@ -2,6 +2,9 @@
  * Shared helpers used by multiple executor implementations.
  */
 
+import { classifyFalError } from '@/lib/fal/error-classifier';
+import { useCanvasStore } from '@/stores/canvas-store';
+
 // ---------------------------------------------------------------------------
 // Aspect ratio presets (mirrored from ImageGeneratorNode)
 // ---------------------------------------------------------------------------
@@ -82,4 +85,27 @@ export function normalizeVideoUrl(
   if (typeof video === 'string') return video;
   if (typeof resultData.video_url === 'string') return resultData.video_url;
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Shared fal.ai executor error handler
+// ---------------------------------------------------------------------------
+
+export function handleExecutorError(
+  err: unknown,
+  signal: AbortSignal,
+  nodeId: string,
+  debugRequest: Record<string, unknown>,
+): never {
+  if (signal.aborted) {
+    throw new DOMException('Execution was cancelled', 'AbortError');
+  }
+
+  const rawError = err instanceof Error
+    ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
+    : err;
+  useCanvasStore.getState().updateNodeData(nodeId, { debugRequest, debugError: rawError });
+
+  const classified = classifyFalError(err);
+  throw new Error(`${classified.message} — ${classified.suggestion}`);
 }

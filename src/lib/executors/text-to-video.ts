@@ -1,12 +1,10 @@
 import { fal } from '@/lib/fal/client';
-import { classifyFalError } from '@/lib/fal/error-classifier';
 import { ensureFalCdnUrl } from '@/lib/fal/upload-local';
-import { useCanvasStore } from '@/stores/canvas-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import { buildImagePayload, applyTextPortInputs } from '@/lib/fal/schema-payload';
 import type { TextToVideoData } from '@/types/canvas';
 import type { NodeExecutor } from './types';
-import { applySchemaParams, downloadVideoToLocal, normalizeVideoUrl } from './helpers';
+import { applySchemaParams, downloadVideoToLocal, normalizeVideoUrl, handleExecutorError } from './helpers';
 
 const DEFAULT_TEXT_TO_VIDEO_MODEL = 'fal-ai/wan/v2.1/1.3b/text-to-video';
 
@@ -77,16 +75,6 @@ export const textToVideoExecutor: NodeExecutor = async (
       __debugResponse: resultData,
     };
   } catch (err) {
-    if (signal.aborted) {
-      throw new DOMException('Execution was cancelled', 'AbortError');
-    }
-
-    const rawError = err instanceof Error
-      ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
-      : err;
-    useCanvasStore.getState().updateNodeData(nodeId, { debugRequest, debugError: rawError });
-
-    const classified = classifyFalError(err);
-    throw new Error(`${classified.message} — ${classified.suggestion}`);
+    handleExecutorError(err, signal, nodeId, debugRequest);
   }
 };

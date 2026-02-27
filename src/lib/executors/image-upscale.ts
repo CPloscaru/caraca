@@ -1,14 +1,12 @@
 import { fal } from '@/lib/fal/client';
-import { classifyFalError } from '@/lib/fal/error-classifier';
 import { ensureFalCdnUrl } from '@/lib/fal/upload-local';
-import { useCanvasStore } from '@/stores/canvas-store';
 import { getModelParams, DEFAULT_UPSCALE_MODEL } from '@/lib/upscale/model-params';
 import type { ImageUpscaleData } from '@/types/canvas';
 import type { NodeExecutor } from './types';
-import { applySchemaParams } from './helpers';
+import { applySchemaParams, handleExecutorError } from './helpers';
 
 export const imageUpscaleExecutor: NodeExecutor = async (
-  _nodeId,
+  nodeId,
   nodeData,
   inputs,
   signal,
@@ -66,16 +64,6 @@ export const imageUpscaleExecutor: NodeExecutor = async (
       __debugResponse: resultData,
     };
   } catch (err) {
-    if (signal.aborted) {
-      throw new DOMException('Execution was cancelled', 'AbortError');
-    }
-
-    const rawError = err instanceof Error
-      ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
-      : err;
-    useCanvasStore.getState().updateNodeData(_nodeId, { debugRequest, debugError: rawError });
-
-    const classified = classifyFalError(err);
-    throw new Error(`${classified.message} — ${classified.suggestion}`);
+    handleExecutorError(err, signal, nodeId, debugRequest);
   }
 };

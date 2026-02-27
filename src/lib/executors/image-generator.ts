@@ -1,14 +1,12 @@
 import { fal } from '@/lib/fal/client';
-import { classifyFalError } from '@/lib/fal/error-classifier';
 import { ensureFalCdnUrl } from '@/lib/fal/upload-local';
 import { buildImagePayload, applyTextPortInputs } from '@/lib/fal/schema-payload';
-import { useCanvasStore } from '@/stores/canvas-store';
 import type { ImageGeneratorData } from '@/types/canvas';
 import type { NodeExecutor } from './types';
-import { ASPECT_RATIO_PRESETS, applySchemaParams } from './helpers';
+import { ASPECT_RATIO_PRESETS, applySchemaParams, handleExecutorError } from './helpers';
 
 export const imageGeneratorExecutor: NodeExecutor = async (
-  _nodeId,
+  nodeId,
   nodeData,
   inputs,
   signal,
@@ -92,17 +90,6 @@ export const imageGeneratorExecutor: NodeExecutor = async (
       __debugResponse: resultData,
     };
   } catch (err) {
-    // Check if cancelled
-    if (signal.aborted) {
-      throw new DOMException('Execution was cancelled', 'AbortError');
-    }
-
-    const rawError = err instanceof Error
-      ? { message: err.message, ...(typeof (err as unknown as Record<string, unknown>).body === 'object' ? (err as unknown as Record<string, unknown>).body as Record<string, unknown> : {}) }
-      : err;
-    useCanvasStore.getState().updateNodeData(_nodeId, { debugRequest, debugError: rawError });
-
-    const classified = classifyFalError(err);
-    throw new Error(`${classified.message} — ${classified.suggestion}`);
+    handleExecutorError(err, signal, nodeId, debugRequest);
   }
 };
