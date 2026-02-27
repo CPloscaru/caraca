@@ -20,11 +20,11 @@ export type CacheFreshness = {
   cachedAt: string | null;
 };
 
-export type CacheRouteConfig<T> = {
+export type CacheRouteConfig<T, E = T> = {
   metadataKey: string;
   fetchAndCache: () => Promise<void>;
   getCachedData: () => T;
-  emptyResponse: T;
+  emptyResponse: E;
   logPrefix: string;
 };
 
@@ -94,7 +94,7 @@ export function updateCacheTimestamp(metadataKey: string): void {
  *
  * Error fallback: return cached data as stale if available, otherwise 503.
  */
-export function createCacheRouteHandler<T>(config: CacheRouteConfig<T>) {
+export function createCacheRouteHandler<T, E = T>(config: CacheRouteConfig<T, E>) {
   const { metadataKey, fetchAndCache, getCachedData, emptyResponse, logPrefix } = config;
 
   return async (options?: { forceRefresh?: boolean }): Promise<NextResponse> => {
