@@ -4,6 +4,7 @@
 
 import { classifyFalError } from '@/lib/fal/error-classifier';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { useExecutionStore } from '@/stores/execution-store';
 
 // ---------------------------------------------------------------------------
 // Aspect ratio presets (mirrored from ImageGeneratorNode)
@@ -56,11 +57,12 @@ export function applySchemaParams(
 // Video helpers
 // ---------------------------------------------------------------------------
 
-export async function downloadVideoToLocal(
+async function downloadToLocal(
   cdnUrl: string,
+  projectId: string,
 ): Promise<{ localUrl: string; cdnUrl: string }> {
   try {
-    const res = await fetch('/api/videos/download', {
+    const res = await fetch(`/api/storage/${projectId}/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: cdnUrl }),
@@ -73,6 +75,18 @@ export async function downloadVideoToLocal(
   } catch {
     return { localUrl: cdnUrl, cdnUrl };
   }
+}
+
+export function downloadImageToLocal(cdnUrl: string) {
+  const projectId = useExecutionStore.getState().projectId;
+  if (!projectId) return Promise.resolve({ localUrl: cdnUrl, cdnUrl });
+  return downloadToLocal(cdnUrl, projectId);
+}
+
+export function downloadVideoToLocal(cdnUrl: string) {
+  const projectId = useExecutionStore.getState().projectId;
+  if (!projectId) return Promise.resolve({ localUrl: cdnUrl, cdnUrl });
+  return downloadToLocal(cdnUrl, projectId);
 }
 
 export function normalizeVideoUrl(
