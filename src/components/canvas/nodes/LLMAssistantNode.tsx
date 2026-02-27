@@ -129,7 +129,7 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
         type="source"
         position={Position.Right}
         portType="text"
-        portId="text-out-0"
+        portId="text-source-0"
         index={0}
         style={{ top: '50%' }}
       />
