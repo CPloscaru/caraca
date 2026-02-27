@@ -64,7 +64,7 @@ export async function uploadThumbnail(
   try {
     const formData = new FormData();
     formData.append('file', blob, 'thumbnail.png');
-    await fetch(`/api/projects/${projectId}/thumbnail`, {
+    await fetch(`/api/storage/${projectId}/thumbnail`, {
       method: 'POST',
       body: formData,
     });
