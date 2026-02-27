@@ -17,25 +17,33 @@ export const llmAssistantExecutor: NodeExecutor = async (
     throw new Error('No instruction provided in LLM Assistant node');
   }
 
+  // Collect image inputs (single string or array)
+  const rawImage = inputs['image-target-0'];
+  const imageInputs: string[] = [];
+  if (Array.isArray(rawImage)) {
+    imageInputs.push(...rawImage.filter((v): v is string => typeof v === 'string' && v.length > 0));
+  } else if (typeof rawImage === 'string' && rawImage) {
+    imageInputs.push(rawImage);
+  }
+
+  // Re-upload local images to fal CDN so external APIs can access them (per FND-03)
+  const resolvedImages = imageInputs.length > 0
+    ? await Promise.all(imageInputs.map(ensureFalCdnUrl))
+    : [];
+
   // Build messages array
   type MessageContent =
     | string
     | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
 
   let content: MessageContent;
-  const imageInput = inputs['image-target-0'] as string | undefined;
-
-  // Re-upload local images to fal CDN so external APIs can access them (per FND-03)
-  let resolvedImageInput = imageInput;
-  if (imageInput) {
-    resolvedImageInput = await ensureFalCdnUrl(imageInput);
-  }
-
-  if (resolvedImageInput) {
-    // Multimodal: image + text instruction
+  if (resolvedImages.length > 0) {
     content = [
-      { type: 'image_url', image_url: { url: resolvedImageInput } },
-      { type: 'text', text: data.instruction },
+      ...resolvedImages.map((url) => ({
+        type: 'image_url' as const,
+        image_url: { url },
+      })),
+      { type: 'text' as const, text: data.instruction },
     ];
   } else {
     content = data.instruction;
