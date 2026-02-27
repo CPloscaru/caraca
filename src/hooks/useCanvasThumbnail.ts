@@ -41,9 +41,9 @@ export async function captureCanvasThumbnail(
       nodesBounds,
       THUMBNAIL_WIDTH,
       THUMBNAIL_HEIGHT,
-      0.1,
+      0.01,
       1,
-      0.2,
+      '5%',
     );
 
     if (!viewport) return null;
