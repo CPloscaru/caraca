@@ -102,7 +102,7 @@ export function DynamicTextHandle({
         required={node.required && !connected}
       />
       <textarea
-        className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
+        className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
         placeholder={node.description ?? label}
         rows={2}
         value={value ?? ''}

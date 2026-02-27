@@ -23,7 +23,7 @@ export function SchemaSeed({ label, value, onChange, description, required }: Sc
       <div className="flex items-center gap-1">
         <input
           type="number"
-          className="nodrag w-20 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-200 outline-none placeholder:text-gray-600 focus:border-white/20"
+          className="nodrag w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-200 outline-none placeholder:text-gray-600 focus:border-white/20"
           placeholder="Random"
           value={value ?? ''}
           onChange={(e) => {
