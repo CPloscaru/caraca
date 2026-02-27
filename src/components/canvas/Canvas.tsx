@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type DragEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react';
 import {
   ReactFlow,
   Background,
@@ -104,7 +104,44 @@ export function Canvas() {
   const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
   const openCommandPalette = useAppStore((s) => s.openCommandPalette);
   const minimapVisible = useAppStore((s) => s.minimapVisible);
-  const schemaLoading = useAppStore((s) => s.schemaLoadingCount > 0);
+  const schemaLoadingCount = useAppStore((s) => s.schemaLoadingCount);
+  const schemaLoading = schemaLoadingCount > 0;
+
+  // Force React Flow to recalculate edge positions after handles mount.
+  // Edges may reference handles that don't exist yet at restore time:
+  //  - Static handles (TextInput): need nodes measured first
+  //  - Dynamic handles (ImageGenerator prompt): need schema loaded first
+  // We bump the edges reference after initial mount and after schema loading
+  // finishes so React Flow picks up newly registered handles.
+  const hasRefreshedEdgesRef = useRef(false);
+  useEffect(() => {
+    // After initial node mount — refresh edges for static handles
+    if (!hasRefreshedEdgesRef.current && nodes.length > 0) {
+      hasRefreshedEdgesRef.current = true;
+      requestAnimationFrame(() => {
+        const { edges: currentEdges } = useCanvasStore.getState();
+        if (currentEdges.length > 0) {
+          useCanvasStore.getState().setEdges([...currentEdges]);
+        }
+      });
+    }
+  }, [nodes]);
+
+  const prevSchemaLoadingRef = useRef(schemaLoadingCount);
+  useEffect(() => {
+    const prev = prevSchemaLoadingRef.current;
+    prevSchemaLoadingRef.current = schemaLoadingCount;
+
+    // Schema loading → done: refresh edges for dynamic handles
+    if (prev > 0 && schemaLoadingCount === 0) {
+      requestAnimationFrame(() => {
+        const { edges: currentEdges } = useCanvasStore.getState();
+        if (currentEdges.length > 0) {
+          useCanvasStore.getState().setEdges([...currentEdges]);
+        }
+      });
+    }
+  }, [schemaLoadingCount]);
 
   // Interaction mode: 'pan' (hand drag) or 'select' (box selection)
   const [interactionMode, setInteractionMode] = useState<'pan' | 'select'>('pan');
