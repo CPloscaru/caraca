@@ -11,6 +11,12 @@ import {
   Info,
   ExternalLink,
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useFavoritesStore } from '@/stores/favorites-store';
 import { useModelSelectorState } from './shared/useModelSelectorState';
 import { ModelSelectorShell } from './shared/ModelSelectorShell';
@@ -168,62 +174,83 @@ function LLMModelRow({
   onToggleFavorite: (id: string) => void;
 }) {
   return (
-    <div
-      role="option"
-      aria-selected={isSelected}
-      className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5 ${
-        isSelected ? 'bg-white/10' : ''
-      }`}
-      onClick={onSelect}
-    >
-      {/* Star toggle */}
-      <button
-        className={`shrink-0 rounded p-1 transition-colors hover:bg-white/5 ${
-          isFavorited
-            ? 'text-yellow-500'
-            : 'text-gray-600 hover:text-gray-400'
+    <TooltipProvider delayDuration={300}>
+      <div
+        role="option"
+        aria-selected={isSelected}
+        className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5 ${
+          isSelected ? 'bg-white/10' : ''
         }`}
-        disabled={isTogglingFav}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleFavorite(model.model_id);
-        }}
+        onClick={onSelect}
       >
-        <Star
-          className="h-3.5 w-3.5"
-          {...(isFavorited ? { fill: 'currentColor' } : {})}
-        />
-      </button>
+        {/* Star toggle */}
+        <button
+          className={`shrink-0 self-start mt-0.5 rounded p-1 transition-colors hover:bg-white/5 ${
+            isFavorited
+              ? 'text-yellow-500'
+              : 'text-gray-600 hover:text-gray-400'
+          }`}
+          disabled={isTogglingFav}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(model.model_id);
+          }}
+        >
+          <Star
+            className="h-3.5 w-3.5"
+            {...(isFavorited ? { fill: 'currentColor' } : {})}
+          />
+        </button>
 
-      <Bot className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+        {/* Two-line content */}
+        <div className="min-w-0 flex-1">
+          {/* Line 1: name + info button */}
+          <div className="flex items-center gap-1.5">
+            <Bot className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-gray-200">
+              {model.name}
+            </span>
+            <LLMModelDetails model={model} />
+          </div>
 
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-xs font-medium text-gray-200">
-          {model.name}
-        </div>
-        <div className="truncate text-[10px] text-gray-500">
-          {model.provider_group}
+          {/* Line 2: pricing + vision badge + context badge */}
+          <div className="mt-0.5 flex items-center gap-1.5 pl-5">
+            {formatLLMPricingCompact(model.pricing_prompt, model.pricing_completion) && (
+              <span className="shrink-0 text-[10px] text-gray-500">
+                {formatLLMPricingCompact(model.pricing_prompt, model.pricing_completion)}
+              </span>
+            )}
+
+            {model.supports_vision && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-500/15 px-1 py-0.5 text-[10px] text-emerald-400">
+                    <Eye className="h-3 w-3" />
+                    vision
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Ce modèle supporte les entrées image
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {model.context_length != null && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-500">
+                    {Math.round(model.context_length / 1000)}k ctx
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Fenêtre de contexte : {model.context_length.toLocaleString()} tokens
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </div>
       </div>
-
-      {model.supports_vision && (
-        <Eye className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-      )}
-
-      {model.context_length != null && (
-        <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-500">
-          {Math.round(model.context_length / 1000)}k
-        </span>
-      )}
-
-      {formatLLMPricingCompact(model.pricing_prompt, model.pricing_completion) && (
-        <span className="shrink-0 text-[10px] text-gray-500">
-          {formatLLMPricingCompact(model.pricing_prompt, model.pricing_completion)}
-        </span>
-      )}
-
-      <LLMModelDetails model={model} />
-    </div>
+    </TooltipProvider>
   );
 }
 
