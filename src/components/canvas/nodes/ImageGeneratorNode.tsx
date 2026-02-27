@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useNodeId } from '@xyflow/react';
 import { Sparkles, Play, Minus, Plus, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { ModelSelector } from './ModelSelector';
+import { ModelSelector, ModelDetails, type CachedModel } from './ModelSelector';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { BatchCostDialog } from './BatchCostDialog';
 import { SchemaNodeRenderer } from './schema-widgets';
@@ -123,6 +123,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     hasDynamicPorts: true,
     hasQueueStatus: false,
   });
+
+  const [selectedModelInfo, setSelectedModelInfo] = useState<CachedModel | null>(null);
 
   // Stale edge cleanup on mount (migration from pre-Phase-32 hardcoded handle IDs)
   const deleteEdge = useCanvasStore((s) => s.deleteEdge);
@@ -268,6 +270,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
             onChange={handleModelChange}
             mode="text-to-image"
             onPricingInfo={(info) => updateNodeData(nodeId, { unitPrice: info.unitPrice, priceUnit: info.priceUnit })}
+            onModelInfo={setSelectedModelInfo}
           />
         </div>
 
@@ -408,8 +411,13 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         modelName={model}
       />
 
-      {/* Run button */}
-      <div className="flex justify-end p-2 pt-0">
+      {/* Model info + Run button */}
+      <div className="flex items-center justify-between p-2 pt-0">
+        {selectedModelInfo ? (
+          <ModelDetails model={selectedModelInfo} />
+        ) : (
+          <div />
+        )}
         <TooltipProvider delayDuration={300}>
           <Tooltip>
             <TooltipTrigger asChild>

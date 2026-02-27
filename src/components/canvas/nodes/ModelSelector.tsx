@@ -19,7 +19,7 @@ import { useFavoritesStore } from '@/stores/favorites-store';
 // Types
 // ---------------------------------------------------------------------------
 
-type CachedModel = {
+export type CachedModel = {
   endpoint_id: string;
   category: string;
   display_name: string;
@@ -53,6 +53,7 @@ type ModelSelectorProps = {
   onChange: (endpointId: string) => void;
   mode?: 'text-to-image' | 'image-to-image' | 'image-upscaling' | 'text-to-video' | 'image-to-video';
   onPricingInfo?: (info: PricingInfo) => void;
+  onModelInfo?: (model: CachedModel) => void;
 };
 
 // Static upscale models — fal.ai doesn't expose a dedicated "image-upscaling" category
@@ -180,7 +181,7 @@ function ModelThumb({ url, name }: { url: string | null; name: string }) {
 // Model details popover (secondary)
 // ---------------------------------------------------------------------------
 
-function ModelDetails({ model }: { model: CachedModel }) {
+export function ModelDetails({ model }: { model: CachedModel }) {
   return (
     <PopoverPrimitive.Root>
       <PopoverPrimitive.Trigger asChild>
@@ -346,7 +347,7 @@ function ModelRow({
 // ModelSelector
 // ---------------------------------------------------------------------------
 
-export function ModelSelector({ value, onChange, mode = 'text-to-image', onPricingInfo }: ModelSelectorProps) {
+export function ModelSelector({ value, onChange, mode = 'text-to-image', onPricingInfo, onModelInfo }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<ModelsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -400,11 +401,12 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
           .then((json: ModelsResponse) => {
             setData(json);
             setLoading(false);
-            // Emit pricing for the currently selected model
-            if (onPricingInfo && value) {
+            // Emit info for the currently selected model
+            if (value) {
               const selected = json.models.find((m) => m.endpoint_id === value);
               if (selected) {
-                onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
+                if (onPricingInfo) onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
+                if (onModelInfo) onModelInfo(selected);
               }
             }
           })
@@ -432,7 +434,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
           });
       }
     },
-    [mode, onPricingInfo, value],
+    [mode, onPricingInfo, onModelInfo, value],
   );
 
   // Eagerly fetch models on mount so the display label is correct after page refresh
@@ -448,18 +450,17 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
       })
       .then((json: ModelsResponse) => {
         setData(json);
-        if (onPricingInfo) {
-          const selected = json.models.find((m: CachedModel) => m.endpoint_id === value);
-          if (selected) {
-            onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
-          }
+        const selected = json.models.find((m: CachedModel) => m.endpoint_id === value);
+        if (selected) {
+          if (onPricingInfo) onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
+          if (onModelInfo) onModelInfo(selected);
         }
       })
       .catch(() => {
         // Silently fail — user can still open dropdown to retry
         fetchedRef.current = false;
       });
-  }, [value, mode, onPricingInfo]);
+  }, [value, mode, onPricingInfo, onModelInfo]);
 
   // Focus search input when popover opens
   useEffect(() => {
@@ -535,8 +536,11 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
       if (onPricingInfo) {
         onPricingInfo({ unitPrice: model.unit_price, priceUnit: model.price_unit });
       }
+      if (onModelInfo) {
+        onModelInfo(model);
+      }
     },
-    [onChange, onPricingInfo],
+    [onChange, onPricingInfo, onModelInfo],
   );
 
   // Find the currently selected model name
