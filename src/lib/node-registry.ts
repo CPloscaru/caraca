@@ -97,7 +97,9 @@ const NODE_REGISTRY_ARRAY = [
     label: 'LLM Assistant',
     description: 'Enrich prompts with LLM',
     tags: ['llm', 'text', 'ai', 'prompt', 'assistant'],
-    inputs: [{ id: 'image-target-0', type: 'image' as const, label: 'Image' }],
+    inputs: [
+      // image inputs are now dynamic -- not declared in registry
+    ],
     outputs: [{ id: 'text-source-0', type: 'text' as const, label: 'Response' }],
     resultFields: { __llmOutput: 'output', __tokenUsage: 'tokenUsage' },
     stripOnExport: ['output', 'tokenUsage'],
