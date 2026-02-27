@@ -6,7 +6,6 @@
  */
 
 import { useCanvasStore } from '@/stores/canvas-store';
-import { useExecutionStore } from '@/stores/execution-store';
 
 // ---------------------------------------------------------------------------
 // Strip internal fields

@@ -18,6 +18,12 @@ import { applyNodeResult } from '@/lib/node-registry';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import type { BatchParameterData, BatchResultItem } from '@/types/canvas';
+import {
+  createAccumulationMaps,
+  accumulateResult,
+  writeAccumulatedImages,
+  writeAccumulatedVideos,
+} from './batch-helpers';
 
 // Re-export the type for downstream consumers
 export type { NodeExecutor } from './types';
@@ -315,20 +321,13 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
   const controller = execStore.startExecution();
   const signal = controller.signal;
 
-  // Set downstream nodes (excluding batch node) to pending
   for (const id of sortedIds) {
     if (id !== batchNodeId) {
       useExecutionStore.getState().setNodeStatus(id, 'pending');
     }
   }
 
-  // Accumulate images from imageGenerator nodes across batch iterations
-  const accumulatedImages = new Map<string, Array<{ url: string; width: number; height: number }>>();
-
-  // Accumulate videos from video nodes across batch iterations
-  const accumulatedVideos = new Map<string, Array<{ videoUrl: string; cdnUrl: string }>>();
-
-  // Running cost tracking
+  const accMaps = createAccumulationMaps();
   let runningCost = 0;
   const downstreamUnitPrice = getDownstreamUnitPrice(batchNodeId, nodes, edges);
 
@@ -336,11 +335,6 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
     const batchResults = await executeDagBatch({
       values,
       batchNodeId,
-      // NOTE: Batch output is always text. The batch node injects each value
-      // as a text string via text-source-0, regardless of the visual port type
-      // shown on the node (which adapts dynamically to the connected edge).
-      // This means batch parameters are always text — image/video batch input
-      // would require a different node type (see POST-06 in REQUIREMENTS.md).
       batchOutputHandle: 'text-source-0',
       errorMode: batchData.errorMode ?? 'skip',
       sortedNodeIds: sortedIds,
@@ -357,38 +351,10 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
           sig,
         );
 
-        // For imageGenerator nodes, accumulate images instead of overwriting per-iteration
-        if (nodeType === 'imageGenerator' && result.__images) {
-          const existing = accumulatedImages.get(nId) ?? [];
-          existing.push(...(result.__images as Array<{ url: string; width: number; height: number }>));
-          accumulatedImages.set(nId, existing);
-
-          // Strip internal fields and return clean result for downstream without applying to node
-          const clean: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(result)) {
-            if (!k.startsWith('__')) clean[k] = v;
-          }
-          useExecutionStore.getState().setNodeResult(nId, clean);
-          return clean;
-        }
-
-        // For video nodes, accumulate videos instead of overwriting per-iteration
-        if ((nodeType === 'textToVideo' || nodeType === 'imageToVideo') && result.__videoUrl) {
-          const existing = accumulatedVideos.get(nId) ?? [];
-          existing.push({
-            videoUrl: result.__videoUrl as string,
-            cdnUrl: result.__cdnUrl as string,
-          });
-          accumulatedVideos.set(nId, existing);
-
-          // Strip internal fields — don't apply per-iteration to prevent overwriting
-          const clean: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(result)) {
-            if (!k.startsWith('__')) clean[k] = v;
-          }
-          useExecutionStore.getState().setNodeResult(nId, clean);
-          return clean;
-        }
+        const acc = accumulateResult(nodeType, nId, result, accMaps, (id, r) =>
+          useExecutionStore.getState().setNodeResult(id, r),
+        );
+        if (acc.accumulated) return acc.clean;
 
         const cleanResult = applyNodeResult(
           nodeType,
@@ -404,10 +370,8 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
         useExecutionStore.getState().setNodeStatus(nId, status);
       },
       onBatchProgress: (current, total) => {
-        // current is 1-indexed (called before iteration starts)
         const currentIndex = current - 1;
         const currentItemText = values[currentIndex] ?? '';
-        // After each successful iteration, add unit price to running cost
         if (current > 1 && downstreamUnitPrice != null) {
           runningCost += downstreamUnitPrice;
         }
@@ -417,30 +381,8 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
       },
     });
 
-    // Write accumulated images to each Image Generator node
-    for (const [nId, batchImages] of accumulatedImages) {
-      const node = nodes.find((n) => n.id === nId);
-      const existingImages = batchData.appendMode
-        ? ((node?.data as Record<string, unknown>)?.images as Array<{ url: string; width: number; height: number }>) ?? []
-        : [];
-      useCanvasStore.getState().updateNodeData(nId, {
-        images: [...existingImages, ...batchImages],
-        selectedImageIndex: 0,
-      });
-    }
-
-    // Write accumulated videos to each video node
-    for (const [nId, videos] of accumulatedVideos) {
-      const node = nodes.find((n) => n.id === nId);
-      const existingVideos = batchData.appendMode
-        ? ((node?.data as Record<string, unknown>)?.videoResults as Array<{ videoUrl: string; cdnUrl: string }>) ?? []
-        : [];
-      useCanvasStore.getState().updateNodeData(nId, {
-        videoResults: [...existingVideos, ...videos],
-        videoUrl: videos[videos.length - 1]?.videoUrl ?? null,
-        cdnUrl: videos[videos.length - 1]?.cdnUrl ?? null,
-      });
-    }
+    writeAccumulatedImages(accMaps.images, { mode: 'append', appendMode: batchData.appendMode });
+    writeAccumulatedVideos(accMaps.videos, { mode: 'append', appendMode: batchData.appendMode });
 
     // Handle append mode: concatenate with existing results if appendMode is true
     let finalResults: BatchResultItem[];
@@ -450,7 +392,6 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
       finalResults = batchResults;
     }
 
-    // Store results on the batch node via registry
     applyNodeResult(
       'batchParameter',
       batchNodeId,
@@ -483,7 +424,6 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
   const batchData = batchNode.data as unknown as BatchParameterData;
   const existingResults = batchData.batchResults ?? [];
 
-  // Find failed items with their original indices
   const failedItems = existingResults
     .map((r, idx) => ({ ...r, arrayIndex: idx }))
     .filter((r) => r.status === 'error');
@@ -492,7 +432,6 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
 
   const failedValues = failedItems.map((r) => r.inputValue);
 
-  // Get downstream subgraph
   const nodeIds = nodes.map((n) => n.id);
   const edgesSimple = edges.map((e) => ({
     source: e.source,
@@ -503,7 +442,6 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
 
   const sortedIds = getDownstreamNodes(batchNodeId, nodeIds, edgesSimple);
 
-  // Start execution
   const controller = execStore.startExecution();
   const signal = controller.signal;
 
@@ -513,10 +451,7 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
     }
   }
 
-  // Accumulate images/videos for retried items
-  const accumulatedImages = new Map<string, Array<{ url: string; width: number; height: number }>>();
-  const accumulatedVideos = new Map<string, Array<{ videoUrl: string; cdnUrl: string }>>();
-
+  const accMaps = createAccumulationMaps();
   let runningCost = 0;
   const downstreamUnitPrice = getDownstreamUnitPrice(batchNodeId, nodes, edges);
 
@@ -540,32 +475,10 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
           sig,
         );
 
-        if (nodeType === 'imageGenerator' && result.__images) {
-          const existing = accumulatedImages.get(nId) ?? [];
-          existing.push(...(result.__images as Array<{ url: string; width: number; height: number }>));
-          accumulatedImages.set(nId, existing);
-          const clean: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(result)) {
-            if (!k.startsWith('__')) clean[k] = v;
-          }
-          useExecutionStore.getState().setNodeResult(nId, clean);
-          return clean;
-        }
-
-        if ((nodeType === 'textToVideo' || nodeType === 'imageToVideo') && result.__videoUrl) {
-          const existing = accumulatedVideos.get(nId) ?? [];
-          existing.push({
-            videoUrl: result.__videoUrl as string,
-            cdnUrl: result.__cdnUrl as string,
-          });
-          accumulatedVideos.set(nId, existing);
-          const clean: Record<string, unknown> = {};
-          for (const [k, v] of Object.entries(result)) {
-            if (!k.startsWith('__')) clean[k] = v;
-          }
-          useExecutionStore.getState().setNodeResult(nId, clean);
-          return clean;
-        }
+        const acc = accumulateResult(nodeType, nId, result, accMaps, (id, r) =>
+          useExecutionStore.getState().setNodeResult(id, r),
+        );
+        if (acc.accumulated) return acc.clean;
 
         const cleanResult = applyNodeResult(
           nodeType,
@@ -598,49 +511,13 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
       const originalIndex = failedItems[i].arrayIndex;
       mergedResults[originalIndex] = {
         ...retryResults[i],
-        index: failedItems[i].index, // preserve original batch index
+        index: failedItems[i].index,
       };
     }
 
-    // Merge accumulated images into existing node arrays at correct positions
-    for (const [nId, retryImages] of accumulatedImages) {
-      const node = useCanvasStore.getState().nodes.find((n) => n.id === nId);
-      const currentImages = ((node?.data as Record<string, unknown>)?.images as Array<{ url: string; width: number; height: number }>) ?? [];
-      // Replace images at failed indices with retry results
-      const updatedImages = [...currentImages];
-      let retryIdx = 0;
-      for (const failedItem of failedItems) {
-        if (retryIdx < retryImages.length) {
-          updatedImages[failedItem.arrayIndex] = retryImages[retryIdx];
-          retryIdx++;
-        }
-      }
-      useCanvasStore.getState().updateNodeData(nId, {
-        images: updatedImages,
-        selectedImageIndex: 0,
-      });
-    }
+    writeAccumulatedImages(accMaps.images, { mode: 'merge-at-index', failedItems });
+    writeAccumulatedVideos(accMaps.videos, { mode: 'merge-at-index', failedItems });
 
-    // Merge accumulated videos into existing node arrays at correct positions
-    for (const [nId, retryVideos] of accumulatedVideos) {
-      const node = useCanvasStore.getState().nodes.find((n) => n.id === nId);
-      const currentVideos = ((node?.data as Record<string, unknown>)?.videoResults as Array<{ videoUrl: string; cdnUrl: string }>) ?? [];
-      const updatedVideos = [...currentVideos];
-      let retryIdx = 0;
-      for (const failedItem of failedItems) {
-        if (retryIdx < retryVideos.length) {
-          updatedVideos[failedItem.arrayIndex] = retryVideos[retryIdx];
-          retryIdx++;
-        }
-      }
-      useCanvasStore.getState().updateNodeData(nId, {
-        videoResults: updatedVideos,
-        videoUrl: updatedVideos[updatedVideos.length - 1]?.videoUrl ?? null,
-        cdnUrl: updatedVideos[updatedVideos.length - 1]?.cdnUrl ?? null,
-      });
-    }
-
-    // Store merged results on the batch node
     applyNodeResult(
       'batchParameter',
       batchNodeId,
