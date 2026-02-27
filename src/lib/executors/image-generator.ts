@@ -3,7 +3,7 @@ import { ensureFalCdnUrl } from '@/lib/fal/upload-local';
 import { buildImagePayload, applyTextPortInputs } from '@/lib/fal/schema-payload';
 import type { ImageGeneratorData } from '@/types/canvas';
 import type { NodeExecutor } from './types';
-import { ASPECT_RATIO_PRESETS, applySchemaParams, handleExecutorError } from './helpers';
+import { ASPECT_RATIO_PRESETS, applySchemaParams, handleExecutorError, downloadImageToLocal } from './helpers';
 
 export const imageGeneratorExecutor: NodeExecutor = async (
   nodeId,
@@ -80,12 +80,20 @@ export const imageGeneratorExecutor: NodeExecutor = async (
       (resultData.images as Array<{ url: string; width: number; height: number }>) ??
       [];
 
+    // Download all images to local storage
+    const localImages = await Promise.all(
+      images.map(async (img) => {
+        const { localUrl } = await downloadImageToLocal(img.url);
+        return { ...img, url: localUrl };
+      }),
+    );
+
     // Return selected image URL for downstream nodes + __images for node data update
     const selectedIndex = (data as ImageGeneratorData).selectedImageIndex ?? 0;
-    const selectedImage = images[selectedIndex] ?? images[0];
+    const selectedImage = localImages[selectedIndex] ?? localImages[0];
     return {
       'image-source-0': selectedImage?.url ?? null,
-      __images: images,
+      __images: localImages,
       __debugRequest: debugRequest,
       __debugResponse: resultData,
     };

@@ -3,7 +3,7 @@ import { ensureFalCdnUrl } from '@/lib/fal/upload-local';
 import { getModelParams, DEFAULT_UPSCALE_MODEL } from '@/lib/upscale/model-params';
 import type { ImageUpscaleData } from '@/types/canvas';
 import type { NodeExecutor } from './types';
-import { applySchemaParams, handleExecutorError } from './helpers';
+import { applySchemaParams, handleExecutorError, downloadImageToLocal } from './helpers';
 
 export const imageUpscaleExecutor: NodeExecutor = async (
   nodeId,
@@ -56,9 +56,12 @@ export const imageUpscaleExecutor: NodeExecutor = async (
     const resultData = result.data as Record<string, unknown>;
     const image = resultData.image as { url: string; width: number; height: number };
 
+    // Download upscaled image to local storage
+    const { localUrl } = await downloadImageToLocal(image.url);
+
     return {
-      'image-source-0': image.url,
-      __outputImage: { url: image.url, width: image.width, height: image.height },
+      'image-source-0': localUrl,
+      __outputImage: { url: localUrl, width: image.width, height: image.height },
       __inputImageUrl: resolvedUrl,
       __debugRequest: debugRequest,
       __debugResponse: resultData,
