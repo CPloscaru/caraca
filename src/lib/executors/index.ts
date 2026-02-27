@@ -38,6 +38,7 @@ import { textToVideoExecutor } from './text-to-video';
 import { imageToVideoExecutor } from './image-to-video';
 import { batchParameterExecutor } from './batch-parameter';
 import { canvasNoteExecutor } from './canvas-note';
+import { textDisplayExecutor } from './text-display';
 
 import type { NodeExecutor } from './types';
 
@@ -55,6 +56,7 @@ const executors: Record<string, NodeExecutor> = {
   imageToVideo: imageToVideoExecutor,
   batchParameter: batchParameterExecutor,
   canvasNote: canvasNoteExecutor,
+  textDisplay: textDisplayExecutor,
 };
 
 // ---------------------------------------------------------------------------

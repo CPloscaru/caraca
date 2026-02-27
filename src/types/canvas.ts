@@ -51,6 +51,10 @@ export type LLMAssistantData = NodeData & {
   tokenUsage: { prompt: number; completion: number; total: number } | null;
 };
 
+export type TextDisplayData = NodeData & {
+  displayText: string | null;
+};
+
 export type ImageUpscaleData = NodeData & {
   model: string;
   scaleFactor: number;

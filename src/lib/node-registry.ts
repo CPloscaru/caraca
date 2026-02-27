@@ -107,6 +107,18 @@ const NODE_REGISTRY_ARRAY = [
     available: true,
   },
   {
+    type: 'textDisplay',
+    label: 'Text Display',
+    description: 'Display text output with markdown rendering',
+    tags: ['text', 'display', 'output', 'markdown'],
+    inputs: [{ id: 'text-target-0', type: 'text' as const, label: 'Text' }],
+    outputs: [],
+    resultFields: { __displayText: 'displayText' },
+    stripOnExport: ['displayText'],
+    order: 45,
+    available: true,
+  },
+  {
     type: 'placeholder',
     label: 'Placeholder',
     description: 'Placeholder node for future types',
