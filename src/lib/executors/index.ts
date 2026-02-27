@@ -102,7 +102,10 @@ export async function runSingleNode(nodeId: string): Promise<void> {
     targetHandle: e.targetHandle ?? '',
   }));
 
-  const sortedIds = getUpstreamNodes(nodeId, nodeIds, edgesSimple);
+  const upstreamIds = getUpstreamNodes(nodeId, nodeIds, edgesSimple);
+  const downstreamIds = getDownstreamNodes(nodeId, nodeIds, edgesSimple);
+  // Merge: upstream (includes nodeId) + downstream (excludes nodeId to avoid dup)
+  const sortedIds = [...upstreamIds, ...downstreamIds.filter((id) => id !== nodeId)];
 
   // Start execution
   const controller = execStore.startExecution();
