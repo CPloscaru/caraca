@@ -1,6 +1,7 @@
 import { fal } from '@/lib/fal/client';
 import { classifyFalError } from '@/lib/fal/error-classifier';
 import { ensureFalCdnUrl } from '@/lib/fal/upload-local';
+import { buildImagePayload, applyTextPortInputs } from '@/lib/fal/schema-payload';
 import { useCanvasStore } from '@/stores/canvas-store';
 import type { ImageGeneratorData } from '@/types/canvas';
 import type { NodeExecutor } from './types';
@@ -25,15 +26,6 @@ export const imageGeneratorExecutor: NodeExecutor = async (
     throw new Error('No prompt provided for image generation');
   }
 
-  // Resolve image input (for image-to-image workflows)
-  const imageInputUrl = inputs['image-target-1'] as string | undefined;
-
-  // Re-upload local images to fal CDN (per FND-03)
-  let resolvedImageUrl = imageInputUrl;
-  if (imageInputUrl) {
-    resolvedImageUrl = await ensureFalCdnUrl(imageInputUrl);
-  }
-
   // Build fal.ai input
   const falInput: Record<string, unknown> = {
     prompt: resolvedPrompt,
@@ -51,9 +43,24 @@ export const imageGeneratorExecutor: NodeExecutor = async (
   if (numImages > 1) {
     falInput.num_images = numImages;
   }
-  if (resolvedImageUrl) {
-    falInput.image_url = resolvedImageUrl;
+
+  // Dynamic image port input mapping via generic payload builder
+  const dynamicPorts = (nodeData as Record<string, unknown>).dynamicImagePorts as
+    Array<{ fieldName: string; multi: boolean; maxConnections?: number }> | undefined;
+
+  if (dynamicPorts) {
+    const imagePayload = await buildImagePayload(dynamicPorts, inputs, ensureFalCdnUrl);
+    Object.assign(falInput, imagePayload);
+  } else {
+    // Legacy fallback for pre-Phase-32 workflows
+    const imageInput = inputs['image-target-1'] as string | undefined;
+    if (imageInput) {
+      falInput.image_url = await ensureFalCdnUrl(imageInput);
+    }
   }
+
+  // Apply text port inputs (connected Text Input nodes override inline values)
+  applyTextPortInputs(inputs, falInput);
 
   // Merge dynamic schema params (won't overwrite dedicated keys)
   applySchemaParams(falInput, nodeData as Record<string, unknown>);

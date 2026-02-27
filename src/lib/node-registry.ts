@@ -84,11 +84,11 @@ const NODE_REGISTRY_ARRAY = [
     tags: ['image', 'generate', 'ai', 'fal'],
     inputs: [
       { id: 'text-target-0', type: 'text' as const, label: 'Prompt' },
-      { id: 'image-target-1', type: 'image' as const, label: 'Reference' },
+      // image inputs are now dynamic -- not declared in registry
     ],
     outputs: [{ id: 'image-source-0', type: 'image' as const, label: 'Output' }],
     resultFields: { __images: 'images', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
-    stripOnExport: ['images', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
+    stripOnExport: ['images', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 30,
     available: true,
   },
