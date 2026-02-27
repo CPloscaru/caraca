@@ -23,13 +23,21 @@ export async function captureCanvasThumbnail(
     if (!viewportEl) return null;
 
     const nodesBounds = getNodesBounds(nodes);
+    // Add generous padding around the bounding box so the full workflow is visible
+    const padding = 50;
+    const paddedBounds: Rect = {
+      x: nodesBounds.x - padding,
+      y: nodesBounds.y - padding,
+      width: nodesBounds.width + padding * 2,
+      height: nodesBounds.height + padding * 2,
+    };
     const viewport = getViewportForBounds(
-      nodesBounds,
+      paddedBounds,
       THUMBNAIL_WIDTH,
       THUMBNAIL_HEIGHT,
-      0.5,
-      2,
       0.1,
+      1.5,
+      0,
     );
 
     if (!viewport) return null;
