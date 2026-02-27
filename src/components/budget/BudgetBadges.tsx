@@ -167,7 +167,7 @@ function BudgetPill({
   } else if (service.type === 'usage') {
     text = `${label}: $${service.amount?.toFixed(2)} used`;
   } else if (service.amount !== null) {
-    text = `${label}: $${service.amount?.toFixed(2)}`;
+    text = `${label}: $${service.amount?.toFixed(2)} remaining`;
   } else {
     text = `${label}: N/A`;
   }
