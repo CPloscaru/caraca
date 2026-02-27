@@ -103,18 +103,17 @@ export async function DELETE(
       return apiError(404, 'Project not found', undefined, 'NOT_FOUND');
     }
 
-    // Rename uploads folder to archived (if exists)
-    const uploadsDir = path.join(process.cwd(), 'uploads', 'projects', id);
+    // Rename storage folder to archived (if exists)
+    const storageDir = path.join(process.cwd(), 'storage', id);
     const archivedDir = path.join(
       process.cwd(),
-      'uploads',
-      'projects',
+      'storage',
       `${id}_archived`,
     );
 
     try {
-      await fs.access(uploadsDir);
-      await fs.rename(uploadsDir, archivedDir);
+      await fs.access(storageDir);
+      await fs.rename(storageDir, archivedDir);
     } catch {
       // Folder doesn't exist — skip rename
     }
