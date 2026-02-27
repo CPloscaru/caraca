@@ -121,16 +121,24 @@ src/
 
 ## Roadmap
 
-**Current status:** v0.1.0 MVP
+**Current status:** v0.1.1
 
 What is available today:
 
 - Node-based workflow editor with drag-and-drop canvas
 - Image and video generation via fal.ai
-- LLM assistant via OpenRouter
+- LLM assistant via OpenRouter with multi-image vision support
+- Text display node for LLM output inspection
+- Dynamic schema-driven ports (image and text)
+- Markdown notes and annotations on canvas
+- Model favorites and info popovers
+- Debug view with JSON tree and image preview
+- Per-project file storage with image download
+- Budget tracking badges (fal.ai & OpenRouter balances)
 - Project persistence with SQLite
 - Workflow templates
 - Export/import as `.caraca.json`
+- Landing page at [caraca.to](https://caraca.to)
 
 Community contributions are welcome. Check the [issue tracker](https://github.com/CPloscaru/caraca/issues) for feature requests and known issues.
 
