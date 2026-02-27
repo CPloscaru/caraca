@@ -5,6 +5,7 @@ import { type NodeProps, Position } from '@xyflow/react';
 import { ImagePlus, Upload, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { useExecutionStore } from '@/stores/execution-store';
 import type { ImageImportData } from '@/types/canvas';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -43,10 +44,16 @@ export function ImageImportNode({ id, data, selected }: NodeProps) {
       setError(null);
 
       try {
+        const projectId = useExecutionStore.getState().projectId;
+        if (!projectId) {
+          showError('No project context — save the project first');
+          return;
+        }
+
         const formData = new FormData();
         formData.append('file', file);
 
-        const res = await fetch('/api/images/upload', {
+        const res = await fetch(`/api/storage/${projectId}/upload`, {
           method: 'POST',
           body: formData,
         });
