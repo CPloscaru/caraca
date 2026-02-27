@@ -10,6 +10,7 @@ import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { useExecutionStore } from '@/stores/execution-store';
 import { exportWorkflow } from '@/lib/export-import';
 import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import type { WorkflowJson } from '@/types/canvas';
@@ -116,6 +117,11 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const { saveStatus, markRestored } = useAutoSave(projectId);
   useUndoRedo();
+
+  // Publish projectId so executors can build per-project storage URLs
+  useEffect(() => {
+    useExecutionStore.getState().setProjectId(projectId);
+  }, [projectId]);
 
   // Fetch project data on mount and restore workflow
   useEffect(() => {
