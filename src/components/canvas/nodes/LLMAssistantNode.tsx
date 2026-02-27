@@ -143,11 +143,14 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
         <span className="text-xs font-semibold text-gray-100">
           LLM Assistant
         </span>
-        {supportsVision && (
-          <span className="ml-auto rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
-            vision
-          </span>
-        )}
+        <span className="ml-auto flex items-center gap-1">
+          {supportsVision && (
+            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
+              vision
+            </span>
+          )}
+          <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} className="" />
+        </span>
       </div>
 
       {/* Instruction textarea */}
@@ -173,8 +176,7 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Output / Debug panel */}
-      <div className="relative border-t border-white/5 px-3 py-2">
-        <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} />
+      <div className="border-t border-white/5 px-3 py-2">
         {debugMode ? (
           <JsonDebugPanel
             schema={{ model: nodeData.model, instruction: nodeData.instruction }}

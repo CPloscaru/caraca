@@ -11,16 +11,18 @@ import type { SchemaNode } from '@/lib/fal/schema-tree';
 type DebugToggleButtonProps = {
   active: boolean;
   onClick: () => void;
+  /** Override default absolute positioning (e.g. for inline header usage) */
+  className?: string;
 };
 
-export function DebugToggleButton({ active, onClick }: DebugToggleButtonProps) {
+export function DebugToggleButton({ active, onClick, className }: DebugToggleButtonProps) {
   return (
     <button
-      className={`nodrag absolute top-2 right-2 z-10 h-6 w-6 flex items-center justify-center rounded transition-opacity ${
+      className={`nodrag h-6 w-6 flex items-center justify-center rounded transition-opacity ${
         active
           ? 'bg-purple-500/20 text-purple-300 opacity-100'
           : 'text-gray-400 opacity-50 hover:opacity-80'
-      }`}
+      } ${className ?? 'absolute top-2 right-2 z-10'}`}
       onClick={onClick}
       title="Toggle debug view"
     >
