@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelLeft, Settings, Play, Square, Trash2, ArrowLeft, Download, Upload, Map } from 'lucide-react';
+import { PanelLeft, Settings, Play, Square, Trash2, ArrowLeft, Download, Upload, Map, FolderOpen } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -42,6 +42,7 @@ function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
 // ---------------------------------------------------------------------------
 
 type ToolbarProps = {
+  projectId?: string;
   projectTitle?: string;
   onTitleChange?: (title: string) => void;
   saveStatus?: SaveStatus;
@@ -49,7 +50,7 @@ type ToolbarProps = {
   onImportFile?: (file: File) => void;
 };
 
-export function Toolbar({ projectTitle, onTitleChange, saveStatus, onExport, onImportFile }: ToolbarProps) {
+export function Toolbar({ projectId, projectTitle, onTitleChange, saveStatus, onExport, onImportFile }: ToolbarProps) {
   const router = useRouter();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -224,6 +225,21 @@ export function Toolbar({ projectTitle, onTitleChange, saveStatus, onExport, onI
             }
           }}
         />
+
+        {/* Open project folder */}
+        {projectId && (
+          <button
+            onClick={() => {
+              fetch(`/api/projects/${projectId}/open-folder`, { method: 'POST' }).catch(() => {});
+            }}
+            style={iconBtnBase}
+            onMouseEnter={hoverIn}
+            onMouseLeave={hoverOut}
+            title="Open project folder"
+          >
+            <FolderOpen size={18} />
+          </button>
+        )}
 
         {/* Export */}
         <button

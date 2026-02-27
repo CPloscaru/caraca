@@ -207,6 +207,7 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
       style={{ background: '#111111' }}
     >
       <Toolbar
+        projectId={projectId}
         projectTitle={projectTitle}
         onTitleChange={handleTitleChange}
         saveStatus={saveStatus}
