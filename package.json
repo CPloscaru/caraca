@@ -45,6 +45,7 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-error-boundary": "^6.1.1",
     "tailwind-merge": "^3.5.0",
     "zod": "^3.25.76",
     "zundo": "^2.3.0",
