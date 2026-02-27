@@ -476,34 +476,12 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
     const q = search.toLowerCase();
     const allModelMap = new Map(data.models.map((m) => [m.endpoint_id, m]));
 
-    const favModels: (CachedModel & { _deprecated?: boolean })[] = [];
+    const favModels: CachedModel[] = [];
     for (const id of favoriteIds) {
       const model = allModelMap.get(id);
-      if (model) {
-        // Filter by search query
-        if (q && !model.display_name.toLowerCase().includes(q)) continue;
-        favModels.push(model);
-      } else {
-        // Deprecated/removed model — show greyed out
-        if (q && !id.toLowerCase().includes(q)) continue;
-        favModels.push({
-          endpoint_id: id,
-          category: '',
-          display_name: id,
-          group_key: null,
-          group_label: null,
-          thumbnail_url: null,
-          description: null,
-          highlighted: null,
-          pinned: null,
-          duration_estimate: null,
-          model_url: null,
-          unit_price: null,
-          price_unit: null,
-          price_currency: null,
-          _deprecated: true,
-        });
-      }
+      if (!model) continue; // Skip favorites from other node types
+      if (q && !model.display_name.toLowerCase().includes(q)) continue;
+      favModels.push(model);
     }
     // Sort alphabetically by display_name
     favModels.sort((a, b) => a.display_name.localeCompare(b.display_name));
@@ -648,7 +626,6 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
                         isFavorited={true}
                         isTogglingFav={toggling.has(m.endpoint_id)}
                         onToggleFavorite={handleToggleFavorite}
-                        disabled={'_deprecated' in m && (m as CachedModel & { _deprecated?: boolean })._deprecated}
                       />
                     ))}
                   </div>
