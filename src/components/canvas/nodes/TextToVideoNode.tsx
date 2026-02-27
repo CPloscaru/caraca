@@ -1,14 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type NodeProps, Position, useEdges, useNodeConnections, useNodeId } from '@xyflow/react';
+import { useCallback, useMemo } from 'react';
+import { type NodeProps, Position, useNodeConnections, useNodeId } from '@xyflow/react';
 import { Video, Play, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
-import { useExecutionStore } from '@/stores/execution-store';
-import { useCanvasStore } from '@/stores/canvas-store';
-import { runSingleNode, runBatchNode } from '@/lib/executors';
-import { ModelSelector, formatFalPrice } from './ModelSelector';
-import { BatchCostDialog, isCostDialogDismissed } from './BatchCostDialog';
+import { ModelSelector } from './ModelSelector';
+import { BatchCostDialog } from './BatchCostDialog';
 import {
   Tooltip,
   TooltipContent,
@@ -17,29 +14,20 @@ import {
 } from '@/components/ui/tooltip';
 import { VideoResult, GenerationProgress } from './VideoPlayer';
 import { VideoResultCarousel } from './VideoResultCarousel';
-import { getStatusBorderClass, ShimmerPlaceholder } from './node-utils';
+import { ShimmerPlaceholder } from './node-utils';
 import {
-  fetchModelSchema,
-  fetchSchemaTree,
-  deriveNodeConfig,
-  getSchemaImageFields,
   humanizeFieldName,
   type ModelNodeConfig,
-  type ModelInputField,
   type DynamicImagePort,
 } from '@/lib/fal/schema-introspection';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { FieldLabel, SchemaNodeRenderer } from './schema-widgets';
-import { useSchemaParams } from '@/lib/fal/use-schema-params';
 import type { SchemaNode } from '@/lib/fal/schema-tree';
-import { isImageNode, isImageArrayNode, isTextNode, computePerElementPorts } from '@/lib/fal/schema-ports';
+import { isImageNode, isImageArrayNode, isTextNode } from '@/lib/fal/schema-ports';
 import type { TextToVideoData } from '@/types/canvas';
+import { useFalNode } from '@/hooks/use-fal-node';
 
 const T2V_EXCLUDE = new Set(['seed']);
-
-// ---------------------------------------------------------------------------
-// Default config (fallback before schema introspection runs)
-// ---------------------------------------------------------------------------
 
 const DEFAULT_CONFIG: ModelNodeConfig = {
   hasPrompt: true,
@@ -162,206 +150,50 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
   const nodeId = useNodeId() ?? id;
   const nodeData = data as unknown as TextToVideoData;
 
-  // Execution state
-  const execState = useExecutionStore((s) => s.nodeStates[nodeId]);
-  const isRunning = execState?.status === 'running';
-  const isPending = execState?.status === 'pending';
-  const hasError = execState?.status === 'error';
-
-  // Canvas store
-  const updateNodeData = useCanvasStore((s) => s.updateNodeData);
-  const deleteEdge = useCanvasStore((s) => s.deleteEdge);
-  const nodes = useCanvasStore((s) => s.nodes);
-  const edges = useEdges();
+  const {
+    execState,
+    isRunning,
+    isPending,
+    hasError,
+    handleRun,
+    config,
+    schemaFields,
+    dynamicImagePorts,
+    schemaTree,
+    paramValues,
+    setParam,
+    filteredTree,
+    debugMode,
+    setDebugMode,
+    costDialogOpen,
+    setCostDialogOpen,
+    handleCostConfirm,
+    model,
+    statusBorder,
+    costTooltip,
+    textInputConnected,
+    updateData,
+    updateNodeData,
+    handleModelChange,
+    upstreamBatch,
+  } = useFalNode({
+    nodeId,
+    nodeData: data as unknown as Record<string, unknown>,
+    defaultModel: DEFAULT_MODEL,
+    defaultConfig: DEFAULT_CONFIG,
+    excludeParams: T2V_EXCLUDE,
+    hasDynamicPorts: true,
+    hasQueueStatus: true,
+    clearBeforeRun: { videoUrl: null, cdnUrl: null, videoResults: null },
+  });
 
   // Derived data
-  const model = nodeData.model ?? DEFAULT_MODEL;
   const aspectRatio = nodeData.aspectRatio ?? '16:9';
   const duration = nodeData.duration ?? 5;
   const seed = nodeData.seed ?? null;
   const videoUrl = nodeData.videoUrl ?? null;
   const cdnUrl = nodeData.cdnUrl ?? null;
   const videoResults = nodeData.videoResults ?? null;
-
-  // Pricing info from ModelSelector
-  const unitPrice = (nodeData as Record<string, unknown>).unitPrice as number | null ?? null;
-  const priceUnit = (nodeData as Record<string, unknown>).priceUnit as string | null ?? null;
-  const costTooltip = formatFalPrice(unitPrice, priceUnit);
-
-  const statusBorder = getStatusBorderClass(execState?.status);
-
-  // Upstream batch detection
-  const upstreamBatch = useMemo(() => {
-    const inEdge = edges.find((e) => e.target === nodeId);
-    if (!inEdge) return null;
-    const sourceNode = nodes.find((n) => n.id === inEdge.source);
-    if (!sourceNode || sourceNode.type !== 'batchParameter') return null;
-    return { id: sourceNode.id, values: ((sourceNode.data as Record<string, unknown>).values as string[]) ?? [] };
-  }, [edges, nodeId, nodes]);
-
-  // Cost dialog state
-  const [costDialogOpen, setCostDialogOpen] = useState(false);
-
-  const handleRun = useCallback(() => {
-    if (isRunning || isPending) {
-      useExecutionStore.getState().cancelExecution();
-      return;
-    }
-    if (upstreamBatch && upstreamBatch.values.length > 0) {
-      if (isCostDialogDismissed()) {
-        runBatchNode(upstreamBatch.id).catch(console.error);
-      } else {
-        setCostDialogOpen(true);
-      }
-    } else {
-      updateNodeData(nodeId, { videoUrl: null, cdnUrl: null, videoResults: null });
-      runSingleNode(nodeId).catch(console.error);
-    }
-  }, [nodeId, upstreamBatch, isRunning, isPending, updateNodeData]);
-
-  const handleCostConfirm = useCallback(() => {
-    setCostDialogOpen(false);
-    if (upstreamBatch) {
-      runBatchNode(upstreamBatch.id).catch(console.error);
-    }
-  }, [upstreamBatch]);
-
-  // Schema-driven config
-  const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_CONFIG);
-  const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
-  const [dynamicImagePorts, setDynamicImagePorts] = useState<DynamicImagePort[]>([]);
-  const [schemaTree, setSchemaTree] = useState<import('@/lib/fal/schema-tree').SchemaNode[]>([]);
-
-  // Debug mode (per-session, not persisted)
-  const [debugMode, setDebugMode] = useState(false);
-
-  // Track previous port states to auto-disconnect edges on model change
-  const prevHasPrompt = useRef(config.hasPrompt);
-  const prevDynamicPortFields = useRef<Set<string>>(new Set());
-
-  // Fetch schema on model change
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([fetchModelSchema(model), fetchSchemaTree(model)]).then(([fields, tree]) => {
-      if (cancelled) return;
-      setSchemaTree(tree);
-      setSchemaFields(fields.length > 0 ? fields : null);
-      if (fields.length > 0) {
-        setConfig(deriveNodeConfig(fields));
-        const imagePorts = getSchemaImageFields(fields, tree);
-        setDynamicImagePorts(imagePorts);
-        // Store port config on node data for the executor
-        updateNodeData(nodeId, {
-          dynamicImagePorts: imagePorts.map(p => ({
-            fieldName: p.fieldName,
-            multi: p.multi,
-            maxConnections: p.maxConnections,
-          })),
-        });
-      } else {
-        setConfig(DEFAULT_CONFIG);
-        setDynamicImagePorts([]);
-        updateNodeData(nodeId, { dynamicImagePorts: undefined });
-      }
-    });
-    return () => { cancelled = true; };
-  }, [model, nodeId, updateNodeData]);
-
-  // Auto-disconnect prompt edge when model no longer supports prompt
-  useEffect(() => {
-    if (prevHasPrompt.current && !config.hasPrompt) {
-      const promptEdge = edges.find(
-        (e) => e.target === nodeId && e.targetHandle === 'text-target-0',
-      );
-      if (promptEdge) {
-        deleteEdge(promptEdge.id);
-        console.warn(
-          `[TextToVideo] Auto-disconnected prompt wire - model "${model}" does not support prompts`,
-        );
-      }
-    }
-    prevHasPrompt.current = config.hasPrompt;
-  }, [config.hasPrompt, edges, nodeId, model, deleteEdge]);
-
-  // Auto-disconnect stale dynamic image port edges on model change
-  useEffect(() => {
-    const newFieldNames = new Set(dynamicImagePorts.map(p => p.fieldName));
-
-    for (const oldField of prevDynamicPortFields.current) {
-      if (!newFieldNames.has(oldField)) {
-        const handleId = `image-target-${oldField}`;
-        const staleEdge = edges.find(
-          e => e.target === nodeId && e.targetHandle === handleId,
-        );
-        if (staleEdge) {
-          deleteEdge(staleEdge.id);
-        }
-      }
-    }
-
-    prevDynamicPortFields.current = newFieldNames;
-  }, [dynamicImagePorts, edges, nodeId, deleteEdge]);
-
-  // Update helpers
-  const updateData = useCallback(
-    (field: string, value: unknown) => {
-      updateNodeData(nodeId, { [field]: value });
-    },
-    [nodeId, updateNodeData],
-  );
-
-  const handleModelChange = useCallback(
-    (newModel: string) => {
-      updateNodeData(nodeId, { model: newModel });
-    },
-    [nodeId, updateNodeData],
-  );
-
-  // Check text input connected
-  const textInputConnected = useMemo(
-    () =>
-      edges.some(
-        (e) => e.target === nodeId && e.targetHandle === 'text-target-0',
-      ),
-    [edges, nodeId],
-  );
-
-  // Schema-driven extra params + filtered tree
-  const { paramValues, setParam, filteredTree } = useSchemaParams(
-    nodeId, model, nodeData.schemaParams, updateNodeData, T2V_EXCLUDE,
-  );
-
-  // Recompute per-element ports when element counts change in paramValues
-  const prevPortKeyRef = useRef('');
-  useEffect(() => {
-    if (schemaTree.length === 0) return;
-
-    const schemaParams = nodeData.schemaParams as Record<string, unknown> | undefined;
-    const counts: Record<string, number> = {};
-    for (const n of schemaTree) {
-      if (n.kind === 'array' && n.itemSchema?.kind === 'object' && n.itemSchema.children) {
-        const arr = schemaParams?.[n.path];
-        counts[n.path] = Array.isArray(arr) ? Math.max(arr.length, 1) : 1;
-      }
-    }
-
-    const topPorts = dynamicImagePorts.filter((p) => !p.fieldName.includes('.'));
-    const perElemPorts = computePerElementPorts(schemaTree, counts);
-    const allPorts = [...topPorts, ...perElemPorts];
-
-    const portKey = allPorts.map((p) => p.fieldName).join(',');
-    if (portKey === prevPortKeyRef.current) return;
-    prevPortKeyRef.current = portKey;
-
-    setDynamicImagePorts(allPorts);
-    updateNodeData(nodeId, {
-      dynamicImagePorts: allPorts.map((p) => ({
-        fieldName: p.fieldName,
-        multi: p.multi,
-        maxConnections: p.maxConnections,
-      })),
-    });
-  }, [schemaTree, nodeData.schemaParams, nodeId, dynamicImagePorts, updateNodeData]);
 
   // Build port lookup map for renderImagePort callback
   const portMap = useMemo(() => {
@@ -372,8 +204,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
     return map;
   }, [dynamicImagePorts]);
 
-  // Callback that renders image fields as DynamicImageHandle within the tree.
-  // Creates ports on-the-fly for nested array image fields (per-element handles).
   const renderImagePort = useCallback((node: SchemaNode) => {
     const port = portMap.get(node.path);
     if (port) {
@@ -397,7 +227,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
     return <DynamicImageHandle port={dynPort} handleId={handleId} />;
   }, [portMap]);
 
-  // Callback that renders text fields as DynamicTextHandle within the tree.
   const renderTextPort = useCallback((node: SchemaNode) => {
     if (!isTextNode(node)) return null;
     const handleId = `text-target-${node.path}`;
@@ -412,9 +241,7 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
     );
   }, [paramValues, setParam]);
 
-  // Aspect ratio options
   const aspectOptions = config.aspectRatioOptions ?? ['16:9', '9:16', '1:1'];
-  // Duration options
   const durationOptions = config.durationOptions ?? [5, 10];
 
   return (
@@ -424,9 +251,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
       }`}
       style={{ minWidth: 320, maxWidth: 400 }}
     >
-      {/* Note: prompt handle is rendered inline next to the Prompt label below */}
-
-      {/* Output handle - video */}
       <TypedHandle
         type="source"
         position={Position.Right}
@@ -461,27 +285,20 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           />
         ) : (
           <>
-            {/* Running/pending state: generation progress */}
             {(isRunning || isPending) && (
               <GenerationProgress nodeId={nodeId} />
             )}
-
-            {/* Error state */}
             {hasError && execState?.error && (
               <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
                 {execState.error}
               </div>
             )}
-
-            {/* Done state: video result (also shown after refresh) */}
             {!isRunning && !isPending && videoResults && videoResults.length > 1 && (
               <VideoResultCarousel videos={videoResults} />
             )}
             {!isRunning && !isPending && !(videoResults && videoResults.length > 1) && videoUrl && (
               <VideoResult videoUrl={videoUrl} cdnUrl={cdnUrl} nodeId={nodeId} />
             )}
-
-            {/* Idle state: shimmer placeholder */}
             {!isRunning && !isPending && !videoUrl && !hasError && (
               <ShimmerPlaceholder />
             )}
@@ -491,7 +308,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
 
       {/* Controls */}
       <div className="border-t border-white/5 px-3 py-2">
-        {/* Model selector */}
         <div className="mb-2">
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
             Model
@@ -504,7 +320,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           />
         </div>
 
-        {/* Aspect ratio */}
         {config.hasAspectRatio && (
           <div className="mb-2">
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
@@ -528,7 +343,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Duration */}
         {config.hasDuration && (
           <div className="mb-2">
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
@@ -552,7 +366,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Seed */}
         {config.hasSeed && (
           <div className="mb-2">
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
@@ -571,7 +384,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Unified tree rendering: image ports + scalar fields */}
         {filteredTree.length > 0 ? (
           <div className="mb-2 space-y-1">
             {filteredTree.map((node) => (
@@ -587,7 +399,6 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
           </div>
         ) : null}
 
-        {/* Prompt (inline) when text input not connected */}
         {config.hasPrompt && (
           <div className="relative">
             <TypedHandle
@@ -618,18 +429,16 @@ export function TextToVideoNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      {/* Batch cost dialog */}
       <BatchCostDialog
         open={costDialogOpen}
         onConfirm={handleCostConfirm}
         onCancel={() => setCostDialogOpen(false)}
         itemCount={upstreamBatch?.values.length ?? 0}
-        unitPrice={unitPrice}
-        priceUnit={priceUnit}
+        unitPrice={(nodeData as Record<string, unknown>).unitPrice as number | null ?? null}
+        priceUnit={(nodeData as Record<string, unknown>).priceUnit as string | null ?? null}
         modelName={model}
       />
 
-      {/* Run button — flow-based bottom-right */}
       <div className="flex justify-end p-2 pt-0">
         <TooltipProvider delayDuration={300}>
           <Tooltip>

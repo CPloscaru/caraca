@@ -1,18 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { type NodeProps, Position, useNodeId } from '@xyflow/react';
 import { Sparkles, Play, Minus, Plus, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
-import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
-import { runSingleNode, runBatchNode } from '@/lib/executors';
-import { fetchModelSchema, deriveNodeConfig, type ModelNodeConfig, type ModelInputField } from '@/lib/fal/schema-introspection';
-import { ModelSelector, formatFalPrice } from './ModelSelector';
+import { ModelSelector } from './ModelSelector';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
-import { BatchCostDialog, isCostDialogDismissed } from './BatchCostDialog';
+import { BatchCostDialog } from './BatchCostDialog';
 import { CollapsibleSettings, SchemaFieldRenderer } from './schema-widgets';
-import { useSchemaParams } from '@/lib/fal/use-schema-params';
 import {
   Tooltip,
   TooltipContent,
@@ -20,8 +16,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ImageResultGrid } from './ImageResultGrid';
-import { getStatusBorderClass } from './node-utils';
 import type { ImageGeneratorData } from '@/types/canvas';
+import { useFalNode } from '@/hooks/use-fal-node';
+import type { ModelNodeConfig } from '@/lib/fal/schema-introspection';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -84,72 +81,56 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
   const nodeId = useNodeId() ?? id;
   const nodeData = data as unknown as ImageGeneratorData;
 
-  // Execution state
-  const execState = useExecutionStore((s) => s.nodeStates[nodeId]);
-  const isRunning = execState?.status === 'running';
-  const hasError = execState?.status === 'error';
+  const {
+    execState,
+    isRunning,
+    hasError,
+    handleRun,
+    config,
+    schemaFields,
+    extraFields,
+    paramValues,
+    setParam,
+    debugMode,
+    setDebugMode,
+    costDialogOpen,
+    setCostDialogOpen,
+    handleCostConfirm,
+    model,
+    statusBorder,
+    costTooltip,
+    textInputConnected,
+    updateData,
+    updateNodeData,
+    upstreamBatch,
+    isBatchConnected,
+    edges,
+  } = useFalNode({
+    nodeId,
+    nodeData: data as unknown as Record<string, unknown>,
+    defaultModel: DEFAULT_MODEL,
+    defaultConfig: DEFAULT_IMAGE_CONFIG,
+    hasDynamicPorts: false,
+    hasQueueStatus: false,
+  });
 
-  // Canvas store for updating node data
-  const updateNodeData = useCanvasStore((s) => s.updateNodeData);
-  const deleteEdge = useCanvasStore((s) => s.deleteEdge);
-
-  // Check if text input port is connected
-  const edges = useEdges();
-  const nodes = useCanvasStore((s) => s.nodes);
-  const textInputConnected = useMemo(
-    () =>
-      edges.some(
-        (e) => e.target === nodeId && e.targetHandle === 'text-target-0',
-      ),
-    [edges, nodeId],
-  );
-
-  // Check if image input port is connected (for mode detection)
+  // ImageGen-specific: image input connected (for mode detection)
   const imageInputConnected = useMemo(
-    () =>
-      edges.some(
-        (e) => e.target === nodeId && e.targetHandle === 'image-target-1',
-      ),
+    () => edges.some((e) => e.target === nodeId && e.targetHandle === 'image-target-1'),
     [edges, nodeId],
   );
 
   // Auto-switch to image-to-image mode when image input is connected.
-  // Do NOT auto-revert when disconnected — user must manually change mode.
   const prevImageConnected = useRef(imageInputConnected);
   useEffect(() => {
     if (imageInputConnected && !prevImageConnected.current) {
-      // Just connected — auto-switch to image-to-image
       updateNodeData(nodeId, { mode: 'image-to-image' });
     }
     prevImageConnected.current = imageInputConnected;
   }, [imageInputConnected, nodeId, updateNodeData]);
 
-  // Extract model early — needed for schema fetch below
-  const model = nodeData.model ?? DEFAULT_MODEL;
-
-  // Schema-driven config state
-  const [config, setConfig] = useState<ModelNodeConfig>(DEFAULT_IMAGE_CONFIG);
-  const [schemaFields, setSchemaFields] = useState<ModelInputField[] | null>(null);
-
-  // Debug mode (per-session, not persisted)
-  const [debugMode, setDebugMode] = useState(false);
-
-  // Fetch model schema on model change (cancelled-fetch pattern for rapid switching)
-  useEffect(() => {
-    let cancelled = false;
-    fetchModelSchema(model).then((fields) => {
-      if (cancelled) return;
-      setSchemaFields(fields.length > 0 ? fields : null);
-      if (fields.length > 0) {
-        setConfig(deriveNodeConfig(fields));
-      } else {
-        setConfig(DEFAULT_IMAGE_CONFIG);
-      }
-    });
-    return () => { cancelled = true; };
-  }, [model]);
-
   // Auto-disconnect image port when model doesn't support image_url
+  const deleteEdge = useCanvasStore((s) => s.deleteEdge);
   const prevHasImageUrl = useRef(config.hasImageUrl);
   useEffect(() => {
     if (prevHasImageUrl.current && !config.hasImageUrl) {
@@ -161,7 +142,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     prevHasImageUrl.current = config.hasImageUrl;
   }, [config.hasImageUrl, edges, nodeId, deleteEdge]);
 
-  // Find the source node label and type for the text connection
+  // Find text source info for label/batch detection
+  const nodes = useCanvasStore((s) => s.nodes);
   const textSourceInfo = useMemo(() => {
     if (!textInputConnected) return null;
     const edge = edges.find(
@@ -169,50 +151,15 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     );
     if (!edge) return null;
     const sourceNode = nodes.find((n) => n.id === edge.source);
-    const data = sourceNode?.data as Record<string, unknown> | undefined;
+    const sData = sourceNode?.data as Record<string, unknown> | undefined;
     return {
-      label: (data?.label as string) ?? 'Text Input',
+      label: (sData?.label as string) ?? 'Text Input',
       isBatch: sourceNode?.type === 'batchParameter',
       batchNodeId: sourceNode?.id ?? null,
-      batchValues: ((data?.values as string[]) ?? []),
+      batchValues: ((sData?.values as string[]) ?? []),
     };
   }, [edges, nodeId, nodes, textInputConnected]);
   const textSourceLabel = textSourceInfo?.label ?? null;
-  const isBatchConnected = textSourceInfo?.isBatch ?? false;
-
-  // Cost dialog state
-  const [costDialogOpen, setCostDialogOpen] = useState(false);
-
-  const handleRun = useCallback(() => {
-    if (isRunning) {
-      useExecutionStore.getState().cancelExecution();
-      return;
-    }
-    if (isBatchConnected && textSourceInfo?.batchNodeId && textSourceInfo.batchValues.length > 0) {
-      if (isCostDialogDismissed()) {
-        runBatchNode(textSourceInfo.batchNodeId).catch(console.error);
-      } else {
-        setCostDialogOpen(true);
-      }
-    } else {
-      runSingleNode(nodeId).catch(console.error);
-    }
-  }, [nodeId, isRunning, isBatchConnected, textSourceInfo]);
-
-  const handleCostConfirm = useCallback(() => {
-    setCostDialogOpen(false);
-    if (textSourceInfo?.batchNodeId) {
-      runBatchNode(textSourceInfo.batchNodeId).catch(console.error);
-    }
-  }, [textSourceInfo]);
-
-  // Update a specific data field
-  const updateData = useCallback(
-    (field: string, value: unknown) => {
-      updateNodeData(nodeId, { [field]: value });
-    },
-    [nodeId, updateNodeData],
-  );
 
   const handleSelectImage = useCallback(
     (index: number) => {
@@ -221,24 +168,12 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     [nodeId, updateNodeData],
   );
 
-  // Schema-driven extra params
-  const { extraFields, paramValues, setParam } = useSchemaParams(
-    nodeId, model, nodeData.schemaParams, updateNodeData,
-  );
-
   const prompt = nodeData.prompt ?? '';
   const aspectRatio = nodeData.aspectRatio ?? '1:1';
   const numImages = nodeData.numImages ?? 1;
   const images = nodeData.images ?? [];
   const selectedImageIndex = nodeData.selectedImageIndex ?? 0;
   const mode = nodeData.mode ?? 'text-to-image';
-
-  // Pricing info from ModelSelector
-  const unitPrice = (nodeData as Record<string, unknown>).unitPrice as number | null ?? null;
-  const priceUnit = (nodeData as Record<string, unknown>).priceUnit as string | null ?? null;
-  const costTooltip = formatFalPrice(unitPrice, priceUnit);
-
-  const statusBorder = getStatusBorderClass(execState?.status);
 
   return (
     <div
@@ -295,7 +230,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      {/* Result area — directly after header */}
+      {/* Result area */}
       <div className="relative px-3 py-2">
         <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} />
         {debugMode ? (
@@ -308,17 +243,12 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
           />
         ) : (
           <>
-            {/* Running state: shimmer */}
             {isRunning && <ShimmerPlaceholder aspectRatio={aspectRatio} />}
-
-            {/* Error state: red inline message */}
             {hasError && execState?.error && (
               <div className="rounded-md border border-red-500/30 bg-red-900/20 p-3 text-xs text-red-400">
                 {execState.error}
               </div>
             )}
-
-            {/* Done state: image grid (also shown after refresh when data persists) */}
             {!isRunning && images.length > 0 && (
               <ImageResultGrid
                 images={images}
@@ -326,8 +256,6 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
                 onSelectImage={handleSelectImage}
               />
             )}
-
-            {/* Idle state: shimmer placeholder */}
             {!isRunning && images.length === 0 && !hasError && (
               <ShimmerPlaceholder aspectRatio={aspectRatio} />
             )}
@@ -354,7 +282,6 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
 
       {/* Parameter bar */}
       <div className="border-t border-white/5 px-3 py-2">
-        {/* Model selector */}
         <div className="mb-2">
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
             Model
@@ -369,7 +296,6 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
 
         {/* Aspect ratio + count */}
         <div className="flex items-end gap-2">
-          {/* Aspect ratio — schema-driven options or fallback presets */}
           <div className="flex-1">
             <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
               Aspect
@@ -415,7 +341,6 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
             </div>
           </div>
 
-          {/* Generation count — hidden when model doesn't support num_images, disabled when batch is connected */}
           {config.hasNumImages && (
             <div className={isBatchConnected ? 'opacity-40' : ''}>
               <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
@@ -468,13 +393,13 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         open={costDialogOpen}
         onConfirm={handleCostConfirm}
         onCancel={() => setCostDialogOpen(false)}
-        itemCount={textSourceInfo?.batchValues.length ?? 0}
-        unitPrice={unitPrice}
-        priceUnit={priceUnit}
+        itemCount={upstreamBatch?.values.length ?? 0}
+        unitPrice={(nodeData as Record<string, unknown>).unitPrice as number | null ?? null}
+        priceUnit={(nodeData as Record<string, unknown>).priceUnit as string | null ?? null}
         modelName={model}
       />
 
-      {/* Run button — flow-based bottom-right */}
+      {/* Run button */}
       <div className="flex justify-end p-2 pt-0">
         <TooltipProvider delayDuration={300}>
           <Tooltip>
@@ -501,3 +426,4 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     </div>
   );
 }
+
