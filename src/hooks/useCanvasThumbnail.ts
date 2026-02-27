@@ -4,6 +4,20 @@ import { getViewportForBounds, type Node, type Rect } from '@xyflow/react';
 const THUMBNAIL_WIDTH = 400;
 const THUMBNAIL_HEIGHT = 300;
 
+/** Skip elements that would trigger CORS errors during toPng capture. */
+function shouldIncludeNode(node: HTMLElement): boolean {
+  if (node instanceof HTMLImageElement) {
+    const src = node.src;
+    // Allow data URIs and same-origin images
+    if (!src || src.startsWith('data:') || src.startsWith(window.location.origin)) return true;
+    // Allow relative URLs (local API routes)
+    if (src.startsWith('/')) return true;
+    // Skip cross-origin images (fal.ai CDN, Google Cloud Storage, etc.)
+    return false;
+  }
+  return true;
+}
+
 /**
  * Capture a PNG thumbnail of the current canvas state.
  * Accepts `getNodesBounds` from `useReactFlow()` to avoid the deprecated
@@ -23,21 +37,13 @@ export async function captureCanvasThumbnail(
     if (!viewportEl) return null;
 
     const nodesBounds = getNodesBounds(nodes);
-    // Add generous padding around the bounding box so the full workflow is visible
-    const padding = 50;
-    const paddedBounds: Rect = {
-      x: nodesBounds.x - padding,
-      y: nodesBounds.y - padding,
-      width: nodesBounds.width + padding * 2,
-      height: nodesBounds.height + padding * 2,
-    };
     const viewport = getViewportForBounds(
-      paddedBounds,
+      nodesBounds,
       THUMBNAIL_WIDTH,
       THUMBNAIL_HEIGHT,
       0.1,
-      1.5,
-      0,
+      1,
+      0.2,
     );
 
     if (!viewport) return null;
@@ -46,6 +52,7 @@ export async function captureCanvasThumbnail(
       backgroundColor: '#111111',
       width: THUMBNAIL_WIDTH,
       height: THUMBNAIL_HEIGHT,
+      filter: shouldIncludeNode,
       style: {
         width: `${THUMBNAIL_WIDTH}px`,
         height: `${THUMBNAIL_HEIGHT}px`,

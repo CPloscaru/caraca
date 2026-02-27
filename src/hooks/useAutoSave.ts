@@ -8,7 +8,6 @@ import { captureCanvasThumbnail, uploadThumbnail } from '@/hooks/useCanvasThumbn
 export type SaveStatus = 'saved' | 'saving' | 'unsaved';
 
 const DEBOUNCE_MS = 2000;
-const THUMBNAIL_EVERY_N_SAVES = 5;
 
 export function useAutoSave(projectId: string) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -16,7 +15,6 @@ export function useAutoSave(projectId: string) {
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const saveCountRef = useRef(0);
   const isMountedRef = useRef(true);
   // Track whether initial restore has happened — skip auto-save for store
   // changes that originate from the restore itself.
@@ -43,16 +41,13 @@ export function useAutoSave(projectId: string) {
       });
       if (!isMountedRef.current) return;
       if (res.ok) {
-        saveCountRef.current += 1;
         setSaveStatus('saved');
 
-        // Capture thumbnail periodically (every Nth save) — fire-and-forget
-        if (saveCountRef.current % THUMBNAIL_EVERY_N_SAVES === 0) {
-          const nodes = useCanvasStore.getState().nodes;
-          captureCanvasThumbnail(nodes, rfInstance.getNodesBounds).then((blob) => {
-            if (blob) uploadThumbnail(projectId, blob);
-          });
-        }
+        // Capture thumbnail on every save — fire-and-forget
+        const nodes = useCanvasStore.getState().nodes;
+        captureCanvasThumbnail(nodes, rfInstance.getNodesBounds).then((blob) => {
+          if (blob) uploadThumbnail(projectId, blob);
+        });
       } else {
         setSaveStatus('unsaved');
       }
@@ -163,5 +158,5 @@ export function useAutoSave(projectId: string) {
     restoredRef.current = true;
   }, []);
 
-  return { saveStatus, saveNow, saveCountRef, markRestored };
+  return { saveStatus, saveNow, markRestored };
 }
