@@ -34,6 +34,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // GSD tooling (CJS scripts, hooks)
     ".claude/**",
+    // Website is a standalone Vite project (not Next.js)
+    "website/**",
   ]),
 ]);
 
