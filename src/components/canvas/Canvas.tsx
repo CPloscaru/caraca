@@ -27,6 +27,7 @@ import { TextToVideoNode } from '@/components/canvas/nodes/TextToVideoNode';
 import { ImageToVideoNode } from '@/components/canvas/nodes/ImageToVideoNode';
 import { BatchParameterNode } from '@/components/canvas/nodes/BatchParameterNode';
 import { NoteNode } from '@/components/canvas/nodes/NoteNode';
+import { TextDisplayNode } from '@/components/canvas/nodes/TextDisplayNode';
 import { withNodeErrorBoundary } from '@/components/canvas/nodes/NodeErrorBoundary';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import { AnnotationEdge } from '@/components/canvas/edges/AnnotationEdge';
@@ -51,6 +52,7 @@ const nodeTypes = {
   imageToVideo: withNodeErrorBoundary(ImageToVideoNode),
   batchParameter: withNodeErrorBoundary(BatchParameterNode),
   canvasNote: withNodeErrorBoundary(NoteNode),
+  textDisplay: withNodeErrorBoundary(TextDisplayNode),
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
 
@@ -67,6 +69,12 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       extraData: { noteTitle: '', noteBody: '' },
     };
   }
+  if (nodeType === 'textDisplay') {
+    return {
+      style: { width: 280, height: 200 },
+      extraData: { displayText: null },
+    };
+  }
   return {};
 }
 
@@ -81,6 +89,7 @@ function getNodeColor(node: Node): string {
     case 'textToVideo': return '#f59e0b';
     case 'imageToVideo': return '#f59e0b';
     case 'canvasNote': return '#ae53ba';
+    case 'textDisplay': return '#6b7280';
     default: return '#666';
   }
 }
