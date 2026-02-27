@@ -101,13 +101,19 @@ export function DynamicTextHandle({
         description={node.description}
         required={node.required && !connected}
       />
-      <textarea
-        className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
-        placeholder={(node.description ?? label).replace(/\s+/g, ' ').trim()}
-        rows={2}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-      />
+      {connected ? (
+        <div className="rounded-md border border-white/5 bg-white/[0.02] px-2 py-1 text-xs text-gray-500">
+          {label} from connected node
+        </div>
+      ) : (
+        <textarea
+          className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
+          placeholder={(node.description ?? label).replace(/\s+/g, ' ').trim()}
+          rows={2}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value || undefined)}
+        />
+      )}
     </div>
   );
 }
