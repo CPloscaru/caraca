@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { type NodeProps, Position, useNodeConnections, useNodeId } from '@xyflow/react';
+import { type NodeProps, Position, useNodeId } from '@xyflow/react';
 import { Video, Play, Loader2 } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -22,11 +22,12 @@ import {
   type DynamicImagePort,
 } from '@/lib/fal/schema-introspection';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
-import { FieldLabel, SchemaNodeRenderer } from './schema-widgets';
+import { SchemaNodeRenderer } from './schema-widgets';
 import type { SchemaNode } from '@/lib/fal/schema-tree';
 import { isImageNode, isImageArrayNode, isTextNode } from '@/lib/fal/schema-ports';
 import type { ImageToVideoData } from '@/types/canvas';
 import { useFalNode } from '@/hooks/use-fal-node';
+import { DynamicImageHandle, DynamicTextHandle } from './shared/DynamicHandles';
 
 const I2V_EXCLUDE = new Set(['seed']);
 
@@ -44,104 +45,6 @@ const DEFAULT_CONFIG: ModelNodeConfig = {
 };
 
 const DEFAULT_MODEL = 'fal-ai/minimax/video-01-live/image-to-video';
-
-// ---------------------------------------------------------------------------
-// Dynamic image port helpers
-// ---------------------------------------------------------------------------
-
-function buildPortTooltip(port: DynamicImagePort, connectionCount: number): string {
-  const parts: string[] = [];
-  if (port.description) parts.push(port.description);
-  parts.push(port.required ? 'Required' : 'Optional');
-  if (port.multi) {
-    parts.push(port.maxConnections != null ? `Multi (${connectionCount}/${port.maxConnections})` : `Multi (${connectionCount})`);
-  } else {
-    parts.push('Single image');
-  }
-  return parts.join('. ') + '.';
-}
-
-function DynamicImageHandle({
-  port,
-  handleId,
-}: {
-  port: DynamicImagePort;
-  handleId: string;
-}) {
-  const connections = useNodeConnections({ handleType: 'target', handleId });
-  const connected = connections.length > 0;
-
-  return (
-    <div className="relative flex items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5">
-      <TypedHandle
-        type="target"
-        position={Position.Left}
-        portType="image"
-        portId={handleId}
-        handleId={handleId}
-        index={0}
-        required={port.required && !connected}
-        isConnectable={port.maxConnections ?? undefined}
-        style={{ left: 0 }}
-      />
-      <FieldLabel
-        label={connected ? `${port.label} ✓` : port.label}
-        description={buildPortTooltip(port, connections.length)}
-        required={port.required && !connected}
-        as="span"
-      />
-      {port.multi && port.maxConnections != null && (
-        <span className="ml-auto text-[9px] text-gray-500">
-          {connections.length}/{port.maxConnections}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function DynamicTextHandle({
-  node,
-  handleId,
-  value,
-  onChange,
-}: {
-  node: SchemaNode;
-  handleId: string;
-  value: string | undefined;
-  onChange: (v: string | undefined) => void;
-}) {
-  const connections = useNodeConnections({ handleType: 'target', handleId });
-  const connected = connections.length > 0;
-  const label = node.name
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-
-  return (
-    <div className="relative mb-1.5">
-      <TypedHandle
-        type="target"
-        position={Position.Left}
-        portType="text"
-        portId={handleId}
-        handleId={handleId}
-        index={0}
-        style={{ left: 0 }}
-      />
-      <FieldLabel
-        label={connected ? `${label} ✓` : label}
-        description={node.description}
-        required={node.required && !connected}
-      />
-      <textarea
-        className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
-        placeholder={node.description ?? label}
-        rows={2}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-      />
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // ImageToVideoNode

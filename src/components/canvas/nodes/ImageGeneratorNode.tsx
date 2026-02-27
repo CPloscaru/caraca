@@ -8,7 +8,7 @@ import { useCanvasStore } from '@/stores/canvas-store';
 import { ModelSelector } from './ModelSelector';
 import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { BatchCostDialog } from './BatchCostDialog';
-import { CollapsibleSettings, SchemaFieldRenderer } from './schema-widgets';
+import { SchemaNodeRenderer } from './schema-widgets';
 import {
   Tooltip,
   TooltipContent,
@@ -18,7 +18,14 @@ import {
 import { ImageResultGrid } from './ImageResultGrid';
 import type { ImageGeneratorData } from '@/types/canvas';
 import { useFalNode } from '@/hooks/use-fal-node';
-import type { ModelNodeConfig } from '@/lib/fal/schema-introspection';
+import {
+  humanizeFieldName,
+  type ModelNodeConfig,
+  type DynamicImagePort,
+} from '@/lib/fal/schema-introspection';
+import type { SchemaNode } from '@/lib/fal/schema-tree';
+import { isImageNode, isImageArrayNode, isTextNode } from '@/lib/fal/schema-ports';
+import { DynamicImageHandle, DynamicTextHandle } from './shared/DynamicHandles';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -88,9 +95,11 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     handleRun,
     config,
     schemaFields,
-    extraFields,
+    dynamicImagePorts,
+    schemaTree,
     paramValues,
     setParam,
+    filteredTree,
     debugMode,
     setDebugMode,
     costDialogOpen,
@@ -102,6 +111,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     textInputConnected,
     updateData,
     updateNodeData,
+    handleModelChange,
     upstreamBatch,
     isBatchConnected,
     edges,
@@ -110,56 +120,71 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     nodeData: data as unknown as Record<string, unknown>,
     defaultModel: DEFAULT_MODEL,
     defaultConfig: DEFAULT_IMAGE_CONFIG,
-    hasDynamicPorts: false,
+    hasDynamicPorts: true,
     hasQueueStatus: false,
   });
 
-  // ImageGen-specific: image input connected (for mode detection)
-  const imageInputConnected = useMemo(
-    () => edges.some((e) => e.target === nodeId && e.targetHandle === 'image-target-1'),
-    [edges, nodeId],
-  );
-
-  // Auto-switch to image-to-image mode when image input is connected.
-  const prevImageConnected = useRef(imageInputConnected);
-  useEffect(() => {
-    if (imageInputConnected && !prevImageConnected.current) {
-      updateNodeData(nodeId, { mode: 'image-to-image' });
-    }
-    prevImageConnected.current = imageInputConnected;
-  }, [imageInputConnected, nodeId, updateNodeData]);
-
-  // Auto-disconnect image port when model doesn't support image_url
+  // Stale edge cleanup on mount (migration from pre-Phase-32 hardcoded handle IDs)
   const deleteEdge = useCanvasStore((s) => s.deleteEdge);
-  const prevHasImageUrl = useRef(config.hasImageUrl);
+  const migratedRef = useRef(false);
   useEffect(() => {
-    if (prevHasImageUrl.current && !config.hasImageUrl) {
-      const edge = edges.find(
-        (e) => e.target === nodeId && e.targetHandle === 'image-target-1',
+    if (migratedRef.current) return;
+    migratedRef.current = true;
+    for (const oldStaticId of ['image-target-1', 'text-target-0']) {
+      const staleEdge = edges.find(
+        (e) => e.target === nodeId && e.targetHandle === oldStaticId,
       );
-      if (edge) deleteEdge(edge.id);
+      if (staleEdge) {
+        deleteEdge(staleEdge.id);
+      }
     }
-    prevHasImageUrl.current = config.hasImageUrl;
-  }, [config.hasImageUrl, edges, nodeId, deleteEdge]);
+  }, [edges, nodeId, deleteEdge]);
 
-  // Find text source info for label/batch detection
-  const nodes = useCanvasStore((s) => s.nodes);
-  const textSourceInfo = useMemo(() => {
-    if (!textInputConnected) return null;
-    const edge = edges.find(
-      (e) => e.target === nodeId && e.targetHandle === 'text-target-0',
-    );
-    if (!edge) return null;
-    const sourceNode = nodes.find((n) => n.id === edge.source);
-    const sData = sourceNode?.data as Record<string, unknown> | undefined;
-    return {
-      label: (sData?.label as string) ?? 'Text Input',
-      isBatch: sourceNode?.type === 'batchParameter',
-      batchNodeId: sourceNode?.id ?? null,
-      batchValues: ((sData?.values as string[]) ?? []),
+  // Build port lookup map for renderImagePort callback
+  const portMap = useMemo(() => {
+    const map = new Map<string, DynamicImagePort>();
+    for (const port of dynamicImagePorts) {
+      map.set(port.fieldName, port);
+    }
+    return map;
+  }, [dynamicImagePorts]);
+
+  const renderImagePort = useCallback((node: SchemaNode) => {
+    const port = portMap.get(node.path);
+    if (port) {
+      const handleId = `image-target-${port.fieldName}`;
+      return <DynamicImageHandle port={port} handleId={handleId} />;
+    }
+
+    const isImg = isImageNode(node);
+    const isImgArr = isImageArrayNode(node);
+    if (!isImg && !isImgArr) return null;
+
+    const dynPort: DynamicImagePort = {
+      fieldName: node.path,
+      label: humanizeFieldName(node.name),
+      required: node.required,
+      description: node.description,
+      multi: isImgArr,
+      maxConnections: isImgArr ? node.maxItems : 1,
     };
-  }, [edges, nodeId, nodes, textInputConnected]);
-  const textSourceLabel = textSourceInfo?.label ?? null;
+    const handleId = `image-target-${node.path}`;
+    return <DynamicImageHandle port={dynPort} handleId={handleId} />;
+  }, [portMap]);
+
+  const renderTextPort = useCallback((node: SchemaNode) => {
+    if (!isTextNode(node)) return null;
+    const handleId = `text-target-${node.path}`;
+    const val = paramValues[node.path] as string | undefined;
+    return (
+      <DynamicTextHandle
+        node={node}
+        handleId={handleId}
+        value={val}
+        onChange={(v) => setParam(node.path, v)}
+      />
+    );
+  }, [paramValues, setParam]);
 
   const handleSelectImage = useCallback(
     (index: number) => {
@@ -168,45 +193,18 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     [nodeId, updateNodeData],
   );
 
-  const prompt = nodeData.prompt ?? '';
   const aspectRatio = nodeData.aspectRatio ?? '1:1';
   const numImages = nodeData.numImages ?? 1;
   const images = nodeData.images ?? [];
   const selectedImageIndex = nodeData.selectedImageIndex ?? 0;
-  const mode = nodeData.mode ?? 'text-to-image';
 
   return (
     <div
       className={`group relative rounded-lg border-2 bg-[#1a1a1a] shadow-lg transition-all ${statusBorder} ${
         selected ? 'ring-2 ring-[#ae53ba] ring-offset-1 ring-offset-transparent' : ''
       }`}
-      style={{
-        minWidth: 320,
-        maxWidth: 400,
-        borderLeftColor: config.hasImageUrl && imageInputConnected ? '#2a8af6' : undefined,
-        borderLeftWidth: config.hasImageUrl && imageInputConnected ? 3 : undefined,
-      }}
+      style={{ minWidth: 320, maxWidth: 400 }}
     >
-      {/* Input handles */}
-      <TypedHandle
-        type="target"
-        position={Position.Left}
-        portType="text"
-        portId="text-in-0"
-        index={0}
-        style={{ top: '30%' }}
-      />
-      {config.hasImageUrl && (
-        <TypedHandle
-          type="target"
-          position={Position.Left}
-          portType="image"
-          portId="image-in-0"
-          index={1}
-          style={{ top: '55%' }}
-        />
-      )}
-
       {/* Output handle */}
       <TypedHandle
         type="source"
@@ -223,11 +221,6 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         <span className="text-xs font-semibold text-gray-100">
           Image Generator
         </span>
-        {config.hasImageUrl && imageInputConnected && (
-          <span className="ml-auto rounded bg-[#2a8af6]/15 px-1.5 py-0.5 text-[9px] font-medium text-[#2a8af6]">
-            img2img
-          </span>
-        )}
       </div>
 
       {/* Result area */}
@@ -236,7 +229,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         {debugMode ? (
           <JsonDebugPanel
             schema={schemaFields}
-            config={{ model, prompt, aspectRatio, numImages, imageSizeOption: (nodeData as Record<string, unknown>).imageSizeOption }}
+            schemaTree={schemaTree}
+            config={{ model, prompt: nodeData.prompt, aspectRatio, numImages, imageSizeOption: (nodeData as Record<string, unknown>).imageSizeOption }}
             request={nodeData.debugRequest}
             response={nodeData.debugResponse}
             error={nodeData.debugError}
@@ -263,24 +257,7 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
         )}
       </div>
 
-      {/* Prompt area */}
-      <div className="px-3 py-2">
-        {textInputConnected ? (
-          <div className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-xs text-gray-500">
-            Prompt from: {textSourceLabel}
-          </div>
-        ) : (
-          <textarea
-            className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
-            placeholder="Describe the image you want to generate..."
-            rows={3}
-            value={prompt}
-            onChange={(e) => updateData('prompt', e.target.value)}
-          />
-        )}
-      </div>
-
-      {/* Parameter bar */}
+      {/* Controls */}
       <div className="border-t border-white/5 px-3 py-2">
         <div className="mb-2">
           <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
@@ -288,8 +265,8 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
           </label>
           <ModelSelector
             value={model}
-            onChange={(v) => updateData('model', v)}
-            mode={mode === 'image-to-image' ? 'image-to-image' : 'text-to-image'}
+            onChange={handleModelChange}
+            mode="text-to-image"
             onPricingInfo={(info) => updateNodeData(nodeId, { unitPrice: info.unitPrice, priceUnit: info.priceUnit })}
           />
         </div>
@@ -372,21 +349,53 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Dynamic schema params */}
-      {extraFields.length > 0 && (
-        <CollapsibleSettings>
-          {extraFields.map((field) => (
-            <SchemaFieldRenderer
-              key={field.name}
-              field={field}
-              value={paramValues[field.name]}
-              onChange={(v) => setParam(field.name, v)}
+        {/* Dynamic schema fields (image ports, text ports, other params) */}
+        {filteredTree.length > 0 ? (
+          <div className="mb-2 space-y-1">
+            {filteredTree.map((node) => (
+              <SchemaNodeRenderer
+                key={node.path}
+                node={node}
+                values={paramValues}
+                onChange={setParam}
+                renderImagePort={renderImagePort}
+                renderTextPort={renderTextPort}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {/* Dedicated prompt section (outside filteredTree, like I2V) */}
+        {config.hasPrompt && (
+          <div className="relative">
+            <TypedHandle
+              type="target"
+              position={Position.Left}
+              portType="text"
+              portId="text-in-0"
+              index={0}
+              style={{ left: 0 }}
             />
-          ))}
-        </CollapsibleSettings>
-      )}
+            <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-gray-500">
+              Prompt
+            </label>
+            {textInputConnected ? (
+              <div className="rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-xs text-gray-500">
+                Prompt from connected node
+              </div>
+            ) : (
+              <textarea
+                className="nodrag nowheel w-full resize-none rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-white/20"
+                placeholder="Describe the image you want to generate..."
+                rows={3}
+                value={nodeData.prompt ?? ''}
+                onChange={(e) => updateData('prompt', e.target.value)}
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Batch cost dialog */}
       <BatchCostDialog
@@ -426,4 +435,3 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
     </div>
   );
 }
-
