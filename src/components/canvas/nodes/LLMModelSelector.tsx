@@ -4,19 +4,28 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Popover as PopoverPrimitive } from 'radix-ui';
 import {
   ChevronDown,
-  Search,
   Eye,
   Bot,
-  Loader2,
   ChevronRight,
-  ArrowUpDown,
+  Star,
+  Info,
+  ExternalLink,
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useFavoritesStore } from '@/stores/favorites-store';
+import { useModelSelectorState } from './shared/useModelSelectorState';
+import { ModelSelectorShell } from './shared/ModelSelectorShell';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type CachedLLMModel = {
+export type CachedLLMModel = {
   model_id: string;
   name: string;
   description: string | null;
@@ -42,33 +51,207 @@ type LLMModelSelectorProps = {
 };
 
 // ---------------------------------------------------------------------------
-// LLM pricing formatter
+// LLM pricing formatters
 // ---------------------------------------------------------------------------
+
+/** Per-million-token price helper */
+function fmt(n: number): string {
+  if (n < 0.01) return n.toFixed(3);
+  if (n < 1) return n.toFixed(2);
+  const oneDecimal = n.toFixed(1);
+  const twoDecimal = n.toFixed(2);
+  return twoDecimal.endsWith('0') && !oneDecimal.endsWith('0')
+    ? twoDecimal
+    : oneDecimal.endsWith('0')
+      ? twoDecimal
+      : oneDecimal;
+}
+
+function toPerMillion(raw: string | null): number {
+  return raw ? Math.round(parseFloat(raw) * 1_000_000 * 100) / 100 : 0;
+}
 
 export function formatLLMPricing(
   prompt: string | null,
   completion: string | null,
 ): string | null {
   if (!prompt && !completion) return null;
-  const pNum = prompt
-    ? Math.round(parseFloat(prompt) * 1_000_000 * 100) / 100
-    : 0;
-  const cNum = completion
-    ? Math.round(parseFloat(completion) * 1_000_000 * 100) / 100
-    : 0;
-  const fmt = (n: number) => {
-    if (n < 0.01) return n.toFixed(3);
-    if (n < 1) return n.toFixed(2);
-    // Show .toFixed(2) for clean numbers like $3.00, otherwise .toFixed(1)
-    const oneDecimal = n.toFixed(1);
-    const twoDecimal = n.toFixed(2);
-    return twoDecimal.endsWith('0') && !oneDecimal.endsWith('0')
-      ? twoDecimal
-      : oneDecimal.endsWith('0')
-        ? twoDecimal
-        : oneDecimal;
-  };
-  return `$${fmt(pNum)}/M in | $${fmt(cNum)}/M out`;
+  return `$${fmt(toPerMillion(prompt))}/M in | $${fmt(toPerMillion(completion))}/M out`;
+}
+
+/** Compact pricing for trigger button and model rows: "$X/$Y" */
+export function formatLLMPricingCompact(
+  prompt: string | null,
+  completion: string | null,
+): string | null {
+  if (!prompt && !completion) return null;
+  return `$${fmt(toPerMillion(prompt))}/$${fmt(toPerMillion(completion))}`;
+}
+
+// ---------------------------------------------------------------------------
+// LLM Model Details popover
+// ---------------------------------------------------------------------------
+
+export function LLMModelDetails({ model }: { model: CachedLLMModel }) {
+  return (
+    <PopoverPrimitive.Root>
+      <PopoverPrimitive.Trigger asChild>
+        <button
+          className="rounded p-1 text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          side="right"
+          sideOffset={8}
+          className="z-[60] w-64 rounded-lg border border-white/10 bg-[#1a1a1a] p-3 text-sm shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <span className="font-medium text-gray-100">{model.name}</span>
+            {model.supports_vision && (
+              <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                Vision
+              </span>
+            )}
+          </div>
+
+          {model.context_length != null && (
+            <div className="mb-2 text-xs text-gray-500">
+              Context: {model.context_length.toLocaleString()} tokens
+            </div>
+          )}
+
+          {formatLLMPricing(model.pricing_prompt, model.pricing_completion) && (
+            <div className="mb-2 text-xs text-gray-500">
+              {formatLLMPricing(model.pricing_prompt, model.pricing_completion)}
+            </div>
+          )}
+
+          {model.description && (
+            <p className="mb-2 text-xs leading-relaxed text-gray-400">
+              {model.description}
+            </p>
+          )}
+
+          <a
+            href={`https://openrouter.ai/models/${model.model_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-400 hover:underline"
+          >
+            View on OpenRouter
+            <ExternalLink className="h-3 w-3" />
+          </a>
+
+          <PopoverPrimitive.Arrow className="fill-[#1a1a1a]" />
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// LLM Model Row
+// ---------------------------------------------------------------------------
+
+function LLMModelRow({
+  model,
+  isSelected,
+  onSelect,
+  isFavorited,
+  isTogglingFav,
+  onToggleFavorite,
+}: {
+  model: CachedLLMModel;
+  isSelected: boolean;
+  onSelect: () => void;
+  isFavorited: boolean;
+  isTogglingFav: boolean;
+  onToggleFavorite: (id: string) => void;
+}) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <div
+        role="option"
+        aria-selected={isSelected}
+        className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5 ${
+          isSelected ? 'bg-white/10' : ''
+        }`}
+        onClick={onSelect}
+      >
+        {/* Star toggle */}
+        <button
+          className={`shrink-0 self-start mt-0.5 rounded p-1 transition-colors hover:bg-white/5 ${
+            isFavorited
+              ? 'text-yellow-500'
+              : 'text-gray-600 hover:text-gray-400'
+          }`}
+          disabled={isTogglingFav}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(model.model_id);
+          }}
+        >
+          <Star
+            className="h-3.5 w-3.5"
+            {...(isFavorited ? { fill: 'currentColor' } : {})}
+          />
+        </button>
+
+        {/* Two-line content */}
+        <div className="min-w-0 flex-1">
+          {/* Line 1: name + info button */}
+          <div className="flex items-center gap-1.5">
+            <Bot className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-gray-200">
+              {model.name}
+            </span>
+            <LLMModelDetails model={model} />
+          </div>
+
+          {/* Line 2: pricing + vision badge + context badge */}
+          <div className="mt-0.5 flex items-center gap-1.5 pl-5">
+            {formatLLMPricingCompact(model.pricing_prompt, model.pricing_completion) && (
+              <span className="shrink-0 text-[10px] text-gray-500">
+                {formatLLMPricingCompact(model.pricing_prompt, model.pricing_completion)}
+              </span>
+            )}
+
+            {model.supports_vision && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-emerald-500/15 px-1 py-0.5 text-[10px] text-emerald-400">
+                    <Eye className="h-3 w-3" />
+                    vision
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Ce modèle supporte les entrées image
+                </TooltipContent>
+              </Tooltip>
+            )}
+
+            {model.context_length != null && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-500">
+                    {Math.round(model.context_length / 1000)}k ctx
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Fenêtre de contexte : {model.context_length.toLocaleString()} tokens
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -81,12 +264,18 @@ function ProviderGroup({
   selectedModel,
   onSelect,
   defaultOpen,
+  favoriteIds,
+  toggling,
+  onToggleFavorite,
 }: {
   label: string;
   models: CachedLLMModel[];
   selectedModel: string;
   onSelect: (id: string) => void;
   defaultOpen: boolean;
+  favoriteIds: Set<string>;
+  toggling: Set<string>;
+  onToggleFavorite: (id: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -104,33 +293,15 @@ function ProviderGroup({
       </button>
       {open &&
         models.map((m) => (
-          <button
+          <LLMModelRow
             key={m.model_id}
-            className={`flex w-full items-center gap-2 px-3 py-1.5 pl-6 text-left transition-colors hover:bg-white/5 ${
-              m.model_id === selectedModel ? 'bg-white/10' : ''
-            }`}
-            onClick={() => onSelect(m.model_id)}
-          >
-            <Bot className="h-3.5 w-3.5 shrink-0 text-gray-500" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium text-gray-200">
-                {m.name}
-              </div>
-            </div>
-            {m.supports_vision && (
-              <Eye className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-            )}
-            {m.context_length != null && (
-              <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-500">
-                {Math.round(m.context_length / 1000)}k
-              </span>
-            )}
-            {formatLLMPricing(m.pricing_prompt, m.pricing_completion) && (
-              <span className="shrink-0 text-[10px] text-gray-500">
-                {formatLLMPricing(m.pricing_prompt, m.pricing_completion)}
-              </span>
-            )}
-          </button>
+            model={m}
+            isSelected={m.model_id === selectedModel}
+            onSelect={() => onSelect(m.model_id)}
+            isFavorited={favoriteIds.has(m.model_id)}
+            isTogglingFav={toggling.has(m.model_id)}
+            onToggleFavorite={onToggleFavorite}
+          />
         ))}
     </div>
   );
@@ -141,17 +312,47 @@ function ProviderGroup({
 // ---------------------------------------------------------------------------
 
 export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState<LLMModelsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [sortByPrice, setSortByPrice] = useState(false);
-  const fetchedRef = useRef(false);
-  const searchRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const {
+    open, handleOpenChange, data, loading, error,
+    search, setSearch, sortByPrice, setSortByPrice, searchRef,
+  } = useModelSelectorState<LLMModelsResponse>({
+    fetchUrl: '/api/openrouter/models',
+    transformResponse: (json) => json as LLMModelsResponse,
+  });
+
+  // Favorites store
+  const favoriteIds = useFavoritesStore((s) => s.favoriteIds);
+  const toggling = useFavoritesStore((s) => s.toggling);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Handle favorite toggle with toast feedback
+  const handleToggleFavorite = useCallback(async (modelId: string) => {
+    try {
+      const result = await useFavoritesStore.getState().toggleFavorite(modelId);
+      if (result.ok) {
+        setToast({
+          message: result.added ? 'Modele ajoute aux favoris' : 'Modele retire des favoris',
+          type: 'success',
+        });
+      }
+    } catch {
+      setToast({ message: 'Erreur lors de la mise a jour', type: 'error' });
+    }
+  }, []);
 
   // Load default model on first mount if no value set
+  const didLoadDefault = useRef(false);
   useEffect(() => {
+    if (didLoadDefault.current) return;
+    didLoadDefault.current = true;
     if (!value) {
       fetch('/api/settings/default-llm-model')
         .then((r) => (r.ok ? r.json() : null))
@@ -160,41 +361,24 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
         })
         .catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [value, onSelect]);
 
-  // Fetch models on first open
-  const handleOpenChange = useCallback((isOpen: boolean) => {
-    setOpen(isOpen);
-    if (isOpen && !fetchedRef.current) {
-      fetchedRef.current = true;
-      setLoading(true);
-      setError(null);
-      fetch('/api/openrouter/models')
-        .then((r) => {
-          if (!r.ok) throw new Error(`${r.status}`);
-          return r.json();
-        })
-        .then((json: LLMModelsResponse) => {
-          setData(json);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(err.message ?? 'Failed to load models');
-          setLoading(false);
-          fetchedRef.current = false;
-        });
-    }
-  }, []);
+  // Build favorite models list
+  const favoriteModels = useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    const allModelMap = new Map(data.models.map((m) => [m.model_id, m]));
 
-  // Focus search on open
-  useEffect(() => {
-    if (open) {
-      requestAnimationFrame(() => searchRef.current?.focus());
-    } else {
-      setSearch('');
+    const favModels: CachedLLMModel[] = [];
+    for (const id of favoriteIds) {
+      const model = allModelMap.get(id);
+      if (!model) continue;
+      if (q && !model.name.toLowerCase().includes(q) && !model.provider_group.toLowerCase().includes(q)) continue;
+      favModels.push(model);
     }
-  }, [open]);
+    favModels.sort((a, b) => a.name.localeCompare(b.name));
+    return favModels;
+  }, [data, favoriteIds, search]);
 
   // Filter by search (and optionally sort by price)
   const filtered = useMemo(() => {
@@ -238,7 +422,7 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
   const handleSelect = useCallback(
     (modelId: string) => {
       onSelect(modelId);
-      setOpen(false);
+      handleOpenChange(false);
       // Save as default (fire-and-forget)
       fetch('/api/settings/default-llm-model', {
         method: 'PUT',
@@ -246,135 +430,111 @@ export function LLMModelSelector({ value, onSelect }: LLMModelSelectorProps) {
         body: JSON.stringify({ model: modelId }),
       }).catch(() => {});
     },
-    [onSelect],
+    [onSelect, handleOpenChange],
   );
 
+  const hasContent = filtered
+    ? (filtered.flatSorted ? filtered.flatSorted.length > 0 : filtered.groups ? Object.keys(filtered.groups).length > 0 : false) || favoriteModels.length > 0
+    : false;
+
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <PopoverPrimitive.Trigger asChild>
+    <ModelSelectorShell
+      open={open}
+      onOpenChange={handleOpenChange}
+      trigger={
         <button className="nodrag nowheel flex w-full items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-xs text-gray-300 transition-colors hover:border-white/20 hover:bg-white/10">
           <Bot className="h-4 w-4 shrink-0 text-emerald-400" />
           <span className={`min-w-0 flex-1 truncate ${!value ? 'text-gray-500' : ''}`}>
             {displayLabel}
           </span>
+          {selectedModel && formatLLMPricingCompact(selectedModel.pricing_prompt, selectedModel.pricing_completion) && (
+            <span className="shrink-0 text-[10px] text-gray-500">
+              {formatLLMPricingCompact(selectedModel.pricing_prompt, selectedModel.pricing_completion)}
+            </span>
+          )}
           {selectedModel?.supports_vision && (
             <Eye className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
           )}
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-500" />
         </button>
-      </PopoverPrimitive.Trigger>
-
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          side="bottom"
-          sideOffset={4}
-          align="start"
-          className="nodrag nowheel z-50 max-h-80 w-72 overflow-hidden rounded-lg border border-white/10 bg-[#1a1a1a] shadow-xl"
-        >
-          {/* Search bar + sort toggle */}
-          <div className="border-b border-white/5 p-2">
-            <div className="flex items-center gap-2">
-              <div className="flex flex-1 items-center gap-2 rounded-md bg-white/5 px-2 py-1.5">
-                <Search className="h-3.5 w-3.5 text-gray-500" />
-                <input
-                  ref={searchRef}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search models..."
-                  className="w-full bg-transparent text-xs text-gray-200 outline-none placeholder:text-gray-600"
+      }
+      search={search}
+      onSearchChange={setSearch}
+      searchRef={searchRef}
+      sortByPrice={sortByPrice}
+      onSortToggle={() => setSortByPrice(!sortByPrice)}
+      loading={loading}
+      error={error}
+      hasContent={hasContent}
+      emptyMessage={search ? `No models match "${search}"` : undefined}
+    >
+      {filtered && (
+        <>
+          {/* Favorites section */}
+          {favoriteModels.length > 0 && !filtered.flatSorted && (
+            <div>
+              <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-yellow-500">
+                <Star className="h-3 w-3" fill="currentColor" />
+                Favoris
+              </div>
+              {favoriteModels.map((m) => (
+                <LLMModelRow
+                  key={`fav-${m.model_id}`}
+                  model={m}
+                  isSelected={m.model_id === value}
+                  onSelect={() => handleSelect(m.model_id)}
+                  isFavorited={true}
+                  isTogglingFav={toggling.has(m.model_id)}
+                  onToggleFavorite={handleToggleFavorite}
                 />
-              </div>
-              <button
-                className={`rounded p-1 transition-colors hover:text-gray-300 ${
-                  sortByPrice ? 'text-blue-400' : 'text-gray-500'
-                }`}
-                onClick={() => setSortByPrice(!sortByPrice)}
-                title={sortByPrice ? 'Default order' : 'Sort by price'}
-              >
-                <ArrowUpDown className="h-3.5 w-3.5" />
-              </button>
+              ))}
             </div>
-          </div>
+          )}
 
-          {/* Content */}
-          <div className="max-h-64 overflow-y-auto">
-            {loading && (
-              <div className="flex items-center justify-center gap-2 py-8 text-xs text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading models...
-              </div>
-            )}
+          {/* Price-sorted flat list */}
+          {filtered.flatSorted ? (
+            filtered.flatSorted.map((m) => (
+              <LLMModelRow
+                key={m.model_id}
+                model={m}
+                isSelected={m.model_id === value}
+                onSelect={() => handleSelect(m.model_id)}
+                isFavorited={favoriteIds.has(m.model_id)}
+                isTogglingFav={toggling.has(m.model_id)}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            ))
+          ) : filtered.groups ? (
+            Object.entries(filtered.groups).map(([key, group]) => (
+              <ProviderGroup
+                key={key}
+                label={group.label}
+                models={group.models}
+                selectedModel={value}
+                onSelect={handleSelect}
+                defaultOpen={!!search || group.models.some((m) => m.model_id === value)}
+                favoriteIds={favoriteIds}
+                toggling={toggling}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            ))
+          ) : null}
+        </>
+      )}
 
-            {error && (
-              <div className="px-3 py-4 text-center text-xs text-red-400">
-                Failed to load models: {error}
-              </div>
-            )}
-
-            {filtered && !loading && (
-              <>
-                {/* Price-sorted flat list */}
-                {filtered.flatSorted ? (
-                  <>
-                    {filtered.flatSorted.map((m) => (
-                      <button
-                        key={m.model_id}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 pl-4 text-left transition-colors hover:bg-white/5 ${
-                          m.model_id === value ? 'bg-white/10' : ''
-                        }`}
-                        onClick={() => handleSelect(m.model_id)}
-                      >
-                        <Bot className="h-3.5 w-3.5 shrink-0 text-gray-500" />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-xs font-medium text-gray-200">
-                            {m.name}
-                          </div>
-                          <div className="truncate text-[10px] text-gray-600">
-                            {m.provider_group}
-                          </div>
-                        </div>
-                        {m.supports_vision && (
-                          <Eye className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                        )}
-                        {formatLLMPricing(m.pricing_prompt, m.pricing_completion) && (
-                          <span className="shrink-0 text-[10px] text-gray-500">
-                            {formatLLMPricing(m.pricing_prompt, m.pricing_completion)}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    {filtered.flatSorted.length === 0 && (
-                      <div className="py-6 text-center text-xs text-gray-500">
-                        No models match &quot;{search}&quot;
-                      </div>
-                    )}
-                  </>
-                ) : filtered.groups ? (
-                  <>
-                    {Object.entries(filtered.groups).map(([key, group]) => (
-                      <ProviderGroup
-                        key={key}
-                        label={group.label}
-                        models={group.models}
-                        selectedModel={value}
-                        onSelect={handleSelect}
-                        defaultOpen={!!search || group.models.some((m) => m.model_id === value)}
-                      />
-                    ))}
-
-                    {Object.keys(filtered.groups).length === 0 && (
-                      <div className="py-6 text-center text-xs text-gray-500">
-                        No models match &quot;{search}&quot;
-                      </div>
-                    )}
-                  </>
-                ) : null}
-              </>
-            )}
-          </div>
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className={`sticky bottom-0 left-0 right-0 px-3 py-1.5 text-center text-xs rounded-b-lg ${
+            toast.type === 'success'
+              ? 'bg-yellow-500/15 text-yellow-300'
+              : 'bg-red-500/15 text-red-300'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </ModelSelectorShell>
   );
 }
 

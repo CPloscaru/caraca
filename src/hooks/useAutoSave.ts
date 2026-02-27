@@ -8,7 +8,6 @@ import { captureCanvasThumbnail, uploadThumbnail } from '@/hooks/useCanvasThumbn
 export type SaveStatus = 'saved' | 'saving' | 'unsaved';
 
 const DEBOUNCE_MS = 2000;
-const THUMBNAIL_EVERY_N_SAVES = 5;
 
 export function useAutoSave(projectId: string) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -16,7 +15,6 @@ export function useAutoSave(projectId: string) {
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const saveCountRef = useRef(0);
   const isMountedRef = useRef(true);
   // Track whether initial restore has happened — skip auto-save for store
   // changes that originate from the restore itself.
@@ -34,7 +32,12 @@ export function useAutoSave(projectId: string) {
     setSaveStatus('saving');
 
     try {
-      const flowObject = rfInstance.toObject();
+      // Build save object from Zustand store (source of truth for nodes/edges)
+      // + React Flow viewport. rfInstance.toObject() can return stale edges
+      // when edges are managed externally via controlled props.
+      const { nodes, edges } = useCanvasStore.getState();
+      const { viewport } = rfInstance.toObject();
+      const flowObject = { nodes, edges, viewport };
       const res = await fetch(`/api/projects/${projectId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -43,16 +46,13 @@ export function useAutoSave(projectId: string) {
       });
       if (!isMountedRef.current) return;
       if (res.ok) {
-        saveCountRef.current += 1;
         setSaveStatus('saved');
 
-        // Capture thumbnail periodically (every Nth save) — fire-and-forget
-        if (saveCountRef.current % THUMBNAIL_EVERY_N_SAVES === 0) {
-          const nodes = useCanvasStore.getState().nodes;
-          captureCanvasThumbnail(nodes).then((blob) => {
-            if (blob) uploadThumbnail(projectId, blob);
-          });
-        }
+        // Capture thumbnail on every save — fire-and-forget
+        const nodes = useCanvasStore.getState().nodes;
+        captureCanvasThumbnail(nodes, rfInstance.getNodesBounds).then((blob) => {
+          if (blob) uploadThumbnail(projectId, blob);
+        });
       } else {
         setSaveStatus('unsaved');
       }
@@ -111,7 +111,9 @@ export function useAutoSave(projectId: string) {
       // Skip if restore hasn't completed yet to avoid overwriting with empty state
       if (!restoredRef.current) return;
       // sendBeacon only sends POST, so use the POST endpoint
-      const flowObject = rfInstance.toObject();
+      const { nodes, edges } = useCanvasStore.getState();
+      const { viewport } = rfInstance.toObject();
+      const flowObject = { nodes, edges, viewport };
       navigator.sendBeacon(
         `/api/projects/${projectId}`,
         new Blob(
@@ -138,7 +140,9 @@ export function useAutoSave(projectId: string) {
       if (restoredRef.current) {
         // Fire beacon save on navigation away
         try {
-          const flowObject = rfInstance.toObject();
+          const { nodes, edges } = useCanvasStore.getState();
+          const { viewport } = rfInstance.toObject();
+          const flowObject = { nodes, edges, viewport };
           navigator.sendBeacon(
             `/api/projects/${projectId}`,
             new Blob(
@@ -151,10 +155,18 @@ export function useAutoSave(projectId: string) {
         }
         // Capture and upload thumbnail on navigation away (fire-and-forget)
         const nodes = useCanvasStore.getState().nodes;
-        captureCanvasThumbnail(nodes).then((blob) => {
+        captureCanvasThumbnail(nodes, rfInstance.getNodesBounds).then((blob) => {
           if (blob) uploadThumbnail(projectId, blob);
         });
       }
+      // Prevent any further saves (e.g. from store clearing below)
+      restoredRef.current = false;
+      // Clear canvas store to avoid stale state when opening another project.
+      // This MUST happen after the beacon save and after restoredRef is reset
+      // so the subscriber doesn't trigger a save with empty data.
+      const store = useCanvasStore.getState();
+      store.setNodes([]);
+      store.setEdges([]);
     };
   }, [projectId, rfInstance]);
 
@@ -163,5 +175,5 @@ export function useAutoSave(projectId: string) {
     restoredRef.current = true;
   }, []);
 
-  return { saveStatus, saveNow, saveCountRef, markRestored };
+  return { saveStatus, saveNow, markRestored };
 }

@@ -72,7 +72,7 @@ async function handler(request: NextRequest) {
       accept: "application/json",
       "content-type": "application/json",
       "user-agent": request.headers.get("user-agent") ?? "",
-      "x-fal-client-proxy": "@fal-ai/server-proxy/custom-nextjs",
+      "x-fal-client-proxy": "caraca/fal-proxy",
     },
     body: request.method === "GET" ? undefined : await request.text(),
   });

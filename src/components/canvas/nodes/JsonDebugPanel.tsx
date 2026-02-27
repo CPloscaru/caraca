@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Braces, Copy, Check } from 'lucide-react';
 import { JsonTreeView } from './JsonTreeView';
+import { SchemaTreeView } from './SchemaTreeView';
+import type { SchemaNode } from '@/lib/fal/schema-tree';
 
 // ---------------------------------------------------------------------------
 // DebugToggleButton
@@ -9,16 +11,18 @@ import { JsonTreeView } from './JsonTreeView';
 type DebugToggleButtonProps = {
   active: boolean;
   onClick: () => void;
+  /** Override default absolute positioning (e.g. for inline header usage) */
+  className?: string;
 };
 
-export function DebugToggleButton({ active, onClick }: DebugToggleButtonProps) {
+export function DebugToggleButton({ active, onClick, className }: DebugToggleButtonProps) {
   return (
     <button
-      className={`nodrag absolute top-2 right-2 z-10 h-6 w-6 flex items-center justify-center rounded transition-opacity ${
+      className={`nodrag h-6 w-6 flex items-center justify-center rounded transition-opacity ${
         active
           ? 'bg-purple-500/20 text-purple-300 opacity-100'
           : 'text-gray-400 opacity-50 hover:opacity-80'
-      }`}
+      } ${className ?? 'absolute top-2 right-2 z-10'}`}
       onClick={onClick}
       title="Toggle debug view"
     >
@@ -31,10 +35,11 @@ export function DebugToggleButton({ active, onClick }: DebugToggleButtonProps) {
 // JsonDebugPanel
 // ---------------------------------------------------------------------------
 
-type TabId = 'schema' | 'request' | 'response';
+type TabId = 'schema' | 'tree' | 'request' | 'response';
 
 type JsonDebugPanelProps = {
   schema?: unknown;
+  schemaTree?: SchemaNode[];
   config?: Record<string, unknown>;
   request?: unknown;
   response?: unknown;
@@ -43,6 +48,7 @@ type JsonDebugPanelProps = {
 
 export function JsonDebugPanel({
   schema,
+  schemaTree,
   config,
   request,
   response,
@@ -50,6 +56,7 @@ export function JsonDebugPanel({
 }: JsonDebugPanelProps) {
   // Build available tabs
   const tabs: { id: TabId; label: string }[] = [{ id: 'schema', label: 'Schema' }];
+  if (schemaTree && schemaTree.length > 0) tabs.push({ id: 'tree', label: 'Tree' });
   if (request) tabs.push({ id: 'request', label: 'Request' });
   if (response || error) tabs.push({ id: 'response', label: 'Response' });
 
@@ -72,6 +79,8 @@ export function JsonDebugPanel({
     switch (currentTab) {
       case 'schema':
         return config ? { schema, currentConfig: config } : schema;
+      case 'tree':
+        return schemaTree;
       case 'request':
         return request;
       case 'response':
@@ -79,7 +88,7 @@ export function JsonDebugPanel({
       default:
         return null;
     }
-  }, [currentTab, schema, config, request, response, error]);
+  }, [currentTab, schema, schemaTree, config, request, response, error]);
 
   const handleCopy = useCallback(() => {
     const data = getTabData();
@@ -106,9 +115,24 @@ export function JsonDebugPanel({
             {tab.label}
           </button>
         ))}
-        {/* Copy button — right-aligned */}
+      </div>
+
+      {/* Tab content */}
+      <div className="nodrag nowheel max-h-[300px] overflow-y-auto">
+        {currentTab === 'response' && !!error && (
+          <div className="text-red-400 text-[10px] mb-1">Error Response</div>
+        )}
+        {currentTab === 'tree' && schemaTree ? (
+          <SchemaTreeView tree={schemaTree} />
+        ) : (
+          <JsonTreeView data={getTabData()} />
+        )}
+      </div>
+
+      {/* Copy button — bottom left */}
+      <div className="mt-1 pt-1 border-t border-white/10">
         <button
-          className="nodrag ml-auto text-gray-400 hover:text-gray-200 transition-colors"
+          className="nodrag text-gray-400 hover:text-gray-200 transition-colors"
           onClick={handleCopy}
           title="Copy JSON"
         >
@@ -118,14 +142,6 @@ export function JsonDebugPanel({
             <Copy className="h-3.5 w-3.5" />
           )}
         </button>
-      </div>
-
-      {/* Tab content */}
-      <div className="nodrag nowheel max-h-[300px] overflow-y-auto">
-        {currentTab === 'response' && !!error && (
-          <div className="text-red-400 text-[10px] mb-1">Error Response</div>
-        )}
-        <JsonTreeView data={getTabData()} />
       </div>
     </div>
   );

@@ -98,7 +98,7 @@ type ValidationResult =
   | { valid: true; data: { title: string; nodes: Node[]; edges: Edge[] } }
   | { valid: false; error: string };
 
-export function validateWorkflowJson(json: unknown): ValidationResult {
+function validateWorkflowJson(json: unknown): ValidationResult {
   if (typeof json !== 'object' || json === null) {
     return { valid: false, error: 'File is not a valid JSON object.' };
   }

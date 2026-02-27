@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Search } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
+import { Search, StickyNote } from 'lucide-react';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
 import { getNodeTemplates, type NodeTemplate } from '@/lib/node-registry';
 import { useAppStore } from '@/stores/app-store';
+
+/** Tool node types that appear in the "Outils" section */
+const TOOL_NODE_TYPES = new Set(['canvasNote']);
 
 type ContextMenuPosition = {
   x: number;
@@ -62,15 +65,67 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
     };
   }, [position, onClose]);
 
-  const templates = getNodeTemplates();
+  const allTemplates = useMemo(() => getNodeTemplates(), []);
+  const processingNodes = useMemo(() => allTemplates.filter((t) => !TOOL_NODE_TYPES.has(t.nodeType)), [allTemplates]);
+  const toolNodes = useMemo(() => allTemplates.filter((t) => TOOL_NODE_TYPES.has(t.nodeType)), [allTemplates]);
 
   if (!position) return null;
 
   // Boundary detection: ensure menu stays within viewport
   const menuWidth = 200;
-  const menuHeight = templates.length * 44 + 16;
+  const sectionHeaders = 2 + (toolNodes.length > 0 ? 1 : 0); // "Add Node" + "Outils" + search
+  const menuHeight = allTemplates.length * 44 + sectionHeaders * 30 + 16;
   const left = Math.min(position.x, window.innerWidth - menuWidth - 8);
   const top = Math.min(position.y, window.innerHeight - menuHeight - 8);
+
+  const renderNodeButton = (template: NodeTemplate) => {
+    const isTool = TOOL_NODE_TYPES.has(template.nodeType);
+    return (
+      <button
+        key={template.label}
+        onClick={() => {
+          onAddNode(template, position.flowX, position.flowY);
+          onClose();
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          padding: '8px 12px',
+          background: 'transparent',
+          border: 'none',
+          color: '#f3f4f6',
+          fontSize: 13,
+          cursor: 'pointer',
+          textAlign: 'left',
+          transition: 'background 0.1s ease',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.background =
+            'rgba(174, 83, 186, 0.1)';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.background = 'transparent';
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isTool && <StickyNote size={12} color="#ae53ba" />}
+          {template.label}
+        </span>
+        {!isTool && (
+          <span style={{ display: 'flex', gap: 2 }}>
+            {template.inputs.map((inp, i) => (
+              <PortDot key={`in-${i}`} type={inp.type} />
+            ))}
+            {template.outputs.map((out, i) => (
+              <PortDot key={`out-${i}`} type={out.type} />
+            ))}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   return (
     <div
@@ -131,48 +186,29 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
       >
         Add Node
       </div>
-      {templates.map((template) => (
-        <button
-          key={template.label}
-          onClick={() => {
-            onAddNode(template, position.flowX, position.flowY);
-            onClose();
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            padding: '8px 12px',
-            background: 'transparent',
-            border: 'none',
-            color: '#f3f4f6',
-            fontSize: 13,
-            cursor: 'pointer',
-            textAlign: 'left',
-            transition: 'background 0.1s ease',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background =
-              'rgba(174, 83, 186, 0.1)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'transparent';
-          }}
-        >
-          <span>{template.label}</span>
-          <span style={{ display: 'flex', gap: 2 }}>
-            {template.inputs.map((inp, i) => (
-              <PortDot key={`in-${i}`} type={inp.type} />
-            ))}
-            {template.outputs.map((out, i) => (
-              <PortDot key={`out-${i}`} type={out.type} />
-            ))}
-          </span>
-        </button>
-      ))}
+      {processingNodes.map(renderNodeButton)}
+
+      {toolNodes.length > 0 && (
+        <>
+          <div
+            style={{
+              padding: '6px 12px',
+              fontSize: 11,
+              color: '#9ca3af',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              borderTop: '1px solid #2a2a2a',
+              marginTop: 2,
+            }}
+          >
+            Outils
+          </div>
+          {toolNodes.map(renderNodeButton)}
+        </>
+      )}
     </div>
   );
 }
 
-export type { ContextMenuPosition, NodeTemplate };
+export type { ContextMenuPosition };

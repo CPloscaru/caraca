@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Search, Upload } from 'lucide-react';
+import { BudgetBadges } from '@/components/budget/BudgetBadges';
 
 type DashboardHeaderProps = {
   activeTab: 'projects' | 'templates';
@@ -18,17 +19,7 @@ export function DashboardHeader({
   onSearchChange,
   onImportFile,
 }: DashboardHeaderProps) {
-  const [falStatus, setFalStatus] = useState<'configured' | 'missing' | 'loading'>('loading');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetch('/api/settings/fal-key')
-      .then((res) => res.json())
-      .then((data: { status: string }) => {
-        setFalStatus(data.status === 'configured' ? 'configured' : 'missing');
-      })
-      .catch(() => setFalStatus('missing'));
-  }, []);
 
   return (
     <div
@@ -148,24 +139,8 @@ export function DashboardHeader({
           </button>
         </div>
 
-        {/* fal.ai status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ca3af' }}>
-          <span
-            style={{
-              display: 'inline-block',
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background:
-                falStatus === 'configured'
-                  ? '#22c55e'
-                  : falStatus === 'missing'
-                  ? '#eab308'
-                  : '#6b7280',
-            }}
-          />
-          <span>fal.ai {falStatus === 'configured' ? 'connected' : falStatus === 'missing' ? 'not configured' : '...'}</span>
-        </div>
+        {/* Budget badges */}
+        <BudgetBadges />
       </div>
 
       {/* Tabs */}

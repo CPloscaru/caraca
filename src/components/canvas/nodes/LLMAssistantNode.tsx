@@ -2,19 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
-import { Bot, Play, Loader2, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp } from 'lucide-react';
+import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runSingleNode } from '@/lib/executors';
-import { LLMModelSelector, useLLMModelData, formatLLMPricing } from './LLMModelSelector';
+import { LLMModelSelector, useLLMModelData, formatLLMPricing, LLMModelDetails } from './LLMModelSelector';
+import { NodeFooter } from './shared/NodeFooter';
 import { getStatusBorderClass } from './node-utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import type { LLMAssistantData } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -32,16 +28,10 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
 
   // Canvas store
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const deleteEdge = useCanvasStore((s) => s.deleteEdge);
 
   // Edges for connection detection
   const edges = useEdges();
-  const imageInputConnected = useMemo(
-    () =>
-      edges.some(
-        (e) => e.target === nodeId && e.targetHandle === 'image-target-0',
-      ),
-    [edges, nodeId],
-  );
 
   // Model data for vision check
   const llmModels = useLLMModelData();
@@ -49,11 +39,22 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
     () => llmModels.find((m) => m.model_id === nodeData.model),
     [llmModels, nodeData.model],
   );
-  const showVisionWarning =
-    imageInputConnected &&
-    nodeData.model &&
-    selectedModelData &&
-    !selectedModelData.supports_vision;
+  const supportsVision = selectedModelData?.supports_vision ?? false;
+
+  // Track previous vision state to clean up stale edges on model switch
+  const prevVisionRef = useRef(supportsVision);
+  useEffect(() => {
+    if (prevVisionRef.current && !supportsVision) {
+      // Switched from vision to non-vision: remove stale image edges
+      const staleEdges = edges.filter(
+        (e) => e.target === nodeId && e.targetHandle === 'image-target-0',
+      );
+      for (const edge of staleEdges) {
+        deleteEdge(edge.id);
+      }
+    }
+    prevVisionRef.current = supportsVision;
+  }, [supportsVision, edges, nodeId, deleteEdge]);
 
   // LLM pricing tooltip
   const llmCostTooltip = selectedModelData
@@ -88,6 +89,9 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
     };
   }, []);
 
+  // Debug mode
+  const [debugMode, setDebugMode] = useState(false);
+
   // Output data
   const output = nodeData.output ?? null;
   const outputExpanded = nodeData.outputExpanded ?? false;
@@ -108,22 +112,24 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
       }`}
       style={{ minWidth: 300, maxWidth: 380 }}
     >
-      {/* Image input handle (left) */}
-      <TypedHandle
-        type="target"
-        position={Position.Left}
-        portType="image"
-        portId="image-in-0"
-        index={0}
-        style={{ top: '50%' }}
-      />
+      {/* Image input handle (left) — only when model supports vision */}
+      {supportsVision && (
+        <TypedHandle
+          type="target"
+          position={Position.Left}
+          portType="image"
+          portId="image-in-0"
+          index={0}
+          style={{ top: '50%' }}
+        />
+      )}
 
       {/* Text output handle (right) */}
       <TypedHandle
         type="source"
         position={Position.Right}
         portType="text"
-        portId="text-out-0"
+        portId="text-source-0"
         index={0}
         style={{ top: '50%' }}
       />
@@ -137,20 +143,15 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
         <span className="text-xs font-semibold text-gray-100">
           LLM Assistant
         </span>
-        {imageInputConnected && (
-          <span className="ml-auto rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
-            vision
-          </span>
-        )}
+        <span className="ml-auto flex items-center gap-1">
+          {supportsVision && (
+            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
+              vision
+            </span>
+          )}
+          <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} className="" />
+        </span>
       </div>
-
-      {/* Vision warning */}
-      {showVisionWarning && (
-        <div className="mx-3 mt-2 flex items-center gap-1.5 rounded border border-yellow-500/20 bg-yellow-500/5 px-2 py-1.5 text-[10px] text-yellow-400">
-          <AlertTriangle className="h-3 w-3 shrink-0" />
-          Model does not support vision
-        </div>
-      )}
 
       {/* Instruction textarea */}
       <div className="px-3 py-2">
@@ -174,79 +175,77 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
         />
       </div>
 
-      {/* Output panel */}
-      {output && (
-        <div className="border-t border-white/5 px-3 py-2">
-          <button
-            className="nodrag flex w-full items-center gap-1 text-left text-[10px] font-medium uppercase tracking-wider text-gray-500 transition-colors hover:text-gray-300"
-            onClick={toggleExpanded}
-          >
-            {outputExpanded ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
+      {/* Output / Debug panel */}
+      <div className="border-t border-white/5 px-3 py-2">
+        {debugMode ? (
+          <JsonDebugPanel
+            schema={{ model: nodeData.model, instruction: nodeData.instruction }}
+            request={nodeData.debugRequest}
+            response={nodeData.debugResponse}
+            error={nodeData.debugError}
+          />
+        ) : (
+          <>
+            {/* Output */}
+            {output && (
+              <>
+                <button
+                  className="nodrag flex w-full items-center gap-1 text-left text-[10px] font-medium uppercase tracking-wider text-gray-500 transition-colors hover:text-gray-300"
+                  onClick={toggleExpanded}
+                >
+                  {outputExpanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                  Output
+                </button>
+                <div
+                  className={`mt-1 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-gray-300 ${
+                    outputExpanded ? '' : 'line-clamp-3'
+                  }`}
+                >
+                  {output}
+                </div>
+              </>
             )}
-            Output
-          </button>
-          <div
-            className={`mt-1 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-gray-300 ${
-              outputExpanded ? '' : 'line-clamp-3'
-            }`}
-          >
-            {output}
-          </div>
-        </div>
-      )}
 
-      {/* Token usage */}
-      {tokenUsage && (
-        <div className="px-3 pb-2">
-          <span className="text-[10px] text-gray-600">
-            In: {tokenUsage.prompt.toLocaleString()} | Out:{' '}
-            {tokenUsage.completion.toLocaleString()}
-          </span>
-        </div>
-      )}
-
-      {/* Error */}
-      {hasError && execState?.error && (
-        <div className="mx-3 mb-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
-          {execState.error}
-        </div>
-      )}
-
-      {/* Run button */}
-      <div className="flex justify-end p-2 pt-0">
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="nodrag flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition-all hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={false}
-                onClick={() => {
-                  if (isRunning) {
-                    useExecutionStore.getState().cancelExecution();
-                  } else {
-                    runSingleNode(nodeId).catch((err) => {
-                      console.error('LLM execution failed:', err);
-                    });
-                  }
-                }}
-                title={isRunning ? 'Cancel' : undefined}
-              >
-                {isRunning ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </button>
-            </TooltipTrigger>
-            {llmCostTooltip && !isRunning && (
-              <TooltipContent>{llmCostTooltip}</TooltipContent>
+            {/* Token usage */}
+            {tokenUsage && (
+              <div className="pt-1">
+                <span className="text-[10px] text-gray-600">
+                  In: {tokenUsage.prompt.toLocaleString()} | Out:{' '}
+                  {tokenUsage.completion.toLocaleString()}
+                </span>
+              </div>
             )}
-          </Tooltip>
-        </TooltipProvider>
+
+            {/* Error */}
+            {hasError && execState?.error && (
+              <div className="mt-1 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+                {execState.error}
+              </div>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Footer: info button + run button */}
+      <NodeFooter
+        infoSlot={selectedModelData ? <LLMModelDetails model={selectedModelData} /> : undefined}
+        isRunning={isRunning}
+        onRun={() => {
+          if (isRunning) {
+            useExecutionStore.getState().cancelExecution();
+          } else {
+            runSingleNode(nodeId).catch((err) => {
+              console.error('LLM execution failed:', err);
+            });
+          }
+        }}
+        costTooltip={llmCostTooltip}
+        accentColor="emerald"
+      />
     </div>
   );
 }

@@ -1,17 +1,13 @@
 'use client';
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { FieldLabel } from './FieldLabel';
 
 type SchemaToggleProps = {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   description?: string;
+  required?: boolean;
 };
 
 export function SchemaToggle({
@@ -19,27 +15,11 @@ export function SchemaToggle({
   checked,
   onChange,
   description,
+  required,
 }: SchemaToggleProps) {
-  const labelEl = (
-    <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
-      {label}
-    </span>
-  );
-
   return (
     <div className="mb-1.5 flex items-center justify-between gap-2">
-      {description ? (
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>{labelEl}</TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[240px] text-xs">
-              {description}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : (
-        labelEl
-      )}
+      <FieldLabel label={label} description={description} required={required} as="span" />
       <button
         className={`nodrag relative h-4 w-7 rounded-full transition-colors ${
           checked ? 'bg-purple-500' : 'bg-white/10'

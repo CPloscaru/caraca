@@ -287,12 +287,24 @@ export async function executeDag(
     }
 
     // Resolve inputs from upstream outputs via edge mappings
+    // Multi-connection handles: collect multiple edges to the same targetHandle into an array
     const inputs: Record<string, unknown> = {};
     for (const edge of edges) {
       if (edge.target === nodeId) {
         const upstreamResult = results[edge.source];
         if (upstreamResult && edge.sourceHandle in upstreamResult) {
-          inputs[edge.targetHandle] = upstreamResult[edge.sourceHandle];
+          const newValue = upstreamResult[edge.sourceHandle];
+          const existing = inputs[edge.targetHandle];
+          if (existing !== undefined) {
+            // Multi-connection: collect into array
+            if (Array.isArray(existing)) {
+              existing.push(newValue);
+            } else {
+              inputs[edge.targetHandle] = [existing, newValue];
+            }
+          } else {
+            inputs[edge.targetHandle] = newValue;
+          }
         }
       }
     }

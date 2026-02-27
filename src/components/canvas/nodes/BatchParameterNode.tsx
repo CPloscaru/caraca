@@ -311,4 +311,3 @@ export function BatchParameterNode({ id, data, selected }: NodeProps) {
   );
 }
 
-export default BatchParameterNode;

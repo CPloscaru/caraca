@@ -21,6 +21,7 @@ type CanvasState = {
   addNode: (node: Node) => void;
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
+  setNodesAndEdges: (nodes: Node[], edges: Edge[]) => void;
   deleteNode: (nodeId: string) => void;
   deleteEdge: (edgeId: string) => void;
   updateNodeData: (nodeId: string, partialData: Record<string, unknown>) => void;
@@ -41,6 +42,11 @@ export const useCanvasStore = create<CanvasState>()(
       },
 
       onConnect: (connection) => {
+        // Annotation edges from note nodes bypass port validation
+        if (connection.sourceHandle === 'annotation-out') {
+          set({ edges: addEdge({ ...connection, type: 'annotationEdge' }, get().edges) });
+          return;
+        }
         // Validate port type compatibility before connecting
         if (!isValidConnection(connection)) return;
         set({ edges: addEdge({ ...connection, type: 'turbo' }, get().edges) });
@@ -56,6 +62,10 @@ export const useCanvasStore = create<CanvasState>()(
 
       setEdges: (edges) => {
         set({ edges });
+      },
+
+      setNodesAndEdges: (nodes, edges) => {
+        set({ nodes, edges });
       },
 
       deleteNode: (nodeId) => {

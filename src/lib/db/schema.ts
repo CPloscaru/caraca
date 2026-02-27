@@ -49,6 +49,11 @@ export const llmModelsCache = sqliteTable('llm_models_cache', {
   raw_metadata: text('raw_metadata'),
 });
 
+export const favoriteModels = sqliteTable('favorite_models', {
+  endpoint_id: text('endpoint_id').primaryKey(),
+  created_at: integer('created_at', { mode: 'number' }).notNull(),
+});
+
 export const cacheMetadata = sqliteTable('cache_metadata', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

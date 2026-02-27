@@ -1,6 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { modelsCache, cacheMetadata } from '@/lib/db/schema';
+import { modelsCache } from '@/lib/db/schema';
+import {
+  getCacheFreshness as getGenericCacheFreshness,
+  updateCacheTimestamp,
+} from '@/lib/cache/strategy';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -219,21 +223,7 @@ export async function fetchAndCacheModels(category: string): Promise<void> {
   }
 
   // Update cache metadata timestamp
-  const now = Date.now();
-  db.insert(cacheMetadata)
-    .values({
-      key: `models_fetched_at_${category}`,
-      value: new Date(now).toISOString(),
-      updated_at: now,
-    })
-    .onConflictDoUpdate({
-      target: cacheMetadata.key,
-      set: {
-        value: new Date(now).toISOString(),
-        updated_at: now,
-      },
-    })
-    .run();
+  updateCacheTimestamp(`models_fetched_at_${category}`);
 
   console.log(
     `[model-cache] Cached ${activeModels.length} ${category} models`,
@@ -322,34 +312,11 @@ async function fetchAndCachePricing(endpointIds: string[]): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Cache freshness check
+// Cache freshness check (thin wrapper over shared strategy)
 // ---------------------------------------------------------------------------
 
-const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-
-export function getCacheFreshness(category: string): {
-  isFresh: boolean;
-  isStale: boolean;
-  isEmpty: boolean;
-  cachedAt: string | null;
-} {
-  const meta = db
-    .select()
-    .from(cacheMetadata)
-    .where(eq(cacheMetadata.key, `models_fetched_at_${category}`))
-    .get();
-
-  if (!meta) {
-    return { isFresh: false, isStale: false, isEmpty: true, cachedAt: null };
-  }
-
-  const age = Date.now() - meta.updated_at;
-  return {
-    isFresh: age < SIX_HOURS_MS,
-    isStale: age >= SIX_HOURS_MS,
-    isEmpty: false,
-    cachedAt: meta.value,
-  };
+export function getCacheFreshness(category: string) {
+  return getGenericCacheFreshness(`models_fetched_at_${category}`);
 }
 
 /**

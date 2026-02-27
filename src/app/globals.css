@@ -147,6 +147,51 @@
   }
 }
 
+/* React Flow Controls toolbar — dark theme */
+.react-flow__controls {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  fill: #9ca3af;
+  color: #9ca3af;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  fill: #f3f4f6;
+  color: #f3f4f6;
+}
+
+.react-flow__controls-button.active {
+  background: rgba(174, 83, 186, 0.2);
+  fill: #ae53ba;
+  color: #ae53ba;
+}
+
+.react-flow__controls-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+
 /* Animated edge dashes (data flow direction) */
 @keyframes dash {
   to {

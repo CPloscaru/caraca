@@ -10,7 +10,7 @@ import { useExecutionStore } from '@/stores/execution-store';
 // ElapsedTimer
 // ---------------------------------------------------------------------------
 
-export function ElapsedTimer({ startedAt }: { startedAt: number }) {
+function ElapsedTimer({ startedAt }: { startedAt: number }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {

@@ -8,7 +8,7 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type FalErrorType =
+type FalErrorType =
   | 'validation'
   | 'auth'
   | 'rate_limit'
@@ -17,7 +17,7 @@ export type FalErrorType =
   | 'cancelled'
   | 'unknown';
 
-export type ClassifiedError = {
+type ClassifiedError = {
   type: FalErrorType;
   retryable: boolean;
   message: string;

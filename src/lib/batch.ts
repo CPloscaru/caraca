@@ -12,7 +12,7 @@ import type { BatchResultItem } from '@/types/canvas';
 // Types
 // ---------------------------------------------------------------------------
 
-export type ExecuteDagBatchConfig = {
+type ExecuteDagBatchConfig = {
   values: string[];
   batchNodeId: string;
   batchOutputHandle: string; // e.g. 'text-source-0'
@@ -25,11 +25,6 @@ export type ExecuteDagBatchConfig = {
   onStatusChange: ExecuteDagConfig['onStatusChange'];
   onBatchProgress: (current: number, total: number) => void;
 };
-
-export type { BatchResultItem };
-
-// Re-export as BatchResult for backwards compat / convenience
-export type BatchResult = BatchResultItem;
 
 // ---------------------------------------------------------------------------
 // Batch execution

@@ -1,24 +1,24 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Popover as PopoverPrimitive } from 'radix-ui';
 import {
   ChevronDown,
-  Search,
   Star,
   Info,
   Clock,
   ExternalLink,
   ImageIcon,
-  Loader2,
-  ArrowUpDown,
 } from 'lucide-react';
+import { useFavoritesStore } from '@/stores/favorites-store';
+import { useModelSelectorState } from './shared/useModelSelectorState';
+import { ModelSelectorShell } from './shared/ModelSelectorShell';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type CachedModel = {
+export type CachedModel = {
   endpoint_id: string;
   category: string;
   display_name: string;
@@ -52,6 +52,7 @@ type ModelSelectorProps = {
   onChange: (endpointId: string) => void;
   mode?: 'text-to-image' | 'image-to-image' | 'image-upscaling' | 'text-to-video' | 'image-to-video';
   onPricingInfo?: (info: PricingInfo) => void;
+  onModelInfo?: (model: CachedModel) => void;
 };
 
 // Static upscale models — fal.ai doesn't expose a dedicated "image-upscaling" category
@@ -179,7 +180,7 @@ function ModelThumb({ url, name }: { url: string | null; name: string }) {
 // Model details popover (secondary)
 // ---------------------------------------------------------------------------
 
-function ModelDetails({ model }: { model: CachedModel }) {
+export function ModelDetails({ model }: { model: CachedModel }) {
   return (
     <PopoverPrimitive.Root>
       <PopoverPrimitive.Trigger asChild>
@@ -272,10 +273,18 @@ function ModelRow({
   model,
   isSelected,
   onSelect,
+  isFavorited,
+  isTogglingFav,
+  onToggleFavorite,
+  disabled,
 }: {
   model: CachedModel;
   isSelected: boolean;
   onSelect: () => void;
+  isFavorited: boolean;
+  isTogglingFav: boolean;
+  onToggleFavorite: (endpointId: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div
@@ -283,13 +292,34 @@ function ModelRow({
       aria-selected={isSelected}
       className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-white/5 ${
         isSelected ? 'bg-white/10' : ''
-      }`}
-      onClick={onSelect}
+      }${disabled ? ' opacity-50 cursor-default' : ''}`}
+      onClick={disabled ? undefined : onSelect}
     >
+      {/* Star toggle */}
+      <button
+        className={`shrink-0 rounded p-1 transition-colors hover:bg-white/5 ${
+          isFavorited
+            ? 'text-yellow-500'
+            : 'text-gray-600 hover:text-gray-400'
+        }`}
+        disabled={isTogglingFav}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(model.endpoint_id);
+        }}
+      >
+        <Star
+          className="h-3.5 w-3.5"
+          {...(isFavorited ? { fill: 'currentColor' } : {})}
+        />
+      </button>
       <ModelThumb url={model.thumbnail_url} name={model.display_name} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-xs font-medium text-gray-200">
+        <div className={`truncate text-xs font-medium ${disabled ? 'text-gray-500' : 'text-gray-200'}`}>
           {model.display_name}
+          {disabled && (
+            <span className="ml-1 text-[10px] text-gray-600">(indisponible)</span>
+          )}
         </div>
         {model.group_label && (
           <div className="truncate text-[10px] text-gray-500">
@@ -313,79 +343,100 @@ function ModelRow({
 }
 
 // ---------------------------------------------------------------------------
+// Build fallback ModelsResponse from static models
+// ---------------------------------------------------------------------------
+
+function buildFallbackResponse(models: CachedModel[]): ModelsResponse {
+  const recommended = models.filter((m) => m.highlighted);
+  const rest = models.filter((m) => !m.highlighted);
+  return {
+    models,
+    grouped: {
+      recommended,
+      groups: rest.length ? { other: { label: 'Other', models: rest } } : {},
+    },
+    cached_at: new Date().toISOString(),
+    is_stale: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // ModelSelector
 // ---------------------------------------------------------------------------
 
-export function ModelSelector({ value, onChange, mode = 'text-to-image', onPricingInfo }: ModelSelectorProps) {
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState<ModelsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [sortByPrice, setSortByPrice] = useState(false);
-  const fetchedRef = useRef(false);
-  const searchRef = useRef<HTMLInputElement>(null);
+export function ModelSelector({ value, onChange, mode = 'text-to-image', onPricingInfo, onModelInfo }: ModelSelectorProps) {
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Fetch models on first open
-  const handleOpenChange = useCallback(
-    (isOpen: boolean) => {
-      setOpen(isOpen);
-      if (isOpen && !fetchedRef.current) {
-        fetchedRef.current = true;
+  // Build fallback data for modes that have static models
+  const staticFallback = useMemo(() => {
+    const fallback = STATIC_FALLBACK_MODELS[mode];
+    return fallback ? buildFallbackResponse(fallback) : undefined;
+  }, [mode]);
 
-        setLoading(true);
-        setError(null);
-        fetch(`/api/models?mode=${mode}`)
-          .then((r) => {
-            if (!r.ok) throw new Error(`${r.status}`);
-            return r.json();
-          })
-          .then((json: ModelsResponse) => {
-            setData(json);
-            setLoading(false);
-            // Emit pricing for the currently selected model
-            if (onPricingInfo && value) {
-              const selected = json.models.find((m) => m.endpoint_id === value);
-              if (selected) {
-                onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
-              }
-            }
-          })
-          .catch((err) => {
-            // Fall back to static models for video modes if API fails
-            const fallback = STATIC_FALLBACK_MODELS[mode];
-            if (fallback) {
-              const recommended = fallback.filter((m) => m.highlighted);
-              const rest = fallback.filter((m) => !m.highlighted);
-              setData({
-                models: fallback,
-                grouped: {
-                  recommended,
-                  groups: rest.length ? { other: { label: 'Other', models: rest } } : {},
-                },
-                cached_at: new Date().toISOString(),
-                is_stale: true,
-              });
-              setLoading(false);
-              return;
-            }
-            setError(err.message ?? 'Failed to load models');
-            setLoading(false);
-            fetchedRef.current = false; // allow retry
-          });
+  const fetchUrl = `/api/models?mode=${mode}`;
+
+  const {
+    open, handleOpenChange, data, loading, error,
+    search, setSearch, sortByPrice, setSortByPrice, searchRef,
+  } = useModelSelectorState<ModelsResponse>({
+    fetchUrl,
+    transformResponse: (json) => json as ModelsResponse,
+    onFetched: (response) => {
+      if (value) {
+        const selected = response.models.find((m) => m.endpoint_id === value);
+        if (selected) {
+          if (onPricingInfo) onPricingInfo({ unitPrice: selected.unit_price, priceUnit: selected.price_unit });
+          if (onModelInfo) onModelInfo(selected);
+        }
       }
     },
-    [mode, onPricingInfo, value],
-  );
+    fallbackData: staticFallback,
+    eagerFetch: !!value,
+  });
 
-  // Focus search input when popover opens
+  // Favorites store
+  const favoriteIds = useFavoritesStore((s) => s.favoriteIds);
+  const toggling = useFavoritesStore((s) => s.toggling);
+
+  // Auto-dismiss toast
   useEffect(() => {
-    if (open) {
-      requestAnimationFrame(() => searchRef.current?.focus());
-    } else {
-      setSearch('');
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Handle favorite toggle with toast feedback
+  const handleToggleFavorite = useCallback(async (endpointId: string) => {
+    try {
+      const result = await useFavoritesStore.getState().toggleFavorite(endpointId);
+      if (result.ok) {
+        setToast({
+          message: result.added ? 'Modele ajoute aux favoris' : 'Modele retire des favoris',
+          type: 'success',
+        });
+      }
+    } catch {
+      setToast({ message: 'Erreur lors de la mise a jour', type: 'error' });
     }
-  }, [open]);
+  }, []);
+
+  // Build favorite models list (including deprecated/removed ones)
+  const favoriteModels = useMemo(() => {
+    if (!data) return [];
+    const q = search.toLowerCase();
+    const allModelMap = new Map(data.models.map((m) => [m.endpoint_id, m]));
+
+    const favModels: CachedModel[] = [];
+    for (const id of favoriteIds) {
+      const model = allModelMap.get(id);
+      if (!model) continue; // Skip favorites from other node types
+      if (q && !model.display_name.toLowerCase().includes(q)) continue;
+      favModels.push(model);
+    }
+    // Sort alphabetically by display_name
+    favModels.sort((a, b) => a.display_name.localeCompare(b.display_name));
+    return favModels;
+  }, [data, favoriteIds, search]);
 
   // Filter models by search (and optionally sort by price)
   const filtered = useMemo(() => {
@@ -395,8 +446,6 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
       q ? models.filter((m) => m.display_name.toLowerCase().includes(q)) : models;
 
     // When sorting by price, flatten all models into a single sorted list.
-    // Only models with displayable pricing (image/video/megapixel) sort to the top;
-    // models with GPU-only pricing or no pricing sort to the bottom.
     if (sortByPrice) {
       const allFiltered = filterModels(data.models);
       const sorted = [...allFiltered].sort((a, b) => {
@@ -430,21 +479,30 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
   const handleModelSelect = useCallback(
     (model: CachedModel) => {
       onChange(model.endpoint_id);
-      setOpen(false);
+      handleOpenChange(false);
       if (onPricingInfo) {
         onPricingInfo({ unitPrice: model.unit_price, priceUnit: model.price_unit });
       }
+      if (onModelInfo) {
+        onModelInfo(model);
+      }
     },
-    [onChange, onPricingInfo],
+    [onChange, handleOpenChange, onPricingInfo, onModelInfo],
   );
 
   // Find the currently selected model name
   const selectedModel = data?.models.find((m) => m.endpoint_id === value);
   const displayLabel = selectedModel?.display_name ?? value.split('/').pop() ?? 'Select model';
 
+  const hasContent = filtered
+    ? (filtered.flatSorted ? filtered.flatSorted.length > 0 : filtered.recommended.length > 0 || Object.keys(filtered.groups).length > 0 || favoriteModels.length > 0)
+    : false;
+
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={handleOpenChange}>
-      <PopoverPrimitive.Trigger asChild>
+    <ModelSelectorShell
+      open={open}
+      onOpenChange={handleOpenChange}
+      trigger={
         <button className="nodrag nowheel flex w-full items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-xs text-gray-300 transition-colors hover:border-white/20 hover:bg-white/10">
           {selectedModel?.thumbnail_url ? (
             <img
@@ -458,125 +516,112 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
           <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-500" />
         </button>
-      </PopoverPrimitive.Trigger>
-
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          side="bottom"
-          sideOffset={4}
-          align="start"
-          className="nodrag nowheel z-50 max-h-80 w-72 overflow-hidden rounded-lg border border-white/10 bg-[#1a1a1a] shadow-xl"
-        >
-          {/* Search bar + sort toggle */}
-          <div className="border-b border-white/5 p-2">
-            <div className="flex items-center gap-2">
-              <div className="flex flex-1 items-center gap-2 rounded-md bg-white/5 px-2 py-1.5">
-                <Search className="h-3.5 w-3.5 text-gray-500" />
-                <input
-                  ref={searchRef}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search models..."
-                  className="w-full bg-transparent text-xs text-gray-200 outline-none placeholder:text-gray-600"
+      }
+      search={search}
+      onSearchChange={setSearch}
+      searchRef={searchRef}
+      sortByPrice={sortByPrice}
+      onSortToggle={() => setSortByPrice(!sortByPrice)}
+      loading={loading}
+      error={error}
+      hasContent={hasContent}
+      emptyMessage={search ? `No models match "${search}"` : undefined}
+    >
+      {filtered && (
+        <>
+          {/* Favorites section — always before other sections */}
+          {favoriteModels.length > 0 && !filtered.flatSorted && (
+            <div>
+              <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-yellow-500">
+                <Star className="h-3 w-3" fill="currentColor" />
+                Favoris
+              </div>
+              {favoriteModels.map((m) => (
+                <ModelRow
+                  key={`fav-${m.endpoint_id}`}
+                  model={m}
+                  isSelected={m.endpoint_id === value}
+                  onSelect={() => handleModelSelect(m)}
+                  isFavorited={true}
+                  isTogglingFav={toggling.has(m.endpoint_id)}
+                  onToggleFavorite={handleToggleFavorite}
                 />
-              </div>
-              <button
-                className={`rounded p-1 transition-colors hover:text-gray-300 ${
-                  sortByPrice ? 'text-blue-400' : 'text-gray-500'
-                }`}
-                onClick={() => setSortByPrice(!sortByPrice)}
-                title={sortByPrice ? 'Default order' : 'Sort by price'}
-              >
-                <ArrowUpDown className="h-3.5 w-3.5" />
-              </button>
+              ))}
             </div>
-          </div>
+          )}
 
-          {/* Content */}
-          <div className="max-h-64 overflow-y-auto">
-            {loading && (
-              <div className="flex items-center justify-center gap-2 py-8 text-xs text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading models...
-              </div>
-            )}
+          {/* Price-sorted flat list */}
+          {filtered.flatSorted ? (
+            filtered.flatSorted.map((m) => (
+              <ModelRow
+                key={m.endpoint_id}
+                model={m}
+                isSelected={m.endpoint_id === value}
+                onSelect={() => handleModelSelect(m)}
+                isFavorited={favoriteIds.has(m.endpoint_id)}
+                isTogglingFav={toggling.has(m.endpoint_id)}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            ))
+          ) : (
+            <>
+              {/* Recommended section */}
+              {filtered.recommended.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-yellow-500/80">
+                    <Star className="h-3 w-3" />
+                    Recommended
+                  </div>
+                  {filtered.recommended.map((m) => (
+                    <ModelRow
+                      key={m.endpoint_id}
+                      model={m}
+                      isSelected={m.endpoint_id === value}
+                      onSelect={() => handleModelSelect(m)}
+                      isFavorited={favoriteIds.has(m.endpoint_id)}
+                      isTogglingFav={toggling.has(m.endpoint_id)}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  ))}
+                </div>
+              )}
 
-            {error && (
-              <div className="px-3 py-4 text-center text-xs text-red-400">
-                Failed to load models: {error}
-              </div>
-            )}
+              {/* Grouped models */}
+              {Object.entries(filtered.groups).map(([key, group]) => (
+                <div key={key}>
+                  <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                    {group.label}
+                  </div>
+                  {group.models.map((m) => (
+                    <ModelRow
+                      key={m.endpoint_id}
+                      model={m}
+                      isSelected={m.endpoint_id === value}
+                      onSelect={() => handleModelSelect(m)}
+                      isFavorited={favoriteIds.has(m.endpoint_id)}
+                      isTogglingFav={toggling.has(m.endpoint_id)}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  ))}
+                </div>
+              ))}
+            </>
+          )}
+        </>
+      )}
 
-            {filtered && !loading && (
-              <>
-                {/* Price-sorted flat list */}
-                {filtered.flatSorted ? (
-                  <>
-                    {filtered.flatSorted.map((m) => (
-                      <ModelRow
-                        key={m.endpoint_id}
-                        model={m}
-                        isSelected={m.endpoint_id === value}
-                        onSelect={() => handleModelSelect(m)}
-                      />
-                    ))}
-                    {filtered.flatSorted.length === 0 && (
-                      <div className="py-6 text-center text-xs text-gray-500">
-                        No models match &quot;{search}&quot;
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {/* Recommended section */}
-                    {filtered.recommended.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-yellow-500/80">
-                          <Star className="h-3 w-3" />
-                          Recommended
-                        </div>
-                        {filtered.recommended.map((m) => (
-                          <ModelRow
-                            key={m.endpoint_id}
-                            model={m}
-                            isSelected={m.endpoint_id === value}
-                            onSelect={() => handleModelSelect(m)}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Grouped models */}
-                    {Object.entries(filtered.groups).map(([key, group]) => (
-                      <div key={key}>
-                        <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                          {group.label}
-                        </div>
-                        {group.models.map((m) => (
-                          <ModelRow
-                            key={m.endpoint_id}
-                            model={m}
-                            isSelected={m.endpoint_id === value}
-                            onSelect={() => handleModelSelect(m)}
-                          />
-                        ))}
-                      </div>
-                    ))}
-
-                    {/* Empty search results */}
-                    {filtered.recommended.length === 0 &&
-                      Object.keys(filtered.groups).length === 0 && (
-                        <div className="py-6 text-center text-xs text-gray-500">
-                          No models match &quot;{search}&quot;
-                        </div>
-                      )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className={`sticky bottom-0 left-0 right-0 px-3 py-1.5 text-center text-xs rounded-b-lg ${
+            toast.type === 'success'
+              ? 'bg-yellow-500/15 text-yellow-300'
+              : 'bg-red-500/15 text-red-300'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </ModelSelectorShell>
   );
 }

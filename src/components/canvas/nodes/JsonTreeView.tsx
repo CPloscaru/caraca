@@ -1,6 +1,30 @@
 import { useState, useCallback } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
+// ---------------------------------------------------------------------------
+// Image URL detection — renders inline preview for image URLs in JSON values
+// ---------------------------------------------------------------------------
+
+const IMAGE_EXT_RE = /https?:\/\/[^\s]+\.(png|jpg|jpeg|gif|webp|svg)/i;
+const FAL_MEDIA_RE = /^https?:\/\/(fal\.media|v\d+\.fal\.media)\//i;
+
+function isImageUrl(value: string): boolean {
+  return IMAGE_EXT_RE.test(value) || FAL_MEDIA_RE.test(value);
+}
+
+function ImagePreview({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      className="mt-1 max-h-20 rounded border border-white/10"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 type JsonTreeViewProps = {
   data: unknown;
   defaultExpanded?: number;
@@ -65,11 +89,13 @@ function JsonNode({ keyName, value, depth, defaultExpanded, isLast = true }: Jso
 
   if (typeof value === 'string') {
     const display = value.length > 200 ? value.slice(0, 200) + '...' : value;
+    const showPreview = isImageUrl(value);
     return (
       <div style={indent}>
         {keyName !== undefined && <KeyLabel name={keyName} />}
         <span className="text-green-400">&quot;{display}&quot;</span>
         {!isLast && <span className="text-gray-400">,</span>}
+        {showPreview && <ImagePreview src={value} />}
       </div>
     );
   }

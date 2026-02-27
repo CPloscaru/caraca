@@ -10,6 +10,7 @@ import { SettingsModal } from '@/components/settings/SettingsModal';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useCanvasStore } from '@/stores/canvas-store';
+import { useExecutionStore } from '@/stores/execution-store';
 import { exportWorkflow } from '@/lib/export-import';
 import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import type { WorkflowJson } from '@/types/canvas';
@@ -117,6 +118,11 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
   const { saveStatus, markRestored } = useAutoSave(projectId);
   useUndoRedo();
 
+  // Publish projectId so executors can build per-project storage URLs
+  useEffect(() => {
+    useExecutionStore.getState().setProjectId(projectId);
+  }, [projectId]);
+
   // Fetch project data on mount and restore workflow
   useEffect(() => {
     let cancelled = false;
@@ -134,16 +140,17 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
         // Restore workflow from saved state
         const wf = data.workflow_json as WorkflowJson | null;
         if (wf && wf.nodes && wf.nodes.length > 0) {
+          // Set nodes and edges in a single Zustand update so React Flow
+          // receives both in the same render cycle and can wire handles
+          // before validating edges.
           const store = useCanvasStore.getState();
-          store.setNodes(wf.nodes);
-          store.setEdges(wf.edges || []);
+          store.setNodesAndEdges(wf.nodes, wf.edges || []);
         }
 
         // Mark restore complete so auto-save starts tracking changes
-        // Use a small delay to let the store settle after setNodes/setEdges
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           if (!cancelled) markRestored();
-        }, 100);
+        });
       })
       .catch(() => {
         // Project may not exist yet — mark restored so saves can start
@@ -154,15 +161,6 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
       cancelled = true;
     };
   }, [projectId, markRestored]);
-
-  // Clear canvas store on unmount to avoid stale state when opening another project
-  useEffect(() => {
-    return () => {
-      const store = useCanvasStore.getState();
-      store.setNodes([]);
-      store.setEdges([]);
-    };
-  }, []);
 
   const handleExport = useCallback(() => {
     const { nodes, edges } = useCanvasStore.getState();
@@ -186,9 +184,7 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
   const handleImportReplaced = useCallback(
     (data: { title: string; nodes: import('@xyflow/react').Node[]; edges: import('@xyflow/react').Edge[] }) => {
       setProjectTitle(data.title);
-      const store = useCanvasStore.getState();
-      store.setNodes(data.nodes);
-      store.setEdges(data.edges);
+      useCanvasStore.getState().setNodesAndEdges(data.nodes, data.edges);
     },
     [],
   );
@@ -211,6 +207,7 @@ function CanvasPageInner({ projectId }: { projectId: string }) {
       style={{ background: '#111111' }}
     >
       <Toolbar
+        projectId={projectId}
         projectTitle={projectTitle}
         onTitleChange={handleTitleChange}
         saveStatus={saveStatus}

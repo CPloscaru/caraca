@@ -5,7 +5,7 @@ import type { NodeStatus } from '@/lib/dag';
 // Types
 // ---------------------------------------------------------------------------
 
-export type NodeExecutionState = {
+type NodeExecutionState = {
   status: NodeStatus;
   result?: Record<string, unknown>;
   error?: string;
@@ -20,8 +20,10 @@ type ExecutionStore = {
   isRunning: boolean;
   abortController: AbortController | null;
   batchProgress: Record<string, { current: number; total: number; accumulatedCost: number; currentItemText: string }>;
+  projectId: string | null;
 
   // Actions
+  setProjectId: (id: string) => void;
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
   setNodeResult: (nodeId: string, result: Record<string, unknown>) => void;
   setNodeError: (nodeId: string, error: string) => void;
@@ -63,6 +65,9 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
   isRunning: false,
   abortController: null,
   batchProgress: {},
+  projectId: null,
+
+  setProjectId: (id) => set({ projectId: id }),
 
   setNodeStatus: (nodeId, status) => {
     set((state) => ({
@@ -141,7 +146,7 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
   clearNodeQueueLogs: (nodeId) => {
     set((state) => {
       const existing = getOrCreateNodeState(state.nodeStates, nodeId);
-      const { queueLogs: _, queuePosition: __, generationStartedAt: ___, ...rest } = existing;
+      const { queueLogs: _ql, queuePosition: _qp, generationStartedAt: _gs, ...rest } = existing;
       return {
         nodeStates: {
           ...state.nodeStates,
@@ -167,7 +172,7 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
 
   clearBatchProgress: (nodeId) => {
     set((state) => {
-      const { [nodeId]: _, ...rest } = state.batchProgress;
+      const { [nodeId]: _removed, ...rest } = state.batchProgress;
       return { batchProgress: rest };
     });
   },
@@ -195,7 +200,7 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
 
   clearNode: (nodeId) => {
     set((state) => {
-      const { [nodeId]: _, ...rest } = state.nodeStates;
+      const { [nodeId]: _removed, ...rest } = state.nodeStates;
       return { nodeStates: rest };
     });
   },

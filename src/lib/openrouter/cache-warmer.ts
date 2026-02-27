@@ -1,6 +1,6 @@
-import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { llmModelsCache, cacheMetadata } from '@/lib/db/schema';
+import { llmModelsCache } from '@/lib/db/schema';
+import { getCacheFreshness, updateCacheTimestamp } from '@/lib/cache/strategy';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,54 +90,17 @@ export async function fetchAndCacheLLMModels(): Promise<void> {
   }
 
   // Update cache metadata timestamp
-  const now = Date.now();
-  db.insert(cacheMetadata)
-    .values({
-      key: 'llm_models_fetched_at',
-      value: new Date(now).toISOString(),
-      updated_at: now,
-    })
-    .onConflictDoUpdate({
-      target: cacheMetadata.key,
-      set: {
-        value: new Date(now).toISOString(),
-        updated_at: now,
-      },
-    })
-    .run();
+  updateCacheTimestamp('llm_models_fetched_at');
 
   console.log(`[llm-cache] Cached ${chatModels.length} LLM models`);
 }
 
 // ---------------------------------------------------------------------------
-// Cache freshness check
+// Cache freshness check (thin wrapper over shared strategy)
 // ---------------------------------------------------------------------------
 
-const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-
-export function getLLMCacheFreshness(): {
-  isFresh: boolean;
-  isStale: boolean;
-  isEmpty: boolean;
-  cachedAt: string | null;
-} {
-  const meta = db
-    .select()
-    .from(cacheMetadata)
-    .where(eq(cacheMetadata.key, 'llm_models_fetched_at'))
-    .get();
-
-  if (!meta) {
-    return { isFresh: false, isStale: false, isEmpty: true, cachedAt: null };
-  }
-
-  const age = Date.now() - meta.updated_at;
-  return {
-    isFresh: age < SIX_HOURS_MS,
-    isStale: age >= SIX_HOURS_MS,
-    isEmpty: false,
-    cachedAt: meta.value,
-  };
+export function getLLMCacheFreshness() {
+  return getCacheFreshness('llm_models_fetched_at');
 }
 
 // ---------------------------------------------------------------------------

@@ -21,7 +21,7 @@ export function isCostDialogDismissed(): boolean {
   return costDialogDismissedForSession;
 }
 
-export function dismissCostDialog(): void {
+function dismissCostDialog(): void {
   costDialogDismissedForSession = true;
 }
 

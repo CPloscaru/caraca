@@ -18,7 +18,7 @@ export type PortDefinition = {
   label: string;
 };
 
-export type NodeRegistryEntry = {
+type NodeRegistryEntry = {
   type: string;
   label: string;
   description: string;
@@ -84,11 +84,11 @@ const NODE_REGISTRY_ARRAY = [
     tags: ['image', 'generate', 'ai', 'fal'],
     inputs: [
       { id: 'text-target-0', type: 'text' as const, label: 'Prompt' },
-      { id: 'image-target-1', type: 'image' as const, label: 'Reference' },
+      // image inputs are now dynamic -- not declared in registry
     ],
     outputs: [{ id: 'image-source-0', type: 'image' as const, label: 'Output' }],
     resultFields: { __images: 'images', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
-    stripOnExport: ['images', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
+    stripOnExport: ['images', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 30,
     available: true,
   },
@@ -97,11 +97,25 @@ const NODE_REGISTRY_ARRAY = [
     label: 'LLM Assistant',
     description: 'Enrich prompts with LLM',
     tags: ['llm', 'text', 'ai', 'prompt', 'assistant'],
-    inputs: [{ id: 'image-target-0', type: 'image' as const, label: 'Image' }],
+    inputs: [
+      // image inputs are now dynamic -- not declared in registry
+    ],
     outputs: [{ id: 'text-source-0', type: 'text' as const, label: 'Response' }],
-    resultFields: { __llmOutput: 'output', __tokenUsage: 'tokenUsage' },
-    stripOnExport: ['output', 'tokenUsage'],
+    resultFields: { __llmOutput: 'output', __tokenUsage: 'tokenUsage', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
+    stripOnExport: ['output', 'tokenUsage', 'debugRequest', 'debugResponse', 'debugError'],
     order: 40,
+    available: true,
+  },
+  {
+    type: 'textDisplay',
+    label: 'Text Display',
+    description: 'Display text output with markdown rendering',
+    tags: ['text', 'display', 'output', 'markdown'],
+    inputs: [{ id: 'text-target-0', type: 'text' as const, label: 'Text' }],
+    outputs: [],
+    resultFields: { __displayText: 'displayText' },
+    stripOnExport: ['displayText'],
+    order: 45,
     available: true,
   },
   {
@@ -141,7 +155,7 @@ const NODE_REGISTRY_ARRAY = [
     inputs: [{ id: 'text-target-0', type: 'text' as const, label: 'Prompt' }],
     outputs: [{ id: 'video-source-0', type: 'video' as const, label: 'Video' }],
     resultFields: { __videoUrl: 'videoUrl', __cdnUrl: 'cdnUrl', __videoResults: 'videoResults', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
-    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
+    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 60,
     available: true,
   },
@@ -151,12 +165,12 @@ const NODE_REGISTRY_ARRAY = [
     description: 'Generate video from image',
     tags: ['video', 'generate', 'ai', 'fal'],
     inputs: [
-      { id: 'image-target-0', type: 'image' as const, label: 'Image' },
       { id: 'text-target-0', type: 'text' as const, label: 'Prompt' },
+      // image inputs are now dynamic — not declared in registry
     ],
     outputs: [{ id: 'video-source-0', type: 'video' as const, label: 'Video' }],
     resultFields: { __videoUrl: 'videoUrl', __cdnUrl: 'cdnUrl', __videoResults: 'videoResults', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
-    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
+    stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 70,
     available: true,
   },
@@ -172,9 +186,21 @@ const NODE_REGISTRY_ARRAY = [
     order: 80,
     available: true,
   },
+  {
+    type: 'canvasNote',
+    label: 'Note',
+    description: 'Annotation note for documenting workflows',
+    tags: ['note', 'annotation', 'documentation', 'tools'],
+    inputs: [],
+    outputs: [],
+    resultFields: {},
+    stripOnExport: [],
+    order: 200,
+    available: true,
+  },
 ] as const satisfies readonly NodeRegistryEntry[];
 
-export const NODE_REGISTRY: readonly NodeRegistryEntry[] = NODE_REGISTRY_ARRAY;
+const NODE_REGISTRY: readonly NodeRegistryEntry[] = NODE_REGISTRY_ARRAY;
 
 // ---------------------------------------------------------------------------
 // Lookup index (built once)
@@ -192,11 +218,6 @@ for (const entry of NODE_REGISTRY) {
 /** Get a single registry entry by node type, or undefined if not found. */
 export function getRegistryEntry(type: string): NodeRegistryEntry | undefined {
   return registryMap.get(type);
-}
-
-/** Get all registry entries. */
-export function getRegistryEntries(): readonly NodeRegistryEntry[] {
-  return NODE_REGISTRY;
 }
 
 /** Get the set of all known node type strings. */

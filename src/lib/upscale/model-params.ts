@@ -1,4 +1,4 @@
-export type UpscaleModelParams = {
+type UpscaleModelParams = {
   scaleParam: string;       // 'scale' | 'upscale_factor'
   scaleRange: number[];     // Valid scale factors for this model
   supportsPrompt: boolean;
@@ -6,7 +6,7 @@ export type UpscaleModelParams = {
   defaultScale: number;
 };
 
-export const MODEL_PARAMS: Record<string, UpscaleModelParams> = {
+const MODEL_PARAMS: Record<string, UpscaleModelParams> = {
   'fal-ai/aura-sr': {
     scaleParam: 'upscale_factor', scaleRange: [4], supportsPrompt: false,
     imageParam: 'image_url', defaultScale: 4,

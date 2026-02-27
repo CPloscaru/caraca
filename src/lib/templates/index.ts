@@ -9,7 +9,7 @@ import wf6 from './wf6-upscale-pipeline.json';
 import wf7 from './wf7-text-to-video.json';
 import wf8 from './wf8-image-to-video.json';
 
-export type BuiltinTemplate = {
+type BuiltinTemplate = {
   id: string;
   title: string;
   description: string;

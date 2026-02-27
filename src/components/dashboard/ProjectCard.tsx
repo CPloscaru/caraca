@@ -169,7 +169,7 @@ export function ProjectCard({
           style={{
             height: 200,
             background: project.thumbnail_path
-              ? `url(/${project.thumbnail_path}) center/cover`
+              ? `url(${project.thumbnail_path}) center/cover`
               : 'linear-gradient(135deg, #1e1e2e 0%, #2a1a3a 50%, #1a2a3a 100%)',
             borderBottom: '1px solid #2a2a2a',
           }}

@@ -3,6 +3,9 @@
 // Fetches OpenAPI schemas and derives dynamic port/field configuration
 // ---------------------------------------------------------------------------
 
+import { parseSchemaTree, type SchemaNode } from './schema-tree';
+import { extractImagePorts } from './schema-ports';
+
 export type ModelInputField = {
   name: string;
   type: string;
@@ -24,7 +27,7 @@ export type ModelNodeConfig = {
   hasDuration: boolean;
   hasAspectRatio: boolean;
   aspectRatioOptions?: string[];
-  durationOptions?: number[];
+  durationOptions?: (number | string)[];
   hasNumImages: boolean;
   hasGuidanceScale: boolean;
   hasNegativePrompt: boolean;
@@ -32,66 +35,36 @@ export type ModelNodeConfig = {
   imageSizeOptions?: string[];
 };
 
-// Module-level cache to avoid re-fetching on every model selection
+// Module-level caches
 const schemaCache = new Map<string, ModelInputField[]>();
+const treeCache = new Map<string, SchemaNode[]>();
 
-/**
- * Resolve a $ref pointer (e.g. "#/components/schemas/Foo") against the spec.
- */
-function resolveRef(
-  spec: Record<string, unknown>,
-  ref: string,
-): Record<string, unknown> | undefined {
-  // Only handle local JSON pointer refs like "#/components/schemas/..."
-  if (!ref.startsWith("#/")) return undefined;
-  const parts = ref.slice(2).split("/");
-  let current: unknown = spec;
-  for (const part of parts) {
-    if (current == null || typeof current !== "object") return undefined;
-    current = (current as Record<string, unknown>)[part];
+/** sessionStorage key for persisting raw OpenAPI specs across page reloads. */
+const STORAGE_PREFIX = 'fal_schema_';
+
+function readSpecFromStorage(endpointId: string): Record<string, unknown> | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_PREFIX + endpointId);
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+  } catch {
+    return null;
   }
-  return current as Record<string, unknown> | undefined;
 }
 
-/**
- * Find the POST path that matches the endpoint. fal.ai OpenAPI specs use
- * the full endpoint path (e.g. "/fal-ai/minimax/video-01-live") not "/".
- */
-function findPostSchema(
-  spec: Record<string, unknown>,
-): Record<string, unknown> | undefined {
-  const paths = spec.paths as Record<string, Record<string, unknown>> | undefined;
-  if (!paths) return undefined;
-
-  // Look through all paths for one with a POST that has a requestBody
-  for (const pathObj of Object.values(paths)) {
-    const post = pathObj?.post as Record<string, unknown> | undefined;
-    if (!post?.requestBody) continue;
-
-    const requestBody = post.requestBody as Record<string, unknown>;
-    const content = requestBody.content as Record<string, unknown> | undefined;
-    if (!content) continue;
-
-    const jsonContent = content["application/json"] as Record<string, unknown> | undefined;
-    if (!jsonContent) continue;
-
-    let schema = jsonContent.schema as Record<string, unknown> | undefined;
-    if (!schema) continue;
-
-    // Resolve $ref if the schema is a reference
-    if (schema.$ref && typeof schema.$ref === "string") {
-      schema = resolveRef(spec, schema.$ref);
-    }
-
-    if (schema?.properties) return schema;
+function writeSpecToStorage(endpointId: string, spec: Record<string, unknown>) {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(STORAGE_PREFIX + endpointId, JSON.stringify(spec));
+  } catch {
+    // Storage full — ignore
   }
-
-  return undefined;
 }
 
 /**
  * Fetch the OpenAPI schema for a fal.ai model endpoint and extract input fields.
  * Returns an empty array on any error (graceful fallback).
+ * Also caches the schema tree for use by fetchSchemaTree().
  */
 export async function fetchModelSchema(
   endpointId: string,
@@ -100,83 +73,24 @@ export async function fetchModelSchema(
   if (cached) return cached;
 
   try {
-    // Route through the Next.js API route to avoid CORS issues
-    const response = await fetch(`/api/fal/schema?endpoint_id=${encodeURIComponent(endpointId)}`);
-    if (!response.ok) return [];
+    // Try sessionStorage first (survives page reloads)
+    let spec = readSpecFromStorage(endpointId);
 
-    const spec = (await response.json()) as Record<string, unknown>;
+    if (!spec) {
+      const response = await fetch(`/api/fal/schema?endpoint_id=${encodeURIComponent(endpointId)}`);
+      if (!response.ok) return [];
+      spec = (await response.json()) as Record<string, unknown>;
+      writeSpecToStorage(endpointId, spec);
+    }
 
-    const schema = findPostSchema(spec);
-    if (!schema) return [];
+    const result = parseSchemaTree(spec);
+    if (!result) return [];
 
-    const properties = schema.properties as Record<string, Record<string, unknown>> | undefined;
-    if (!properties) return [];
-
-    const requiredFields = (schema.required as string[]) ?? [];
-
-    const fields: ModelInputField[] = Object.entries(properties).map(
-      ([name, prop]) => {
-        // Extract enum from direct property, anyOf, or allOf
-        let enumValues = prop.enum as unknown[] | undefined;
-        if (!enumValues) {
-          const variants =
-            (prop.anyOf as Record<string, unknown>[] | undefined) ??
-            (prop.allOf as Record<string, unknown>[] | undefined);
-          if (variants) {
-            const withEnum = variants.find((v) => Array.isArray(v.enum));
-            if (withEnum) enumValues = withEnum.enum as unknown[];
-          }
-        }
-
-        // Resolve type from anyOf/allOf when direct type is missing
-        let fieldType = prop.type as string | undefined;
-        if (!fieldType) {
-          const variants =
-            (prop.anyOf as Record<string, unknown>[] | undefined) ??
-            (prop.allOf as Record<string, unknown>[] | undefined);
-          if (variants) {
-            const withType = variants.find((v) => typeof v.type === "string");
-            if (withType) fieldType = withType.type as string;
-          }
-        }
-
-        // Extract min/max from direct properties or anyOf variants
-        let minimum = prop.minimum as number | undefined;
-        let maximum = prop.maximum as number | undefined;
-        let nullable = false;
-
-        const variants =
-          (prop.anyOf as Record<string, unknown>[] | undefined) ??
-          (prop.allOf as Record<string, unknown>[] | undefined);
-        if (variants) {
-          // Detect nullable (anyOf includes { type: "null" })
-          if (variants.some((v) => v.type === "null")) {
-            nullable = true;
-          }
-          // Extract min/max from non-null variants
-          for (const v of variants) {
-            if (v.type === "null") continue;
-            if (minimum == null && typeof v.minimum === "number") minimum = v.minimum as number;
-            if (maximum == null && typeof v.maximum === "number") maximum = v.maximum as number;
-          }
-        }
-
-        return {
-          name,
-          type: fieldType ?? "string",
-          required: requiredFields.includes(name),
-          ...(prop.description ? { description: prop.description as string } : {}),
-          ...(prop.default !== undefined ? { default: prop.default } : {}),
-          ...(enumValues ? { enum: enumValues } : {}),
-          ...(prop.format ? { format: prop.format as string } : {}),
-          ...(minimum != null ? { minimum } : {}),
-          ...(maximum != null ? { maximum } : {}),
-          ...(nullable ? { nullable } : {}),
-        };
-      },
-    );
-
+    // Cache both representations
+    const fields: ModelInputField[] = result.flatFields;
     schemaCache.set(endpointId, fields);
+    treeCache.set(endpointId, result.root);
+
     return fields;
   } catch {
     return [];
@@ -184,19 +98,137 @@ export async function fetchModelSchema(
 }
 
 /**
- * Derive a node configuration from model input fields.
- * Inspects field names to determine what the model supports.
+ * Fetch the schema tree for a fal.ai model. Must be called after fetchModelSchema.
+ * Returns the cached tree or fetches if not yet available.
  */
+export async function fetchSchemaTree(
+  endpointId: string,
+): Promise<SchemaNode[]> {
+  const cached = treeCache.get(endpointId);
+  if (cached) return cached;
+
+  // Trigger full fetch which populates both caches
+  await fetchModelSchema(endpointId);
+  return treeCache.get(endpointId) ?? [];
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic image port extraction
+// ---------------------------------------------------------------------------
+
+export type DynamicImagePort = {
+  fieldName: string;      // Original schema field name (e.g. "start_image_url")
+  label: string;          // Human-readable label (e.g. "Start Image")
+  required: boolean;      // From schema required array
+  description?: string;   // Schema description for tooltip
+  multi: boolean;         // true for array fields (multi-connection)
+  maxConnections?: number; // 1 for single, N for arrays, undefined = unlimited
+};
+
+/**
+ * Convert a snake_case field name to a human-readable Title Case label.
+ * Strips `_url` and `_urls` suffixes before converting.
+ */
+export function humanizeFieldName(name: string): string {
+  const stripped = name.replace(/_urls?$/, '');
+  return stripped
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+const IMAGE_FIELD_PATTERNS = [
+  /image_url$/,
+  /^image$/,
+  /^start_image/,
+  /^end_image/,
+  /^last_frame/,
+  /^tail_image/,
+  /^frontal_image/,
+  /^reference_image/,
+];
+
+function isImageField(field: ModelInputField): boolean {
+  return (
+    field.type === 'string' &&
+    IMAGE_FIELD_PATTERNS.some((pattern) => pattern.test(field.name))
+  );
+}
+
+/**
+ * Extract dynamic image ports from model input fields.
+ * Uses the schema tree when available for proper nested field discovery.
+ * Falls back to flat pattern matching if tree is not cached.
+ */
+export function getSchemaImageFields(
+  fields: ModelInputField[],
+  schemaTree?: SchemaNode[],
+): DynamicImagePort[] {
+  // Use tree-based extraction when available
+  if (schemaTree && schemaTree.length > 0) {
+    return extractImagePorts(schemaTree);
+  }
+
+  // Flat fallback (for backward compatibility when tree is not available)
+  const ports: DynamicImagePort[] = [];
+
+  for (const field of fields) {
+    // Special case: elements array (Kling O3 style)
+    if (field.name === 'elements' && field.type === 'array') {
+      ports.push({
+        fieldName: 'elements.0.frontal_image_url',
+        label: 'Frontal Image',
+        required: false,
+        description: field.description,
+        multi: false,
+        maxConnections: 1,
+      });
+      ports.push({
+        fieldName: 'elements.0.reference_image_urls',
+        label: 'Reference Images',
+        required: false,
+        description: field.description,
+        multi: true,
+        maxConnections: undefined,
+      });
+      continue;
+    }
+
+    // Array fields with "image" in the name → multi-connection port
+    if (field.type === 'array' && field.name.includes('image')) {
+      ports.push({
+        fieldName: field.name,
+        label: humanizeFieldName(field.name),
+        required: field.required,
+        description: field.description,
+        multi: true,
+        maxConnections: field.maximum,
+      });
+      continue;
+    }
+
+    // Single image fields
+    if (isImageField(field)) {
+      ports.push({
+        fieldName: field.name,
+        label: humanizeFieldName(field.name),
+        required: field.required,
+        description: field.description,
+        multi: false,
+        maxConnections: 1,
+      });
+    }
+  }
+
+  return ports;
+}
+
 // ---------------------------------------------------------------------------
 // Default set of fields excluded from "More Settings" (handled by dedicated UI)
 // ---------------------------------------------------------------------------
 
 const DEFAULT_EXCLUDED_FIELDS = new Set([
   'prompt',
-  'image_url',
-  'image',
-  'last_frame_image_url',
-  'tail_image_url',
   'sync_mode',
   'enable_safety_checker',
   'image_size',
@@ -223,6 +255,8 @@ export function getSchemaExtraFields(
   return fields.filter((f) => {
     if (excluded.has(f.name)) return false;
     if (COMPLEX_TYPES.has(f.type)) return false;
+    // Exclude image fields handled by dynamic image ports
+    if (isImageField(f)) return false;
     return true;
   });
 }
@@ -251,7 +285,7 @@ export function deriveNodeConfig(fields: ModelInputField[]): ModelNodeConfig {
       ? { aspectRatioOptions: aspectRatioField.enum as string[] }
       : {}),
     ...(durationField?.enum
-      ? { durationOptions: durationField.enum as number[] }
+      ? { durationOptions: durationField.enum as (number | string)[] }
       : {}),
     hasNumImages: fieldMap.has("num_images"),
     hasGuidanceScale: fieldMap.has("guidance_scale"),

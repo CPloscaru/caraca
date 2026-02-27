@@ -1,7 +1,4 @@
-import type { Node, Edge } from '@xyflow/react';
 import type { PortType } from '@/lib/port-types';
-
-export type { PortType } from '@/lib/port-types';
 
 export type PortDefinition = {
   type: PortType;
@@ -15,10 +12,6 @@ export type NodeData = {
   inputs: PortDefinition[];
   outputs: PortDefinition[];
 };
-
-export type AppNode = Node<NodeData>;
-
-export type AppEdge = Edge;
 
 // ---------------------------------------------------------------------------
 // Extended node data types for Phase 2 core nodes
@@ -56,6 +49,13 @@ export type LLMAssistantData = NodeData & {
   output: string | null;
   outputExpanded: boolean;
   tokenUsage: { prompt: number; completion: number; total: number } | null;
+  debugRequest?: unknown;
+  debugResponse?: unknown;
+  debugError?: unknown;
+};
+
+export type TextDisplayData = NodeData & {
+  displayText: string | null;
 };
 
 export type ImageUpscaleData = NodeData & {
@@ -71,6 +71,12 @@ export type ImageUpscaleData = NodeData & {
   debugError?: unknown;
 };
 
+export type DynamicImagePortConfig = {
+  fieldName: string;
+  multi: boolean;
+  maxConnections: number;
+};
+
 export type TextToVideoData = NodeData & {
   model: string;
   prompt: string;
@@ -81,6 +87,7 @@ export type TextToVideoData = NodeData & {
   cdnUrl: string | null;
   videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
   schemaParams?: Record<string, unknown>;
+  dynamicImagePorts?: DynamicImagePortConfig[];
   debugRequest?: unknown;
   debugResponse?: unknown;
   debugError?: unknown;
@@ -96,6 +103,7 @@ export type ImageToVideoData = NodeData & {
   cdnUrl: string | null;
   videoResults: Array<{ videoUrl: string; cdnUrl: string }> | null;
   schemaParams?: Record<string, unknown>;
+  dynamicImagePorts?: DynamicImagePortConfig[];
   debugRequest?: unknown;
   debugResponse?: unknown;
   debugError?: unknown;
@@ -116,17 +124,10 @@ export type BatchParameterData = NodeData & {
   batchResults: BatchResultItem[] | null; // Collected results
 };
 
-/** Union type for all node data variants */
-export type AnyNodeData =
-  | NodeData
-  | TextInputData
-  | ImageImportData
-  | ImageGeneratorData
-  | LLMAssistantData
-  | ImageUpscaleData
-  | TextToVideoData
-  | ImageToVideoData
-  | BatchParameterData;
+export type NoteNodeData = NodeData & {
+  noteTitle: string;
+  noteBody: string;
+};
 
 // ---------------------------------------------------------------------------
 // Workflow JSON — serialized React Flow state for project persistence
@@ -150,12 +151,3 @@ export type WorkflowJson = {
   viewport: { x: number; y: number; zoom: number };
 };
 
-/** Typed node variants */
-export type TextInputNode = Node<TextInputData>;
-export type ImageImportNode = Node<ImageImportData>;
-export type ImageGeneratorNode = Node<ImageGeneratorData>;
-export type LLMAssistantNode = Node<LLMAssistantData>;
-export type ImageUpscaleNode = Node<ImageUpscaleData>;
-export type TextToVideoNode = Node<TextToVideoData>;
-export type ImageToVideoNode = Node<ImageToVideoData>;
-export type BatchParameterNode = Node<BatchParameterData>;
