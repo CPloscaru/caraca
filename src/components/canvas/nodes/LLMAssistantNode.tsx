@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type NodeProps, Position, useEdges, useNodeId } from '@xyflow/react';
 import { Bot, ChevronDown, ChevronUp } from 'lucide-react';
+import { DebugToggleButton, JsonDebugPanel } from './JsonDebugPanel';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -88,6 +89,9 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
     };
   }, []);
 
+  // Debug mode
+  const [debugMode, setDebugMode] = useState(false);
+
   // Output data
   const output = nodeData.output ?? null;
   const outputExpanded = nodeData.outputExpanded ?? false;
@@ -168,46 +172,61 @@ export function LLMAssistantNode({ id, data, selected }: NodeProps) {
         />
       </div>
 
-      {/* Output panel */}
-      {output && (
-        <div className="border-t border-white/5 px-3 py-2">
-          <button
-            className="nodrag flex w-full items-center gap-1 text-left text-[10px] font-medium uppercase tracking-wider text-gray-500 transition-colors hover:text-gray-300"
-            onClick={toggleExpanded}
-          >
-            {outputExpanded ? (
-              <ChevronUp className="h-3 w-3" />
-            ) : (
-              <ChevronDown className="h-3 w-3" />
+      {/* Output / Debug panel */}
+      <div className="relative border-t border-white/5 px-3 py-2">
+        <DebugToggleButton active={debugMode} onClick={() => setDebugMode((v) => !v)} />
+        {debugMode ? (
+          <JsonDebugPanel
+            schema={{ model: nodeData.model, instruction: nodeData.instruction }}
+            request={nodeData.debugRequest}
+            response={nodeData.debugResponse}
+            error={nodeData.debugError}
+          />
+        ) : (
+          <>
+            {/* Output */}
+            {output && (
+              <>
+                <button
+                  className="nodrag flex w-full items-center gap-1 text-left text-[10px] font-medium uppercase tracking-wider text-gray-500 transition-colors hover:text-gray-300"
+                  onClick={toggleExpanded}
+                >
+                  {outputExpanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                  Output
+                </button>
+                <div
+                  className={`mt-1 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-gray-300 ${
+                    outputExpanded ? '' : 'line-clamp-3'
+                  }`}
+                >
+                  {output}
+                </div>
+              </>
             )}
-            Output
-          </button>
-          <div
-            className={`mt-1 rounded-md border border-white/5 bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-gray-300 ${
-              outputExpanded ? '' : 'line-clamp-3'
-            }`}
-          >
-            {output}
-          </div>
-        </div>
-      )}
 
-      {/* Token usage */}
-      {tokenUsage && (
-        <div className="px-3 pb-2">
-          <span className="text-[10px] text-gray-600">
-            In: {tokenUsage.prompt.toLocaleString()} | Out:{' '}
-            {tokenUsage.completion.toLocaleString()}
-          </span>
-        </div>
-      )}
+            {/* Token usage */}
+            {tokenUsage && (
+              <div className="pt-1">
+                <span className="text-[10px] text-gray-600">
+                  In: {tokenUsage.prompt.toLocaleString()} | Out:{' '}
+                  {tokenUsage.completion.toLocaleString()}
+                </span>
+              </div>
+            )}
 
-      {/* Error */}
-      {hasError && execState?.error && (
-        <div className="mx-3 mb-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
-          {execState.error}
-        </div>
-      )}
+            {/* Error */}
+            {hasError && execState?.error && (
+              <div className="mt-1 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+                {execState.error}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Footer: info button + run button */}
       <NodeFooter
