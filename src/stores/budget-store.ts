@@ -11,6 +11,7 @@ type ServiceBalance = {
   loading: boolean;
   error: boolean;
   configured: boolean;
+  adminKeyMissing: boolean;
   type: 'balance' | 'spending' | 'usage';
 };
 
@@ -40,6 +41,7 @@ const defaultBalance: ServiceBalance = {
   loading: false,
   error: false,
   configured: false,
+  adminKeyMissing: false,
   type: 'balance',
 };
 
@@ -78,6 +80,7 @@ export const useBudgetStore = create<BudgetStore>((set) => ({
         loading: false,
         error: !!falRes.error,
         configured: !!falRes.configured,
+        adminKeyMissing: !!falRes.adminKeyMissing,
         type: falRes.type ?? 'spending',
       },
       openRouter: {
@@ -87,6 +90,7 @@ export const useBudgetStore = create<BudgetStore>((set) => ({
         loading: false,
         error: !!orRes.error,
         configured: !!orRes.configured,
+        adminKeyMissing: false,
         type: orRes.type ?? 'balance',
       },
     });

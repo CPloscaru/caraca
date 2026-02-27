@@ -6,12 +6,25 @@ type BalanceResponse = {
   currency?: string;
   type?: 'spending';
   error?: boolean;
+  adminKeyMissing?: boolean;
 };
 
 export async function GET() {
-  const key = process.env.FAL_KEY;
-  if (!key) {
+  const adminKey = process.env.FAL_KEY_ADMIN;
+  const standardKey = process.env.FAL_KEY;
+
+  // Need at least FAL_KEY to consider fal.ai as configured
+  if (!standardKey) {
     return NextResponse.json<BalanceResponse>({ configured: false });
+  }
+
+  // Usage API requires an admin key
+  if (!adminKey) {
+    return NextResponse.json<BalanceResponse>({
+      configured: true,
+      type: 'spending',
+      adminKeyMissing: true,
+    });
   }
 
   try {
@@ -24,7 +37,7 @@ export async function GET() {
     url.searchParams.set('expand', 'summary');
 
     const res = await fetch(url.toString(), {
-      headers: { Authorization: `Key ${key}` },
+      headers: { Authorization: `Key ${adminKey}` },
     });
 
     if (!res.ok) {

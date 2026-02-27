@@ -16,6 +16,7 @@ type ServiceBalance = {
   loading: boolean;
   error: boolean;
   configured: boolean;
+  adminKeyMissing: boolean;
   type: 'balance' | 'spending' | 'usage';
 };
 
@@ -100,6 +101,8 @@ const pillBase: React.CSSProperties = {
 function buildFalTooltip(service: ServiceBalance): string {
   const timeInfo = getTimeAgo(service.lastUpdated);
   if (!service.configured) return 'fal.ai: API key not configured';
+  if (service.adminKeyMissing)
+    return 'fal.ai: Admin key required for usage data\nSet FAL_KEY_ADMIN in your .env.local\nCreate one at fal.ai/dashboard/keys';
   return `Credits spent (30d) \u2014 remaining balance not available via fal.ai API\n${timeInfo}`;
 }
 
@@ -128,6 +131,14 @@ function BudgetPill({
     return (
       <span style={{ ...pillBase, ...notConfiguredStyle }} title={tooltip}>
         {label}: Not configured
+      </span>
+    );
+  }
+
+  if (service.adminKeyMissing) {
+    return (
+      <span style={{ ...pillBase, ...notConfiguredStyle }} title={tooltip}>
+        {label}: No admin key
       </span>
     );
   }
