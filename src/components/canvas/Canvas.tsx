@@ -36,6 +36,7 @@ import {
 } from '@/components/canvas/ContextMenu';
 import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { getRegistryEntry, type NodeTemplate } from '@/lib/node-registry';
+import { useExecutionStore } from '@/stores/execution-store';
 import type { NodeData } from '@/types/canvas';
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
@@ -240,7 +241,8 @@ export function Canvas() {
 
         const formData = new FormData();
         formData.append('file', file);
-        fetch('/api/images/upload', { method: 'POST', body: formData })
+        const pid = useExecutionStore.getState().projectId;
+        fetch(pid ? `/api/storage/${pid}/upload` : '/api/images/upload', { method: 'POST', body: formData })
           .then(res => res.json())
           .then((result: { url: string }) => {
             updateNodeData(nodeId, { imageUrl: result.url, fileName: file.name });
