@@ -101,8 +101,8 @@ const NODE_REGISTRY_ARRAY = [
       // image inputs are now dynamic -- not declared in registry
     ],
     outputs: [{ id: 'text-source-0', type: 'text' as const, label: 'Response' }],
-    resultFields: { __llmOutput: 'output', __tokenUsage: 'tokenUsage' },
-    stripOnExport: ['output', 'tokenUsage'],
+    resultFields: { __llmOutput: 'output', __tokenUsage: 'tokenUsage', __debugRequest: 'debugRequest', __debugResponse: 'debugResponse', __debugError: 'debugError' },
+    stripOnExport: ['output', 'tokenUsage', 'debugRequest', 'debugResponse', 'debugError'],
     order: 40,
     available: true,
   },

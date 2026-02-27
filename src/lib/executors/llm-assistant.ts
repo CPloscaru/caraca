@@ -88,6 +88,9 @@ export const llmAssistantExecutor: NodeExecutor = async (
       'text-source-0': responseText,
       __llmOutput: responseText,
       __tokenUsage: tokenUsage,
+      __debugRequest: { model: data.model, instruction: data.instruction, messages },
+      __debugResponse: result,
+      __debugError: undefined,
     };
   } catch (err) {
     if (signal.aborted) {

@@ -49,6 +49,9 @@ export type LLMAssistantData = NodeData & {
   output: string | null;
   outputExpanded: boolean;
   tokenUsage: { prompt: number; completion: number; total: number } | null;
+  debugRequest?: unknown;
+  debugResponse?: unknown;
+  debugError?: unknown;
 };
 
 export type TextDisplayData = NodeData & {
