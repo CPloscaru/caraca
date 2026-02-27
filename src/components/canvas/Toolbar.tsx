@@ -8,6 +8,7 @@ import { useExecutionStore } from '@/stores/execution-store';
 import { useCanvasStore } from '@/stores/canvas-store';
 import { runAllWorkflow } from '@/lib/executors';
 import { SaveIndicator } from '@/components/canvas/SaveIndicator';
+import { BudgetBadges } from '@/components/budget/BudgetBadges';
 import type { SaveStatus } from '@/hooks/useAutoSave';
 
 // ---------------------------------------------------------------------------
@@ -209,8 +210,11 @@ export function Toolbar({ projectId, projectTitle, onTitleChange, saveStatus, on
         {saveStatus && <SaveIndicator status={saveStatus} />}
       </div>
 
-      {/* Right: export/import + execution controls + settings */}
+      {/* Right: budget badges + export/import + execution controls + settings */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <BudgetBadges />
+        <div style={{ width: 1, height: 20, background: '#2a2a2a', margin: '0 2px' }} />
+
         {/* Hidden file input for import */}
         <input
           ref={fileInputRef}
