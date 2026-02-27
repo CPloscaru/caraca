@@ -6,7 +6,8 @@ import { fal } from '@/lib/fal/client';
  */
 function isLocalImageUrl(url: string): boolean {
   return (
-    url.startsWith('/api/images/') ||
+    url.startsWith('/api/storage/') ||
+    url.startsWith('/api/images/') || // legacy fallback
     url.startsWith('http://localhost') ||
     url.startsWith('http://127.0.0.1')
   );
