@@ -177,6 +177,30 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'textLayer') {
+    return {
+      extraData: {
+        text: 'Hello World',
+        fontFamily: 'Arial',
+        fontSize: 48,
+        fontColor: '#ffffff',
+        alignment: 'center',
+        bold: false,
+        italic: false,
+        outlineColor: '#000000',
+        outlineWidth: 0,
+        shadowColor: '#000000',
+        shadowOffsetX: 2,
+        shadowOffsetY: 2,
+        shadowBlur: 0,
+        textBoxWidth: 400,
+        offsetX: 0,
+        offsetY: 0,
+        bgColor: '#000000',
+        bgAlpha: 0,
+      },
+    };
+  }
   if (nodeType === 'webglPreview') {
     return {
       style: { width: 300, height: 200 },
@@ -209,6 +233,7 @@ function getNodeColor(node: Node): string {
     case 'solidColor': return '#ff6b35';
     case 'noiseGenerator': return '#ff6b35';
     case 'imageLayer': return '#ff6b35';
+    case 'textLayer': return '#ff6b35';
     case 'shapeGenerator': return '#ff6b35';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
