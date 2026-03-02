@@ -166,6 +166,31 @@ export type GradientGeneratorData = NodeData & {
   height: number;     // render target height
 };
 
+// ---------------------------------------------------------------------------
+// Solid Color node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type SolidColorData = NodeData & {
+  color: string;
+  alpha: number;
+};
+
+// ---------------------------------------------------------------------------
+// Noise Generator node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type NoiseType = 'perlin' | 'simplex' | 'worley' | 'cellular';
+
+export type NoiseGeneratorData = NodeData & {
+  noiseType: NoiseType;
+  scale: number;
+  octaves: number;
+  speed: number;
+  seed: number;
+  directionX: number;
+  directionY: number;
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;

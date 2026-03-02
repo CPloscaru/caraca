@@ -48,6 +48,12 @@ const GradientGeneratorNode = webglDynamic(
 const WebGLPreviewNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/WebGLPreviewNode'),
 );
+const SolidColorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/SolidColorNode'),
+);
+const NoiseGeneratorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/NoiseGeneratorNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -63,6 +69,8 @@ const nodeTypes = {
   canvasNote: withNodeErrorBoundary(NoteNode),
   textDisplay: withNodeErrorBoundary(TextDisplayNode),
   gradientGenerator: GradientGeneratorNode,
+  solidColor: SolidColorNode,
+  noiseGenerator: NoiseGeneratorNode,
   webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
@@ -101,6 +109,27 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'solidColor') {
+    return {
+      extraData: {
+        color: '#ffffff',
+        alpha: 1,
+      },
+    };
+  }
+  if (nodeType === 'noiseGenerator') {
+    return {
+      extraData: {
+        noiseType: 'perlin',
+        scale: 10,
+        octaves: 4,
+        speed: 1,
+        seed: 42,
+        directionX: 1,
+        directionY: 0,
+      },
+    };
+  }
   if (nodeType === 'webglPreview') {
     return {
       style: { width: 300, height: 200 },
@@ -130,6 +159,8 @@ function getNodeColor(node: Node): string {
     case 'canvasNote': return '#ae53ba';
     case 'textDisplay': return '#6b7280';
     case 'gradientGenerator': return '#ff6b35';
+    case 'solidColor': return '#ff6b35';
+    case 'noiseGenerator': return '#ff6b35';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
