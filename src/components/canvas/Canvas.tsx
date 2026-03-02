@@ -57,6 +57,12 @@ const NoiseGeneratorNode = webglDynamic(
 const ImageLayerNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/ImageLayerNode'),
 );
+const TextLayerNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/TextLayerNode'),
+);
+const ShapeGeneratorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/ShapeGeneratorNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -75,6 +81,8 @@ const nodeTypes = {
   solidColor: SolidColorNode,
   noiseGenerator: NoiseGeneratorNode,
   imageLayer: ImageLayerNode,
+  textLayer: TextLayerNode,
+  shapeGenerator: ShapeGeneratorNode,
   webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
@@ -134,6 +142,34 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'shapeGenerator') {
+    return {
+      extraData: {
+        shapeType: 'rectangle',
+        fillColor: '#ffffff',
+        fillAlpha: 1,
+        borderColor: '#000000',
+        borderWidth: 0,
+        opacity: 1,
+        rotation: 0,
+        offsetX: 0,
+        offsetY: 0,
+        bgColor: '#000000',
+        bgAlpha: 0,
+        width: 0.4,
+        height: 0.4,
+        cornerTL: 0,
+        cornerTR: 0,
+        cornerBL: 0,
+        cornerBR: 0,
+        radius: 0.3,
+        sides: 6,
+        starMode: false,
+        innerRadius: 0.15,
+        polyRadius: 0.3,
+      },
+    };
+  }
   if (nodeType === 'imageLayer') {
     return {
       extraData: {
@@ -173,6 +209,7 @@ function getNodeColor(node: Node): string {
     case 'solidColor': return '#ff6b35';
     case 'noiseGenerator': return '#ff6b35';
     case 'imageLayer': return '#ff6b35';
+    case 'shapeGenerator': return '#ff6b35';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
