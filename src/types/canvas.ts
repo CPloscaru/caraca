@@ -191,6 +191,73 @@ export type NoiseGeneratorData = NodeData & {
   directionY: number;
 };
 
+// ---------------------------------------------------------------------------
+// Image Layer node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type ImageLayerData = NodeData & {
+  imageUrl: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Text Layer node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type TextLayerData = NodeData & {
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+  fontColor: string;
+  alignment: 'left' | 'center' | 'right';
+  bold: boolean;
+  italic: boolean;
+  outlineColor: string;
+  outlineWidth: number;
+  shadowColor: string;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  shadowBlur: number;
+  textBoxWidth: number;
+  offsetX: number;
+  offsetY: number;
+  bgColor: string;
+  bgAlpha: number;
+};
+
+// ---------------------------------------------------------------------------
+// Shape Generator node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type ShapeType = 'rectangle' | 'circle' | 'polygon';
+
+export type ShapeGeneratorData = NodeData & {
+  shapeType: ShapeType;
+  fillColor: string;
+  fillAlpha: number;
+  borderColor: string;
+  borderWidth: number;
+  opacity: number;
+  rotation: number;
+  offsetX: number;
+  offsetY: number;
+  bgColor: string;
+  bgAlpha: number;
+  // Rectangle-specific
+  width: number;
+  height: number;
+  cornerTL: number;
+  cornerTR: number;
+  cornerBL: number;
+  cornerBR: number;
+  // Circle-specific
+  radius: number;
+  // Polygon-specific
+  sides: number;
+  starMode: boolean;
+  innerRadius: number;
+  polyRadius: number;
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;

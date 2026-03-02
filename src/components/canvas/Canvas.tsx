@@ -54,6 +54,9 @@ const SolidColorNode = webglDynamic(
 const NoiseGeneratorNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/NoiseGeneratorNode'),
 );
+const ImageLayerNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/ImageLayerNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -71,6 +74,7 @@ const nodeTypes = {
   gradientGenerator: GradientGeneratorNode,
   solidColor: SolidColorNode,
   noiseGenerator: NoiseGeneratorNode,
+  imageLayer: ImageLayerNode,
   webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
@@ -130,6 +134,13 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'imageLayer') {
+    return {
+      extraData: {
+        imageUrl: null,
+      },
+    };
+  }
   if (nodeType === 'webglPreview') {
     return {
       style: { width: 300, height: 200 },
@@ -161,6 +172,7 @@ function getNodeColor(node: Node): string {
     case 'gradientGenerator': return '#ff6b35';
     case 'solidColor': return '#ff6b35';
     case 'noiseGenerator': return '#ff6b35';
+    case 'imageLayer': return '#ff6b35';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
