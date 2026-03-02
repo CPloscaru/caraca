@@ -6,6 +6,8 @@ export const PORT_TYPES = {
   mask: { color: '#e92a67', label: 'Mask' },
   model: { color: '#22c55e', label: 'Model' },
   video: { color: '#f59e0b', label: 'Video' },
+  webgl: { color: '#ff6b35', label: 'WebGL' },
+  scalar: { color: '#a0a0a0', label: 'Scalar' },
 } as const;
 
 export type PortType = keyof typeof PORT_TYPES;
@@ -17,6 +19,8 @@ const COMPATIBLE_PORTS: Record<PortType, PortType[]> = {
   mask: ['mask'],
   model: ['model'],
   video: ['video', 'image'],
+  webgl: ['webgl'],
+  scalar: ['scalar'],
 };
 
 /**
