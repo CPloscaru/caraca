@@ -1,7 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { getNodeTemplates, type NodeTemplate } from '@/lib/node-registry';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import {
+  getNodeTemplates,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  type NodeCategory,
+  type NodeTemplate,
+} from '@/lib/node-registry';
 import { useAppStore } from '@/stores/app-store';
 
 type CommandPaletteProps = {
@@ -15,17 +21,30 @@ export function CommandPalette({ onAddNode }: CommandPaletteProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeCommandPalette = useAppStore((s) => s.closeCommandPalette);
 
-  const templates = getNodeTemplates();
-  const filtered = search.trim()
-    ? templates.filter((t) => {
-        const q = search.toLowerCase();
-        return (
-          t.label.toLowerCase().includes(q) ||
-          t.description.toLowerCase().includes(q) ||
-          t.tags.some((tag) => tag.toLowerCase().includes(q))
-        );
-      })
-    : templates;
+  const templates = useMemo(() => getNodeTemplates(), []);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return templates;
+    const q = search.toLowerCase();
+    return templates.filter(
+      (t) =>
+        t.label.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.tags.some((tag) => tag.toLowerCase().includes(q)),
+    );
+  }, [templates, search]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<NodeCategory, NodeTemplate[]>();
+    for (const t of filtered) {
+      if (!map.has(t.category)) map.set(t.category, []);
+      map.get(t.category)!.push(t);
+    }
+    return [...map.entries()].sort(([a], [b]) => CATEGORY_ORDER[a] - CATEGORY_ORDER[b]);
+  }, [filtered]);
+
+  // Flat list for keyboard navigation (preserves grouped order)
+  const flatList = useMemo(() => grouped.flatMap(([, templates]) => templates), [grouped]);
 
   // Reset selection when filter changes
   useEffect(() => {
@@ -68,19 +87,22 @@ export function CommandPalette({ onAddNode }: CommandPaletteProps) {
         closeCommandPalette();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev + 1) % Math.max(filtered.length, 1));
+        setSelectedIndex((prev) => (prev + 1) % Math.max(flatList.length, 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev - 1 + filtered.length) % Math.max(filtered.length, 1));
+        setSelectedIndex((prev) => (prev - 1 + flatList.length) % Math.max(flatList.length, 1));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (filtered[selectedIndex]) {
-          handleSelect(filtered[selectedIndex]);
+        if (flatList[selectedIndex]) {
+          handleSelect(flatList[selectedIndex]);
         }
       }
     },
-    [filtered, selectedIndex, handleSelect, closeCommandPalette],
+    [flatList, selectedIndex, handleSelect, closeCommandPalette],
   );
+
+  // Track flat index across grouped rendering
+  let flatIdx = 0;
 
   return (
     <div
@@ -133,35 +155,54 @@ export function CommandPalette({ onAddNode }: CommandPaletteProps) {
 
         {/* Results */}
         <div style={{ overflowY: 'auto', padding: '0 4px 4px' }}>
-          {filtered.length === 0 && (
+          {flatList.length === 0 && (
             <div style={{ padding: '12px 16px', color: '#666', fontSize: 13 }}>
               No matching nodes
             </div>
           )}
-          {filtered.map((template, idx) => (
-            <button
-              key={template.nodeType}
-              onClick={() => handleSelect(template)}
-              onMouseEnter={() => setSelectedIndex(idx)}
-              style={{
-                display: 'block',
-                width: '100%',
-                padding: '8px 12px',
-                background: idx === selectedIndex ? '#2a2a2a' : 'transparent',
-                border: 'none',
-                borderTop: idx > 0 ? '1px solid #222' : 'none',
-                color: '#f3f4f6',
-                cursor: 'pointer',
-                textAlign: 'left',
-                borderRadius: idx === selectedIndex ? 6 : 0,
-                transition: 'background 0.1s ease',
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{template.label}</div>
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                {template.description}
+          {grouped.map(([category, categoryTemplates]) => (
+            <div key={category}>
+              <div
+                style={{
+                  padding: '8px 12px 4px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#6b7280',
+                }}
+              >
+                {CATEGORY_LABELS[category]}
               </div>
-            </button>
+              {categoryTemplates.map((template) => {
+                const idx = flatIdx++;
+                return (
+                  <button
+                    key={template.nodeType}
+                    onClick={() => handleSelect(template)}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: idx === selectedIndex ? '#2a2a2a' : 'transparent',
+                      border: 'none',
+                      borderTop: '1px solid #222',
+                      color: '#f3f4f6',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      borderRadius: idx === selectedIndex ? 6 : 0,
+                      transition: 'background 0.1s ease',
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{template.label}</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                      {template.description}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </div>
       </div>

@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Search, StickyNote } from 'lucide-react';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
-import { getNodeTemplates, type NodeTemplate } from '@/lib/node-registry';
+import {
+  getNodeTemplates,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  type NodeCategory,
+  type NodeTemplate,
+} from '@/lib/node-registry';
 import { useAppStore } from '@/stores/app-store';
-
-/** Tool node types that appear in the "Outils" section */
-const TOOL_NODE_TYPES = new Set(['canvasNote']);
 
 type ContextMenuPosition = {
   x: number;
@@ -66,20 +69,28 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
   }, [position, onClose]);
 
   const allTemplates = useMemo(() => getNodeTemplates(), []);
-  const processingNodes = useMemo(() => allTemplates.filter((t) => !TOOL_NODE_TYPES.has(t.nodeType)), [allTemplates]);
-  const toolNodes = useMemo(() => allTemplates.filter((t) => TOOL_NODE_TYPES.has(t.nodeType)), [allTemplates]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<NodeCategory, NodeTemplate[]>();
+    for (const t of allTemplates) {
+      if (!map.has(t.category)) map.set(t.category, []);
+      map.get(t.category)!.push(t);
+    }
+    return [...map.entries()].sort(([a], [b]) => CATEGORY_ORDER[a] - CATEGORY_ORDER[b]);
+  }, [allTemplates]);
 
   if (!position) return null;
 
   // Boundary detection: ensure menu stays within viewport
   const menuWidth = 200;
-  const sectionHeaders = 2 + (toolNodes.length > 0 ? 1 : 0); // "Add Node" + "Outils" + search
-  const menuHeight = allTemplates.length * 44 + sectionHeaders * 30 + 16;
+  const totalNodes = allTemplates.length;
+  const sectionHeaders = grouped.length + 1; // categories + search row
+  const menuHeight = totalNodes * 44 + sectionHeaders * 30 + 16;
   const left = Math.min(position.x, window.innerWidth - menuWidth - 8);
   const top = Math.min(position.y, window.innerHeight - menuHeight - 8);
 
   const renderNodeButton = (template: NodeTemplate) => {
-    const isTool = TOOL_NODE_TYPES.has(template.nodeType);
+    const isTool = template.category === 'tools';
     return (
       <button
         key={template.label}
@@ -174,22 +185,8 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
         <Search size={14} style={{ color: '#9ca3af' }} />
         <span>Search Nodes...</span>
       </button>
-      <div
-        style={{
-          padding: '6px 12px',
-          fontSize: 11,
-          color: '#9ca3af',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-        }}
-      >
-        Add Node
-      </div>
-      {processingNodes.map(renderNodeButton)}
-
-      {toolNodes.length > 0 && (
-        <>
+      {grouped.map(([category, templates]) => (
+        <div key={category}>
           <div
             style={{
               padding: '6px 12px',
@@ -202,11 +199,11 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
               marginTop: 2,
             }}
           >
-            Outils
+            {CATEGORY_LABELS[category]}
           </div>
-          {toolNodes.map(renderNodeButton)}
-        </>
-      )}
+          {templates.map(renderNodeButton)}
+        </div>
+      ))}
     </div>
   );
 }
