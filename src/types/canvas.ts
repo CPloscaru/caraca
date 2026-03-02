@@ -125,6 +125,28 @@ export type BatchParameterData = NodeData & {
 };
 
 // ---------------------------------------------------------------------------
+// WebGL preview node types (Phase 42)
+// ---------------------------------------------------------------------------
+
+export type ResolutionPreset = '720p' | '1080p' | '4k' | 'custom';
+export type FpsCap = 15 | 30 | 60;
+
+export const RESOLUTION_PRESETS: Record<Exclude<ResolutionPreset, 'custom'>, { width: number; height: number }> = {
+  '720p': { width: 1280, height: 720 },
+  '1080p': { width: 1920, height: 1080 },
+  '4k': { width: 3840, height: 2160 },
+};
+
+export type WebGLPreviewData = NodeData & {
+  fpsCap: FpsCap;
+  resolutionPreset: ResolutionPreset;
+  customWidth: number;
+  customHeight: number;
+  isPlaying: boolean;
+  activeSourceIndex: number;
+};
+
+// ---------------------------------------------------------------------------
 // WebGL generator node types (Phase 42)
 // ---------------------------------------------------------------------------
 
