@@ -29,6 +29,7 @@ import { BatchParameterNode } from '@/components/canvas/nodes/BatchParameterNode
 import { NoteNode } from '@/components/canvas/nodes/NoteNode';
 import { TextDisplayNode } from '@/components/canvas/nodes/TextDisplayNode';
 import { withNodeErrorBoundary } from '@/components/canvas/nodes/NodeErrorBoundary';
+import { webglDynamic } from '@/lib/webgl/dynamic';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import { AnnotationEdge } from '@/components/canvas/edges/AnnotationEdge';
 import {
@@ -39,6 +40,11 @@ import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { getRegistryEntry, type NodeTemplate } from '@/lib/node-registry';
 import { useExecutionStore } from '@/stores/execution-store';
 import type { NodeData } from '@/types/canvas';
+
+// WebGL nodes — dynamically imported with SSR disabled
+const GradientGeneratorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/GradientGeneratorNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -53,6 +59,7 @@ const nodeTypes = {
   batchParameter: withNodeErrorBoundary(BatchParameterNode),
   canvasNote: withNodeErrorBoundary(NoteNode),
   textDisplay: withNodeErrorBoundary(TextDisplayNode),
+  gradientGenerator: GradientGeneratorNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
 
@@ -75,6 +82,21 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       extraData: { displayText: null },
     };
   }
+  if (nodeType === 'gradientGenerator') {
+    return {
+      extraData: {
+        gradientType: 'linear',
+        colorStops: [
+          { color: '#6366f1', position: 0 },
+          { color: '#ec4899', position: 1 },
+        ],
+        angle: 45,
+        speed: 1,
+        width: 512,
+        height: 512,
+      },
+    };
+  }
   return {};
 }
 
@@ -90,6 +112,7 @@ function getNodeColor(node: Node): string {
     case 'imageToVideo': return '#f59e0b';
     case 'canvasNote': return '#ae53ba';
     case 'textDisplay': return '#6b7280';
+    case 'gradientGenerator': return '#ff6b35';
     default: return '#666';
   }
 }

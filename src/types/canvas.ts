@@ -124,6 +124,26 @@ export type BatchParameterData = NodeData & {
   batchResults: BatchResultItem[] | null; // Collected results
 };
 
+// ---------------------------------------------------------------------------
+// WebGL generator node types (Phase 42)
+// ---------------------------------------------------------------------------
+
+export type GradientType = 'linear' | 'radial' | 'mesh';
+
+export type ColorStop = {
+  color: string;   // hex color e.g. "#ff0000"
+  position: number; // 0-1
+};
+
+export type GradientGeneratorData = NodeData & {
+  gradientType: GradientType;
+  colorStops: ColorStop[];
+  angle: number;      // 0-360, linear only
+  speed: number;      // animation speed multiplier (0-5, default 1)
+  width: number;      // render target width
+  height: number;     // render target height
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;
