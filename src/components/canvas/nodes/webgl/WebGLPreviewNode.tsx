@@ -10,7 +10,7 @@ import { useWebGLPreview } from '@/hooks/use-webgl-preview';
 import { PreviewCanvas } from './PreviewCanvas';
 import { PreviewToolbar } from './PreviewToolbar';
 import { PreviewFullscreenModal } from './PreviewFullscreenModal';
-import { getWebGLOutput } from './GradientGeneratorNode';
+import { getWebGLOutput } from '@/lib/webgl/output-map';
 import type {
   FpsCap,
   ResolutionPreset,

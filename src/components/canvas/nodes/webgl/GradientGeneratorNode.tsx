@@ -17,23 +17,12 @@ import {
   RADIAL_GRADIENT_FRAG,
   MESH_GRADIENT_FRAG,
 } from './gradient-shaders';
-import type { WebGLNodeOutput } from '@/lib/webgl/types';
+import { setWebGLOutput, removeWebGLOutput } from '@/lib/webgl/output-map';
 import type {
   ColorStop,
   GradientGeneratorData,
   GradientType,
 } from '@/types/canvas';
-
-// ---------------------------------------------------------------------------
-// Module-scoped output map — downstream preview nodes read from this
-// ---------------------------------------------------------------------------
-
-const outputMap = new Map<string, WebGLNodeOutput>();
-
-/** Get the WebGL output for a given key (e.g. `${nodeId}:webgl-source-0`) */
-export function getWebGLOutput(key: string): WebGLNodeOutput | undefined {
-  return outputMap.get(key);
-}
 
 // ---------------------------------------------------------------------------
 // Shader lookup
@@ -169,7 +158,7 @@ function GradientGeneratorNodeInner({ id, data, selected }: NodeProps) {
 
     // Expose output for downstream nodes
     const outputKey = `${id}:webgl-source-0`;
-    outputMap.set(outputKey, { target: rt, width: w, height: h });
+    setWebGLOutput(outputKey, { target: rt, width: w, height: h });
 
     registerCallback(id, (time) => {
       const mat = materialRef.current;
@@ -198,7 +187,7 @@ function GradientGeneratorNodeInner({ id, data, selected }: NodeProps) {
 
     return () => {
       unregisterCallback(id);
-      outputMap.delete(outputKey);
+      removeWebGLOutput(outputKey);
       checkin(rt);
       material.dispose();
       geometry.dispose();
