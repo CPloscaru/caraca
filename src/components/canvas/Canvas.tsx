@@ -45,6 +45,9 @@ import type { NodeData } from '@/types/canvas';
 const GradientGeneratorNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/GradientGeneratorNode'),
 );
+const WebGLPreviewNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/WebGLPreviewNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -60,6 +63,7 @@ const nodeTypes = {
   canvasNote: withNodeErrorBoundary(NoteNode),
   textDisplay: withNodeErrorBoundary(TextDisplayNode),
   gradientGenerator: GradientGeneratorNode,
+  webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
 
@@ -97,6 +101,19 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'webglPreview') {
+    return {
+      style: { width: 300, height: 200 },
+      extraData: {
+        fpsCap: 30,
+        resolutionPreset: '720p',
+        customWidth: 1280,
+        customHeight: 720,
+        isPlaying: false,
+        activeSourceIndex: 0,
+      },
+    };
+  }
   return {};
 }
 
@@ -113,6 +130,7 @@ function getNodeColor(node: Node): string {
     case 'canvasNote': return '#ae53ba';
     case 'textDisplay': return '#6b7280';
     case 'gradientGenerator': return '#ff6b35';
+    case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
 }
