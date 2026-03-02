@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import type { WebGLRenderer } from 'three';
 import { acquireRenderer, releaseRenderer } from '@/lib/webgl/renderer';
 import { registerCallback, unregisterCallback } from '@/lib/webgl/animation-loop';

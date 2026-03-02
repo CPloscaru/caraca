@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type NodeProps, NodeResizer, Position, useEdges } from '@xyflow/react';
+import { type NodeProps, NodeResizer, Position, useEdges, useUpdateNodeInternals } from '@xyflow/react';
 import { Monitor } from 'lucide-react';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
 import { useCanvasStore } from '@/stores/canvas-store';
@@ -38,7 +38,16 @@ function getResolution(
 function WebGLPreviewNodeInner({ id, data, selected }: NodeProps) {
   const d = data as unknown as WebGLPreviewData;
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const updateNodeInternals = useUpdateNodeInternals();
   const edges = useEdges();
+
+  // Force React Flow to recalculate handle bounds after dynamic mount.
+  // webglDynamic (next/dynamic ssr:false) loads this component after React Flow
+  // has already measured the node, and the Handle is position:absolute so it
+  // doesn't trigger a ResizeObserver update.
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, updateNodeInternals]);
 
   // Node data with defaults
   const fpsCap: FpsCap = d.fpsCap ?? 30;
@@ -177,7 +186,6 @@ function WebGLPreviewNodeInner({ id, data, selected }: NodeProps) {
         background: '#111',
         border: `1px solid ${selected ? 'transparent' : '#222'}`,
         borderRadius: 8,
-        overflow: 'hidden',
         minWidth: 200,
         position: 'relative',
         display: 'flex',
