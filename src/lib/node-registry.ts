@@ -12,6 +12,8 @@ import type { PortType } from '@/lib/port-types';
 // Types
 // ---------------------------------------------------------------------------
 
+export type NodeCategory = 'ai' | 'animation' | 'tools';
+
 export type PortDefinition = {
   id: string;
   type: PortType;
@@ -35,6 +37,8 @@ type NodeRegistryEntry = {
   executeHandler?: string;
   /** Whether this node type is available in the add-node menus (false = future/unimplemented) */
   available: boolean;
+  /** Category for UI grouping (sidebar, context menu, command palette) */
+  category: NodeCategory;
 };
 
 /** Shape returned by getNodeTemplates() for UI consumers (CommandPalette, ContextMenu, Sidebar). */
@@ -45,6 +49,21 @@ export type NodeTemplate = {
   outputs: PortDefinition[];
   description: string;
   tags: string[];
+  category: NodeCategory;
+};
+
+/** Display labels for node categories */
+export const CATEGORY_LABELS: Record<NodeCategory, string> = {
+  ai: 'AI',
+  animation: 'Animation',
+  tools: 'Outils',
+};
+
+/** Sort order for node categories */
+export const CATEGORY_ORDER: Record<NodeCategory, number> = {
+  ai: 1,
+  animation: 2,
+  tools: 3,
 };
 
 // ---------------------------------------------------------------------------
@@ -64,6 +83,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 10,
     available: true,
+    category: 'ai',
   },
   {
     type: 'imageImport',
@@ -76,6 +96,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 20,
     available: true,
+    category: 'ai',
   },
   {
     type: 'imageGenerator',
@@ -91,6 +112,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['images', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 30,
     available: true,
+    category: 'ai',
   },
   {
     type: 'llmAssistant',
@@ -105,6 +127,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['output', 'tokenUsage', 'debugRequest', 'debugResponse', 'debugError'],
     order: 40,
     available: true,
+    category: 'ai',
   },
   {
     type: 'textDisplay',
@@ -117,6 +140,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['displayText'],
     order: 45,
     available: true,
+    category: 'ai',
   },
   {
     type: 'placeholder',
@@ -129,6 +153,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 999,
     available: false,
+    category: 'ai',
   },
 
   // -- Future nodes (Phase 12-14 placeholders) --
@@ -146,6 +171,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['outputImage', 'inputImageUrl', 'inputDimensions', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
     order: 50,
     available: true,
+    category: 'ai',
   },
   {
     type: 'textToVideo',
@@ -158,6 +184,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 60,
     available: true,
+    category: 'ai',
   },
   {
     type: 'imageToVideo',
@@ -173,6 +200,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 70,
     available: true,
+    category: 'ai',
   },
   {
     type: 'batchParameter',
@@ -185,6 +213,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['batchResults'],
     order: 80,
     available: true,
+    category: 'ai',
   },
   {
     type: 'canvasNote',
@@ -197,6 +226,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 200,
     available: true,
+    category: 'tools',
   },
 ] as const satisfies readonly NodeRegistryEntry[];
 
@@ -252,6 +282,7 @@ export function getNodeTemplates(): NodeTemplate[] {
       outputs: e.outputs as PortDefinition[],
       description: e.description,
       tags: e.tags as string[],
+      category: e.category,
     }));
 }
 
