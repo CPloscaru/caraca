@@ -15,6 +15,7 @@ import {
   setWebGLOutput,
   removeWebGLOutput,
 } from '@/lib/webgl/output-map';
+import { getScalarOutput } from '@/lib/webgl/scalar-map';
 import { BLUR_VERT, BLUR_SHADERS } from './blur-shaders';
 import type { BlurEffectData, BlurType } from '@/types/canvas';
 
@@ -153,6 +154,14 @@ function BlurEffectNodeInner({ id, data, selected }: NodeProps) {
     return `${edge.source}:${edge.sourceHandle}`;
   }, [edges, id]);
 
+  // Scalar edge key for radius override
+  const radiusEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-radius');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const radiusEdgeKeyRef = useRef(radiusEdgeKey);
+  useEffect(() => { radiusEdgeKeyRef.current = radiusEdgeKey; }, [radiusEdgeKey]);
+
   // Mutable refs for RAF access
   const blurTypeRef = useRef<BlurType>(d.blurType ?? 'gaussian');
   const bypassRef = useRef(d.bypass ?? false);
@@ -272,7 +281,9 @@ function BlurEffectNodeInner({ id, data, selected }: NodeProps) {
       if (bt === 'gaussian') {
         // Pass 1: horizontal blur (upstream -> rtA)
         mat.uniforms.uInputTexture.value = upstream.target.texture;
-        mat.uniforms.uRadius.value = radiusRef.current;
+        const rk = radiusEdgeKeyRef.current;
+        const scalarRadius = rk ? getScalarOutput(rk) : undefined;
+        mat.uniforms.uRadius.value = scalarRadius !== undefined ? scalarRadius * 30 : radiusRef.current;
         (mat.uniforms.uDirection.value as THREE.Vector2).set(1, 0);
         (mat.uniforms.uResolution.value as THREE.Vector2).set(RT_SIZE, RT_SIZE);
 
@@ -537,7 +548,18 @@ function BlurEffectNodeInner({ id, data, selected }: NodeProps) {
         portType="webgl"
         portId="webgl-target-0"
         index={0}
-        style={{ top: '50%' }}
+        style={{ top: '40%' }}
+      />
+      {/* Scalar input port: Radius */}
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-radius"
+        handleId="scalar-target-radius"
+        index={1}
+        label="Radius"
+        style={{ top: '85%' }}
       />
 
       {/* Output port */}

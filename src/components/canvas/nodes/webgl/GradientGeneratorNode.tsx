@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
-import { type NodeProps, Position } from '@xyflow/react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { type NodeProps, Position, useEdges } from '@xyflow/react';
 import { Palette } from 'lucide-react';
 import * as THREE from 'three';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
@@ -18,6 +18,7 @@ import {
   MESH_GRADIENT_FRAG,
 } from './gradient-shaders';
 import { setWebGLOutput, removeWebGLOutput } from '@/lib/webgl/output-map';
+import { getScalarOutput } from '@/lib/webgl/scalar-map';
 import type {
   ColorStop,
   GradientGeneratorData,
@@ -77,6 +78,15 @@ function buildUniforms(stops: ColorStop[], angle: number, speed: number) {
 function GradientGeneratorNodeInner({ id, data, selected }: NodeProps) {
   const d = data as unknown as GradientGeneratorData;
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const edges = useEdges();
+
+  // Scalar edge key for speed override
+  const speedEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-speed');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const speedEdgeKeyRef = useRef(speedEdgeKey);
+  useEffect(() => { speedEdgeKeyRef.current = speedEdgeKey; }, [speedEdgeKey]);
 
   // Mutable refs for RAF — never setState inside the render callback
   const gradientTypeRef = useRef<GradientType>(d.gradientType ?? 'linear');
@@ -164,10 +174,12 @@ function GradientGeneratorNodeInner({ id, data, selected }: NodeProps) {
       const mat = materialRef.current;
       if (!mat || !rtRef.current) return;
 
-      // Update uniforms from refs
+      // Update uniforms from refs (scalar override if connected)
       mat.uniforms.uTime.value = time;
       mat.uniforms.uAngle.value = angleRef.current;
-      mat.uniforms.uSpeed.value = speedRef.current;
+      const sek = speedEdgeKeyRef.current;
+      const scalarSpeed = sek ? getScalarOutput(sek) : undefined;
+      mat.uniforms.uSpeed.value = scalarSpeed !== undefined ? scalarSpeed : speedRef.current;
 
       const stops = colorStopsRef.current;
       const colors = mat.uniforms.uColors.value as THREE.Vector3[];
@@ -334,6 +346,18 @@ function GradientGeneratorNodeInner({ id, data, selected }: NodeProps) {
           </span>
         </div>
       </div>
+
+      {/* Scalar input port: Speed */}
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-speed"
+        handleId="scalar-target-speed"
+        index={1}
+        label="Speed"
+        style={{ top: '85%' }}
+      />
 
       {/* Output port */}
       <TypedHandle

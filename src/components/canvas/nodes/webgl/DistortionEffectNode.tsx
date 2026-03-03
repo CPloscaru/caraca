@@ -15,6 +15,7 @@ import {
   setWebGLOutput,
   removeWebGLOutput,
 } from '@/lib/webgl/output-map';
+import { getScalarOutput } from '@/lib/webgl/scalar-map';
 import { DISTORTION_VERT, DISTORTION_SHADERS } from './distortion-shaders';
 import type { DistortionEffectData, DistortionType } from '@/types/canvas';
 
@@ -212,6 +213,20 @@ function DistortionEffectNodeInner({ id, data, selected }: NodeProps) {
     return `${edge.source}:${edge.sourceHandle}`;
   }, [edges, id, distortionType]);
 
+  // Scalar edge keys for speed and amplitude overrides
+  const speedEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-speed');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const amplitudeEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-amplitude');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const speedEdgeKeyRef = useRef(speedEdgeKey);
+  const amplitudeEdgeKeyRef = useRef(amplitudeEdgeKey);
+  useEffect(() => { speedEdgeKeyRef.current = speedEdgeKey; }, [speedEdgeKey]);
+  useEffect(() => { amplitudeEdgeKeyRef.current = amplitudeEdgeKey; }, [amplitudeEdgeKey]);
+
   // Mutable refs for RAF
   const distortionTypeRef = useRef<DistortionType>(distortionType);
   const bypassRef = useRef(d.bypass ?? false);
@@ -348,18 +363,23 @@ function DistortionEffectNodeInner({ id, data, selected }: NodeProps) {
 
       const dt = distortionTypeRef.current;
 
+      const sek = speedEdgeKeyRef.current;
+      const scalarSpeed = sek ? getScalarOutput(sek) : undefined;
+      const aek = amplitudeEdgeKeyRef.current;
+      const scalarAmplitude = aek ? getScalarOutput(aek) : undefined;
+
       if (dt === 'wave') {
-        mat.uniforms.uAmplitude.value = amplitudeRef.current;
+        mat.uniforms.uAmplitude.value = scalarAmplitude !== undefined ? scalarAmplitude * 0.1 : amplitudeRef.current;
         mat.uniforms.uFrequency.value = frequencyRef.current;
-        mat.uniforms.uSpeed.value = speedRef.current;
+        mat.uniforms.uSpeed.value = scalarSpeed !== undefined ? scalarSpeed * 5 : speedRef.current;
         mat.uniforms.uTime.value = time;
       } else if (dt === 'twist') {
         mat.uniforms.uStrength.value = strengthRef.current;
         mat.uniforms.uTime.value = time;
       } else if (dt === 'ripple') {
-        mat.uniforms.uAmplitude.value = amplitudeRef.current;
+        mat.uniforms.uAmplitude.value = scalarAmplitude !== undefined ? scalarAmplitude * 0.05 : amplitudeRef.current;
         mat.uniforms.uFrequency.value = frequencyRef.current;
-        mat.uniforms.uSpeed.value = speedRef.current;
+        mat.uniforms.uSpeed.value = scalarSpeed !== undefined ? scalarSpeed * 5 : speedRef.current;
         mat.uniforms.uTime.value = time;
       } else if (dt === 'displacement') {
         mat.uniforms.uStrength.value = strengthRef.current;
@@ -579,7 +599,7 @@ function DistortionEffectNodeInner({ id, data, selected }: NodeProps) {
         portType="webgl"
         portId="webgl-target-0"
         index={0}
-        style={{ top: distortionType === 'displacement' ? '40%' : '50%' }}
+        style={{ top: distortionType === 'displacement' ? '30%' : '35%' }}
       />
 
       {/* Conditional displacement map port */}
@@ -591,9 +611,31 @@ function DistortionEffectNodeInner({ id, data, selected }: NodeProps) {
           portId="webgl-target-1"
           index={1}
           label="Displacement Map"
-          style={{ top: '65%' }}
+          style={{ top: '50%' }}
         />
       )}
+
+      {/* Scalar input ports */}
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-speed"
+        handleId="scalar-target-speed"
+        index={2}
+        label="Speed"
+        style={{ top: '80%' }}
+      />
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-amplitude"
+        handleId="scalar-target-amplitude"
+        index={3}
+        label="Amplitude"
+        style={{ top: '90%' }}
+      />
 
       {/* Output port */}
       <TypedHandle

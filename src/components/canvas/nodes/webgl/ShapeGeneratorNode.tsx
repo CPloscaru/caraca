@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
-import { type NodeProps, Position } from '@xyflow/react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { type NodeProps, Position, useEdges } from '@xyflow/react';
 import { Shapes } from 'lucide-react';
 import * as THREE from 'three';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
@@ -11,6 +11,7 @@ import { registerCallback, unregisterCallback } from '@/lib/webgl/animation-loop
 import { acquireRenderer, releaseRenderer } from '@/lib/webgl/renderer';
 import { checkout, checkin } from '@/lib/webgl/render-target-pool';
 import { setWebGLOutput, removeWebGLOutput } from '@/lib/webgl/output-map';
+import { getScalarOutput } from '@/lib/webgl/scalar-map';
 import {
   SHAPE_VERTEX_SHADER,
   SHAPE_FRAGMENT_SHADERS,
@@ -92,6 +93,15 @@ const SLIDER_CLS =
 function ShapeGeneratorNodeInner({ id, data, selected }: NodeProps) {
   const d = data as unknown as ShapeGeneratorData;
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const edges = useEdges();
+
+  // Scalar edge key for rotation override
+  const rotationEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-rotation');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const rotationEdgeKeyRef = useRef(rotationEdgeKey);
+  useEffect(() => { rotationEdgeKeyRef.current = rotationEdgeKey; }, [rotationEdgeKey]);
 
   // Mutable refs for RAF -- never setState in the render callback
   const shapeTypeRef = useRef<ShapeType>(d.shapeType ?? 'rectangle');
@@ -217,7 +227,10 @@ function ShapeGeneratorNodeInner({ id, data, selected }: NodeProps) {
       mat.uniforms.uBorderWidth.value = borderWidthRef.current;
 
       mat.uniforms.uOpacity.value = opacityRef.current;
-      mat.uniforms.uRotation.value = (rotationRef.current * Math.PI) / 180;
+      const rek = rotationEdgeKeyRef.current;
+      const scalarRot = rek ? getScalarOutput(rek) : undefined;
+      const effectiveRotation = scalarRot !== undefined ? scalarRot * 360 : rotationRef.current;
+      mat.uniforms.uRotation.value = (effectiveRotation * Math.PI) / 180;
       mat.uniforms.uOffsetX.value = offsetXRef.current;
       mat.uniforms.uOffsetY.value = offsetYRef.current;
 
@@ -655,14 +668,14 @@ function ShapeGeneratorNodeInner({ id, data, selected }: NodeProps) {
         </>
       )}
 
-      {/* Input ports (for future Phase 44 composition) */}
+      {/* Input ports (composition) */}
       <TypedHandle
         type="target"
         position={Position.Left}
         portType="webgl"
         portId="webgl-target-0"
         index={0}
-        style={{ top: '30%' }}
+        style={{ top: '25%' }}
       />
       <TypedHandle
         type="target"
@@ -670,7 +683,7 @@ function ShapeGeneratorNodeInner({ id, data, selected }: NodeProps) {
         portType="webgl"
         portId="webgl-target-1"
         index={1}
-        style={{ top: '50%' }}
+        style={{ top: '40%' }}
       />
       <TypedHandle
         type="target"
@@ -678,7 +691,18 @@ function ShapeGeneratorNodeInner({ id, data, selected }: NodeProps) {
         portType="webgl"
         portId="webgl-target-2"
         index={2}
-        style={{ top: '70%' }}
+        style={{ top: '55%' }}
+      />
+      {/* Scalar input port: Rotation */}
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-rotation"
+        handleId="scalar-target-rotation"
+        index={3}
+        label="Rotation"
+        style={{ top: '85%' }}
       />
 
       {/* Output port */}

@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
-import { type NodeProps, Position } from '@xyflow/react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { type NodeProps, Position, useEdges } from '@xyflow/react';
 import { Waves } from 'lucide-react';
 import * as THREE from 'three';
 import { TypedHandle } from '@/components/canvas/handles/TypedHandle';
@@ -11,6 +11,7 @@ import { registerCallback, unregisterCallback } from '@/lib/webgl/animation-loop
 import { acquireRenderer, releaseRenderer } from '@/lib/webgl/renderer';
 import { checkout, checkin } from '@/lib/webgl/render-target-pool';
 import { setWebGLOutput, removeWebGLOutput } from '@/lib/webgl/output-map';
+import { getScalarOutput } from '@/lib/webgl/scalar-map';
 import { NOISE_VERT, NOISE_SHADERS } from './noise-shaders';
 import type { NoiseGeneratorData, NoiseType } from '@/types/canvas';
 
@@ -41,6 +42,21 @@ function buildUniforms(
 function NoiseGeneratorNodeInner({ id, data, selected }: NodeProps) {
   const d = data as unknown as NoiseGeneratorData;
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const edges = useEdges();
+
+  // Scalar edge keys for speed and scale overrides
+  const speedEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-speed');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const scaleEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-scale');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const speedEdgeKeyRef = useRef(speedEdgeKey);
+  const scaleEdgeKeyRef = useRef(scaleEdgeKey);
+  useEffect(() => { speedEdgeKeyRef.current = speedEdgeKey; }, [speedEdgeKey]);
+  useEffect(() => { scaleEdgeKeyRef.current = scaleEdgeKey; }, [scaleEdgeKey]);
 
   // Mutable refs for RAF
   const noiseTypeRef = useRef<NoiseType>(d.noiseType ?? 'perlin');
@@ -127,8 +143,14 @@ function NoiseGeneratorNodeInner({ id, data, selected }: NodeProps) {
       const mat = materialRef.current;
       if (!mat || !rtRef.current) return;
 
-      mat.uniforms.uTime.value = time * speedRef.current * 0.001;
-      mat.uniforms.uScale.value = scaleRef.current;
+      const sek = speedEdgeKeyRef.current;
+      const scalarSpeed = sek ? getScalarOutput(sek) : undefined;
+      const effectiveSpeed = scalarSpeed !== undefined ? scalarSpeed : speedRef.current;
+      mat.uniforms.uTime.value = time * effectiveSpeed * 0.001;
+
+      const sck = scaleEdgeKeyRef.current;
+      const scalarScale = sck ? getScalarOutput(sck) : undefined;
+      mat.uniforms.uScale.value = scalarScale !== undefined ? scalarScale * 100 : scaleRef.current;
       mat.uniforms.uOctaves.value = octavesRef.current;
       mat.uniforms.uSeed.value = seedRef.current;
       (mat.uniforms.uDirection.value as THREE.Vector2).set(
@@ -385,6 +407,28 @@ function NoiseGeneratorNodeInner({ id, data, selected }: NodeProps) {
           </span>
         </div>
       </div>
+
+      {/* Scalar input ports */}
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-speed"
+        handleId="scalar-target-speed"
+        index={1}
+        label="Speed"
+        style={{ top: '80%' }}
+      />
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-scale"
+        handleId="scalar-target-scale"
+        index={2}
+        label="Scale"
+        style={{ top: '90%' }}
+      />
 
       {/* Output port */}
       <TypedHandle

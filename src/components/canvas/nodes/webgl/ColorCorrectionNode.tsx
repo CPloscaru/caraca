@@ -15,6 +15,7 @@ import {
   setWebGLOutput,
   removeWebGLOutput,
 } from '@/lib/webgl/output-map';
+import { getScalarOutput } from '@/lib/webgl/scalar-map';
 import {
   COLOR_CORRECTION_VERT,
   COLOR_CORRECTION_FRAG,
@@ -145,6 +146,20 @@ function ColorCorrectionNodeInner({ id, data, selected }: NodeProps) {
     return `${edge.source}:${edge.sourceHandle}`;
   }, [edges, id]);
 
+  // Scalar edge keys for hue and brightness overrides
+  const hueEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-hue');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const brightnessEdgeKey = useMemo(() => {
+    const edge = edges.find(e => e.target === id && e.targetHandle === 'scalar-target-brightness');
+    return edge ? `${edge.source}:${edge.sourceHandle}` : null;
+  }, [edges, id]);
+  const hueEdgeKeyRef = useRef(hueEdgeKey);
+  const brightnessEdgeKeyRef = useRef(brightnessEdgeKey);
+  useEffect(() => { hueEdgeKeyRef.current = hueEdgeKey; }, [hueEdgeKey]);
+  useEffect(() => { brightnessEdgeKeyRef.current = brightnessEdgeKey; }, [brightnessEdgeKey]);
+
   // Mutable refs for RAF
   const bypassRef = useRef(d.bypass ?? false);
   const hueRef = useRef(d.hue ?? 0);
@@ -222,9 +237,13 @@ function ColorCorrectionNodeInner({ id, data, selected }: NodeProps) {
       setWebGLOutput(outputKey, { target: rtRef.current!, width: RT_SIZE, height: RT_SIZE });
 
       mat.uniforms.uInputTexture.value = upstream.target.texture;
-      mat.uniforms.uHue.value = hueRef.current;
+      const hek = hueEdgeKeyRef.current;
+      const scalarHue = hek ? getScalarOutput(hek) : undefined;
+      mat.uniforms.uHue.value = scalarHue !== undefined ? (scalarHue - 0.5) * 360 : hueRef.current;
       mat.uniforms.uSaturation.value = saturationRef.current;
-      mat.uniforms.uBrightness.value = brightnessRef.current;
+      const bek = brightnessEdgeKeyRef.current;
+      const scalarBrightness = bek ? getScalarOutput(bek) : undefined;
+      mat.uniforms.uBrightness.value = scalarBrightness !== undefined ? (scalarBrightness - 0.5) * 2 : brightnessRef.current;
       mat.uniforms.uContrast.value = contrastRef.current;
 
       renderer.setRenderTarget(rtRef.current);
@@ -417,7 +436,28 @@ function ColorCorrectionNodeInner({ id, data, selected }: NodeProps) {
         portType="webgl"
         portId="webgl-target-0"
         index={0}
-        style={{ top: '50%' }}
+        style={{ top: '35%' }}
+      />
+      {/* Scalar input ports */}
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-hue"
+        handleId="scalar-target-hue"
+        index={1}
+        label="Hue"
+        style={{ top: '80%' }}
+      />
+      <TypedHandle
+        type="target"
+        position={Position.Left}
+        portType="scalar"
+        portId="scalar-target-brightness"
+        handleId="scalar-target-brightness"
+        index={2}
+        label="Brightness"
+        style={{ top: '90%' }}
       />
 
       {/* Output port */}
