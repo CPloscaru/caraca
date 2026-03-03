@@ -222,7 +222,12 @@ function ColorCorrectionNodeInner({ id, data, selected }: NodeProps) {
       if (!mat || !rtRef.current) return;
 
       const ik = inputKeyRef.current;
-      if (!ik) return;
+      if (!ik) {
+        renderer.setRenderTarget(rtRef.current);
+        renderer.clear();
+        renderer.setRenderTarget(null);
+        return;
+      }
 
       const upstream = getWebGLOutput(ik);
       if (!upstream) return;

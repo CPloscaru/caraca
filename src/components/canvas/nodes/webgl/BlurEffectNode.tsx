@@ -262,7 +262,12 @@ function BlurEffectNodeInner({ id, data, selected }: NodeProps) {
       if (!mat || !rtARef.current || !rtBRef.current) return;
 
       const ik = inputKeyRef.current;
-      if (!ik) return; // No input connected
+      if (!ik) {
+        renderer.setRenderTarget(rtBRef.current);
+        renderer.clear();
+        renderer.setRenderTarget(null);
+        return;
+      }
 
       const upstream = getWebGLOutput(ik);
       if (!upstream) return;
