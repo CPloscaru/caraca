@@ -12,3 +12,4 @@
 export type { WebGLNodeOutput, RenderCallback } from './types';
 export { registerCallback, unregisterCallback } from './animation-loop';
 export { getWebGLOutput, setWebGLOutput, removeWebGLOutput } from './output-map';
+export { getScalarOutput, setScalarOutput, removeScalarOutput } from './scalar-map';

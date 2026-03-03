@@ -259,6 +259,21 @@ export type ShapeGeneratorData = NodeData & {
 };
 
 // ---------------------------------------------------------------------------
+// Time Control node types (Phase 45)
+// ---------------------------------------------------------------------------
+
+export type LoopMode = 'loop' | 'ping-pong' | 'once';
+
+export type TimeControlData = NodeData & {
+  speed: number;            // multiplier, default 1
+  loopMode: LoopMode;       // default 'loop'
+  timeRangeStart: number;   // seconds, default 0
+  timeRangeEnd: number;     // seconds, default 10
+  isPlaying: boolean;       // default true
+  positionSectionOpen: boolean; // UI state, default true
+};
+
+// ---------------------------------------------------------------------------
 // Blur Effect node types (Phase 44)
 // ---------------------------------------------------------------------------
 
