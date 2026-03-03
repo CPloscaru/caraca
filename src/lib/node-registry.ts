@@ -39,6 +39,8 @@ type NodeRegistryEntry = {
   available: boolean;
   /** Category for UI grouping (sidebar, context menu, command palette) */
   category: NodeCategory;
+  /** Optional subcategory within a category (e.g. "Generators", "Effects" within Animation) */
+  subcategory?: string;
 };
 
 /** Shape returned by getNodeTemplates() for UI consumers (CommandPalette, ContextMenu, Sidebar). */
@@ -50,6 +52,7 @@ export type NodeTemplate = {
   description: string;
   tags: string[];
   category: NodeCategory;
+  subcategory?: string;
 };
 
 /** Display labels for node categories */
@@ -227,6 +230,7 @@ const NODE_REGISTRY_ARRAY = [
     order: 300,
     available: true,
     category: 'animation',
+    subcategory: 'Generators',
   },
   {
     type: 'solidColor',
@@ -240,6 +244,7 @@ const NODE_REGISTRY_ARRAY = [
     order: 320,
     available: true,
     category: 'animation',
+    subcategory: 'Generators',
   },
   {
     type: 'noiseGenerator',
@@ -253,6 +258,7 @@ const NODE_REGISTRY_ARRAY = [
     order: 330,
     available: true,
     category: 'animation',
+    subcategory: 'Generators',
   },
   {
     type: 'shapeGenerator',
@@ -275,6 +281,7 @@ const NODE_REGISTRY_ARRAY = [
     order: 340,
     available: true,
     category: 'animation',
+    subcategory: 'Generators',
   },
   {
     type: 'webglPreview',
@@ -288,6 +295,7 @@ const NODE_REGISTRY_ARRAY = [
     order: 310,
     available: true,
     category: 'animation',
+    subcategory: 'Preview',
   },
   {
     type: 'imageLayer',
@@ -301,6 +309,7 @@ const NODE_REGISTRY_ARRAY = [
     order: 350,
     available: true,
     category: 'animation',
+    subcategory: 'Generators',
   },
   {
     type: 'textLayer',
@@ -318,6 +327,21 @@ const NODE_REGISTRY_ARRAY = [
     order: 360,
     available: true,
     category: 'animation',
+    subcategory: 'Generators',
+  },
+  {
+    type: 'blurEffect',
+    label: 'Blur Effect',
+    description: 'Apply blur (gaussian, radial, motion) to a WebGL texture',
+    tags: ['blur', 'effect', 'gaussian', 'radial', 'motion', 'webgl', 'animation'],
+    inputs: [{ id: 'webgl-target-0', type: 'webgl' as const, label: 'Input' }],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['blurType', 'bypass', 'radius', 'strength', 'centerX', 'centerY', 'angle', 'preset'],
+    order: 400,
+    available: true,
+    category: 'animation',
+    subcategory: 'Effects',
   },
   {
     type: 'canvasNote',
@@ -387,6 +411,7 @@ export function getNodeTemplates(): NodeTemplate[] {
       description: e.description,
       tags: e.tags as string[],
       category: e.category,
+      subcategory: e.subcategory,
     }));
 }
 

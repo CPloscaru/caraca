@@ -258,6 +258,23 @@ export type ShapeGeneratorData = NodeData & {
   polyRadius: number;
 };
 
+// ---------------------------------------------------------------------------
+// Blur Effect node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type BlurType = 'gaussian' | 'radial' | 'motion';
+
+export type BlurEffectData = NodeData & {
+  blurType: BlurType;
+  bypass: boolean;
+  radius: number;
+  strength: number;
+  centerX: number;
+  centerY: number;
+  angle: number;
+  preset: string;
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;
