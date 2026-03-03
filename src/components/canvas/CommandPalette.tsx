@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   getNodeTemplates,
+  groupBySubcategory,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   type NodeCategory,
@@ -30,7 +31,8 @@ export function CommandPalette({ onAddNode }: CommandPaletteProps) {
       (t) =>
         t.label.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
-        t.tags.some((tag) => tag.toLowerCase().includes(q)),
+        t.tags.some((tag) => tag.toLowerCase().includes(q)) ||
+        (t.subcategory && t.subcategory.toLowerCase().includes(q)),
     );
   }, [templates, search]);
 
@@ -160,50 +162,75 @@ export function CommandPalette({ onAddNode }: CommandPaletteProps) {
               No matching nodes
             </div>
           )}
-          {grouped.map(([category, categoryTemplates]) => (
-            <div key={category}>
-              <div
-                style={{
-                  padding: '8px 12px 4px',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: '#6b7280',
-                }}
-              >
-                {CATEGORY_LABELS[category]}
+          {grouped.map(([category, categoryTemplates]) => {
+            const hasSubcategories = categoryTemplates.some((t) => t.subcategory);
+            const subGroups = hasSubcategories
+              ? groupBySubcategory(categoryTemplates)
+              : [[undefined, categoryTemplates] as [string | undefined, NodeTemplate[]]];
+
+            return (
+              <div key={category}>
+                <div
+                  style={{
+                    padding: '8px 12px 4px',
+                    fontSize: 10,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: '#6b7280',
+                  }}
+                >
+                  {CATEGORY_LABELS[category]}
+                </div>
+                {subGroups.map(([sub, subTemplates]) => (
+                  <div key={sub ?? '_default'}>
+                    {sub && (
+                      <div
+                        style={{
+                          padding: '4px 12px 2px',
+                          fontSize: 9,
+                          color: '#555',
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        {sub}
+                      </div>
+                    )}
+                    {subTemplates.map((template) => {
+                      const idx = flatIdx++;
+                      return (
+                        <button
+                          key={template.nodeType}
+                          onClick={() => handleSelect(template)}
+                          onMouseEnter={() => setSelectedIndex(idx)}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '8px 12px',
+                            background: idx === selectedIndex ? '#2a2a2a' : 'transparent',
+                            border: 'none',
+                            borderTop: '1px solid #222',
+                            color: '#f3f4f6',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            borderRadius: idx === selectedIndex ? 6 : 0,
+                            transition: 'background 0.1s ease',
+                          }}
+                        >
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{template.label}</div>
+                          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                            {template.description}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-              {categoryTemplates.map((template) => {
-                const idx = flatIdx++;
-                return (
-                  <button
-                    key={template.nodeType}
-                    onClick={() => handleSelect(template)}
-                    onMouseEnter={() => setSelectedIndex(idx)}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '8px 12px',
-                      background: idx === selectedIndex ? '#2a2a2a' : 'transparent',
-                      border: 'none',
-                      borderTop: '1px solid #222',
-                      color: '#f3f4f6',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      borderRadius: idx === selectedIndex ? 6 : 0,
-                      transition: 'background 0.1s ease',
-                    }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{template.label}</div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                      {template.description}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

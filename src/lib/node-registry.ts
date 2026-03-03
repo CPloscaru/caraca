@@ -69,6 +69,14 @@ export const CATEGORY_ORDER: Record<NodeCategory, number> = {
   tools: 3,
 };
 
+/** Sort order for subcategories within the Animation category */
+export const SUBCATEGORY_ORDER: Record<string, number> = {
+  Generators: 1,
+  Effects: 2,
+  Composition: 3,
+  Preview: 4,
+};
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -413,6 +421,26 @@ export function getNodeTemplates(): NodeTemplate[] {
       category: e.category,
       subcategory: e.subcategory,
     }));
+}
+
+/**
+ * Group templates by subcategory within a category.
+ * Returns array of [subcategory | undefined, templates] sorted by SUBCATEGORY_ORDER.
+ */
+export function groupBySubcategory(
+  templates: NodeTemplate[],
+): [string | undefined, NodeTemplate[]][] {
+  const map = new Map<string | undefined, NodeTemplate[]>();
+  for (const t of templates) {
+    const sub = t.subcategory;
+    if (!map.has(sub)) map.set(sub, []);
+    map.get(sub)!.push(t);
+  }
+  return [...map.entries()].sort(([a], [b]) => {
+    const oa = a ? (SUBCATEGORY_ORDER[a] ?? 99) : 0;
+    const ob = b ? (SUBCATEGORY_ORDER[b] ?? 99) : 0;
+    return oa - ob;
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import { Search, StickyNote } from 'lucide-react';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
 import {
   getNodeTemplates,
+  groupBySubcategory,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   type NodeCategory,
@@ -185,25 +186,48 @@ export function ContextMenu({ position, onClose, onAddNode }: ContextMenuProps) 
         <Search size={14} style={{ color: '#9ca3af' }} />
         <span>Search Nodes...</span>
       </button>
-      {grouped.map(([category, templates]) => (
-        <div key={category}>
-          <div
-            style={{
-              padding: '6px 12px',
-              fontSize: 11,
-              color: '#9ca3af',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              borderTop: '1px solid #2a2a2a',
-              marginTop: 2,
-            }}
-          >
-            {CATEGORY_LABELS[category]}
+      {grouped.map(([category, templates]) => {
+        const hasSubcategories = templates.some((t) => t.subcategory);
+        return (
+          <div key={category}>
+            <div
+              style={{
+                padding: '6px 12px',
+                fontSize: 11,
+                color: '#9ca3af',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                borderTop: '1px solid #2a2a2a',
+                marginTop: 2,
+              }}
+            >
+              {CATEGORY_LABELS[category]}
+            </div>
+            {hasSubcategories
+              ? groupBySubcategory(templates).map(([sub, subTemplates]) => (
+                  <div key={sub ?? '_default'}>
+                    {sub && (
+                      <div
+                        style={{
+                          padding: '4px 12px 2px',
+                          fontSize: 9,
+                          color: '#6b7280',
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        {sub}
+                      </div>
+                    )}
+                    {subTemplates.map(renderNodeButton)}
+                  </div>
+                ))
+              : templates.map(renderNodeButton)}
           </div>
-          {templates.map(renderNodeButton)}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

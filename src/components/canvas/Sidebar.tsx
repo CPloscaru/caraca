@@ -6,6 +6,7 @@ import { useAppStore } from '@/stores/app-store';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
 import {
   getNodeTemplates,
+  groupBySubcategory,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   type NodeCategory,
@@ -184,9 +185,28 @@ export function Sidebar() {
               />
             </button>
             {!isCollapsed &&
-              templates.map((template) => (
-                <NodeEntry key={template.label} template={template} onDragStart={onDragStart} />
-              ))}
+              (() => {
+                const hasSubcategories = templates.some((t) => t.subcategory);
+                if (!hasSubcategories) {
+                  return templates.map((template) => (
+                    <NodeEntry key={template.label} template={template} onDragStart={onDragStart} />
+                  ));
+                }
+                return groupBySubcategory(templates).map(([sub, subTemplates]) => (
+                  <div key={sub ?? '_default'}>
+                    {sub && (
+                      <div
+                        className="px-3 pb-0.5 pt-2 text-[10px] font-medium uppercase tracking-wider text-gray-500"
+                      >
+                        {sub}
+                      </div>
+                    )}
+                    {subTemplates.map((template) => (
+                      <NodeEntry key={template.label} template={template} onDragStart={onDragStart} />
+                    ))}
+                  </div>
+                ));
+              })()}
           </div>
         );
       })}
