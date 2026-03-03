@@ -69,6 +69,9 @@ const BlurEffectNode = webglDynamic(
 const ColorCorrectionNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/ColorCorrectionNode'),
 );
+const DistortionEffectNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/DistortionEffectNode'),
+);
 const CompositionNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/CompositionNode'),
 );
@@ -94,6 +97,7 @@ const nodeTypes = {
   shapeGenerator: ShapeGeneratorNode,
   blurEffect: BlurEffectNode,
   colorCorrection: ColorCorrectionNode,
+  distortionEffect: DistortionEffectNode,
   composition: CompositionNode,
   webglPreview: WebGLPreviewNode,
 };
@@ -241,6 +245,21 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'distortionEffect') {
+    return {
+      extraData: {
+        distortionType: 'wave',
+        bypass: false,
+        preset: '',
+        amplitude: 0.02,
+        frequency: 5,
+        speed: 1,
+        strength: 0.5,
+        intensity: 0.01,
+        angle: 0,
+      },
+    };
+  }
   if (nodeType === 'composition') {
     return {
       extraData: {
@@ -289,6 +308,7 @@ function getNodeColor(node: Node): string {
     case 'colorCorrection': return '#00bcd4';
     case 'composition': return '#9c27b0';
     case 'colorCorrection': return '#00bcd4';
+    case 'distortionEffect': return '#00bcd4';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
