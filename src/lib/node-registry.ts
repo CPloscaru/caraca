@@ -74,7 +74,8 @@ export const SUBCATEGORY_ORDER: Record<string, number> = {
   Generators: 1,
   Effects: 2,
   Composition: 3,
-  Preview: 4,
+  Control: 4,
+  Preview: 5,
 };
 
 // ---------------------------------------------------------------------------
@@ -392,6 +393,20 @@ const NODE_REGISTRY_ARRAY = [
     available: true,
     category: 'animation',
     subcategory: 'Composition',
+  },
+  {
+    type: 'timeControl',
+    label: 'Time Control',
+    description: 'Control animation timing with speed, loop mode, and time range',
+    tags: ['time', 'control', 'animation', 'speed', 'loop', 'webgl'],
+    inputs: [],
+    outputs: [{ id: 'scalar-source-0', type: 'scalar' as const, label: 'Time' }],
+    resultFields: {},
+    stripOnExport: ['speed', 'loopMode', 'timeRangeStart', 'timeRangeEnd', 'isPlaying', 'positionSectionOpen'],
+    order: 600,
+    available: true,
+    category: 'animation',
+    subcategory: 'Control',
   },
   {
     type: 'canvasNote',

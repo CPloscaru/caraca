@@ -75,6 +75,9 @@ const DistortionEffectNode = webglDynamic(
 const CompositionNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/CompositionNode'),
 );
+const TimeControlNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/TimeControlNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -99,6 +102,7 @@ const nodeTypes = {
   colorCorrection: ColorCorrectionNode,
   distortionEffect: DistortionEffectNode,
   composition: CompositionNode,
+  timeControl: TimeControlNode,
   webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
@@ -260,6 +264,18 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'timeControl') {
+    return {
+      extraData: {
+        speed: 1,
+        loopMode: 'loop',
+        timeRangeStart: 0,
+        timeRangeEnd: 10,
+        isPlaying: true,
+        positionSectionOpen: true,
+      },
+    };
+  }
   if (nodeType === 'composition') {
     return {
       extraData: {
@@ -308,6 +324,7 @@ function getNodeColor(node: Node): string {
     case 'colorCorrection': return '#00bcd4';
     case 'distortionEffect': return '#00bcd4';
     case 'composition': return '#9c27b0';
+    case 'timeControl': return '#4caf50';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
