@@ -357,6 +357,8 @@ export function Dashboard() {
                   nodes={template.nodes}
                   edges={template.edges}
                   isNew={template.isNew}
+                  category={template.category}
+                  tags={template.tags}
                 />
               ))}
             </div>
@@ -383,6 +385,8 @@ export function Dashboard() {
                   nodes={template.nodes}
                   edges={template.edges}
                   isNew={template.isNew}
+                  category={template.category}
+                  tags={template.tags}
                 />
               ))}
             </div>

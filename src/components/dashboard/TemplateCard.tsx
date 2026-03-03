@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AnimationPreview } from '@/components/dashboard/AnimationPreview';
+import type { TemplateCategory } from '@/lib/templates';
 import type { Node, Edge } from '@xyflow/react';
 
 type TemplateCardProps = {
@@ -13,9 +15,12 @@ type TemplateCardProps = {
   edges: Edge[];
   isCustom?: boolean;
   isNew?: boolean;
+  category?: TemplateCategory;
+  tags?: string[];
 };
 
 export function TemplateCard({
+  id,
   title,
   description,
   thumbnailGradient,
@@ -23,6 +28,8 @@ export function TemplateCard({
   edges,
   isCustom,
   isNew,
+  category,
+  tags,
 }: TemplateCardProps) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -51,6 +58,8 @@ export function TemplateCard({
     }
   }, [creating, title, nodes, edges, router]);
 
+  const isAnimation = category === 'animation';
+
   return (
     <div
       onClick={handleClick}
@@ -75,30 +84,57 @@ export function TemplateCard({
         (e.currentTarget as HTMLElement).style.boxShadow = 'none';
       }}
     >
-      {/* Gradient thumbnail */}
-      <div
-        style={{
-          height: 160,
-          background: thumbnailGradient,
-          borderBottom: '1px solid #2a2a2a',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <span
+      {/* Thumbnail: live WebGL preview for animation, static gradient otherwise */}
+      {isAnimation ? (
+        <div
           style={{
-            color: 'rgba(255,255,255,0.7)',
-            fontSize: 12,
-            fontWeight: 500,
-            background: 'rgba(0,0,0,0.25)',
-            padding: '4px 10px',
-            borderRadius: 4,
+            height: 160,
+            borderBottom: '1px solid #2a2a2a',
+            position: 'relative',
           }}
         >
-          {nodes.length} node{nodes.length !== 1 ? 's' : ''}
-        </span>
-      </div>
+          <AnimationPreview templateId={id} height={160} />
+          <span
+            style={{
+              position: 'absolute',
+              bottom: 8,
+              right: 8,
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: 12,
+              fontWeight: 500,
+              background: 'rgba(0,0,0,0.25)',
+              padding: '4px 10px',
+              borderRadius: 4,
+            }}
+          >
+            {nodes.length} node{nodes.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      ) : (
+        <div
+          style={{
+            height: 160,
+            background: thumbnailGradient,
+            borderBottom: '1px solid #2a2a2a',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            style={{
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: 12,
+              fontWeight: 500,
+              background: 'rgba(0,0,0,0.25)',
+              padding: '4px 10px',
+              borderRadius: 4,
+            }}
+          >
+            {nodes.length} node{nodes.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
 
       {/* Custom badge */}
       {isCustom && (
@@ -170,6 +206,26 @@ export function TemplateCard({
         >
           {description}
         </div>
+
+        {/* Tag pills */}
+        {tags && tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#9ca3af',
+                  fontSize: 10,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
