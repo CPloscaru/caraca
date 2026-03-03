@@ -91,6 +91,11 @@ function CompositionNodeInner({ id, data, selected }: NodeProps) {
   useEffect(() => { layersRef.current = layers; }, [layers]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
+  // Notify React Flow about dynamic handles on mount & when layers change
+  useEffect(() => {
+    requestAnimationFrame(() => updateNodeInternals(id));
+  }, [id, layers.length, updateNodeInternals]);
+
   // Three.js refs
   const blendMatRef = useRef<THREE.ShaderMaterial | null>(null);
   const copyMatRef = useRef<THREE.ShaderMaterial | null>(null);
@@ -489,6 +494,7 @@ function CompositionNodeInner({ id, data, selected }: NodeProps) {
                 position={Position.Left}
                 portType="webgl"
                 portId={`webgl-target-layer-${layer.id}`}
+                handleId={`webgl-target-layer-${layer.id}`}
                 index={i}
                 style={{
                   top: '50%',
