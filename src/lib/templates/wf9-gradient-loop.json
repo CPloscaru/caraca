@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "title": "Gradient Loop",
+  "description": "Animated gradient with mouse-reactive color correction and blur. Runs immediately.",
+  "nodes": [
+    {
+      "id": "gl-time-1",
+      "type": "timeControl",
+      "position": { "x": 50, "y": 50 },
+      "data": {
+        "label": "Time Control",
+        "type": "timeControl",
+        "speed": 0.6,
+        "loopMode": "loop",
+        "timeRangeStart": 0,
+        "timeRangeEnd": 10,
+        "isPlaying": true,
+        "inputs": [],
+        "outputs": [{ "type": "scalar", "label": "Time", "id": "scalar-source-0" }]
+      }
+    },
+    {
+      "id": "gl-mouse-1",
+      "type": "mouseInteraction",
+      "position": { "x": 50, "y": 350 },
+      "data": {
+        "label": "Mouse Interaction",
+        "type": "mouseInteraction",
+        "easingPreset": "smooth",
+        "inputs": [],
+        "outputs": [
+          { "type": "scalar", "label": "X", "id": "scalar-source-0" },
+          { "type": "scalar", "label": "Y", "id": "scalar-source-1" },
+          { "type": "scalar", "label": "Distance", "id": "scalar-source-2" },
+          { "type": "scalar", "label": "Angle", "id": "scalar-source-3" },
+          { "type": "scalar", "label": "Click", "id": "scalar-source-4" },
+          { "type": "scalar", "label": "Scroll", "id": "scalar-source-5" },
+          { "type": "scalar", "label": "Pinch", "id": "scalar-source-6" },
+          { "type": "scalar", "label": "Rotation", "id": "scalar-source-7" }
+        ]
+      }
+    },
+    {
+      "id": "gl-gradient-1",
+      "type": "gradientGenerator",
+      "position": { "x": 400, "y": 150 },
+      "data": {
+        "label": "Gradient Generator",
+        "type": "gradientGenerator",
+        "gradientType": "mesh",
+        "colorStops": [
+          { "color": "#ff6b6b", "position": 0 },
+          { "color": "#4ecdc4", "position": 0.33 },
+          { "color": "#45b7d1", "position": 0.66 },
+          { "color": "#f7dc6f", "position": 1 }
+        ],
+        "speed": 0.8,
+        "inputs": [{ "type": "scalar", "label": "Speed", "id": "scalar-target-speed" }],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "gl-blur-1",
+      "type": "blurEffect",
+      "position": { "x": 750, "y": 150 },
+      "data": {
+        "label": "Blur Effect",
+        "type": "blurEffect",
+        "blurType": "gaussian",
+        "radius": 3,
+        "strength": 0.6,
+        "inputs": [
+          { "type": "webgl", "label": "Input", "id": "webgl-target-0" },
+          { "type": "scalar", "label": "Radius", "id": "scalar-target-radius" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "gl-color-1",
+      "type": "colorCorrection",
+      "position": { "x": 1100, "y": 150 },
+      "data": {
+        "label": "Color Correction",
+        "type": "colorCorrection",
+        "saturation": 1.3,
+        "brightness": 0.05,
+        "contrast": 1.1,
+        "hue": 0,
+        "inputs": [
+          { "type": "webgl", "label": "Input", "id": "webgl-target-0" },
+          { "type": "scalar", "label": "Hue", "id": "scalar-target-hue" },
+          { "type": "scalar", "label": "Brightness", "id": "scalar-target-brightness" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "gl-preview-1",
+      "type": "webglPreview",
+      "position": { "x": 1450, "y": 150 },
+      "data": {
+        "label": "WebGL Preview",
+        "type": "webglPreview",
+        "fpsCap": 60,
+        "resolutionPreset": "720p",
+        "isPlaying": true,
+        "inputs": [{ "type": "webgl", "label": "Source", "id": "webgl-target-0" }],
+        "outputs": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "gl-e1",
+      "source": "gl-time-1",
+      "target": "gl-gradient-1",
+      "sourceHandle": "scalar-source-0",
+      "targetHandle": "scalar-target-speed",
+      "type": "turbo"
+    },
+    {
+      "id": "gl-e2",
+      "source": "gl-mouse-1",
+      "target": "gl-color-1",
+      "sourceHandle": "scalar-source-0",
+      "targetHandle": "scalar-target-hue",
+      "type": "turbo"
+    },
+    {
+      "id": "gl-e3",
+      "source": "gl-mouse-1",
+      "target": "gl-blur-1",
+      "sourceHandle": "scalar-source-1",
+      "targetHandle": "scalar-target-radius",
+      "type": "turbo"
+    },
+    {
+      "id": "gl-e4",
+      "source": "gl-gradient-1",
+      "target": "gl-blur-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "gl-e5",
+      "source": "gl-blur-1",
+      "target": "gl-color-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "gl-e6",
+      "source": "gl-color-1",
+      "target": "gl-preview-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    }
+  ]
+}

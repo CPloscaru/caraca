@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "title": "Generative Art",
+  "description": "Procedural noise and shapes composited with effects for organic, animated visuals.",
+  "nodes": [
+    {
+      "id": "ga-time-1",
+      "type": "timeControl",
+      "position": { "x": 50, "y": 50 },
+      "data": {
+        "label": "Time Control",
+        "type": "timeControl",
+        "speed": 0.4,
+        "loopMode": "ping-pong",
+        "timeRangeStart": 0,
+        "timeRangeEnd": 15,
+        "isPlaying": true,
+        "inputs": [],
+        "outputs": [{ "type": "scalar", "label": "Time", "id": "scalar-source-0" }]
+      }
+    },
+    {
+      "id": "ga-noise-1",
+      "type": "noiseGenerator",
+      "position": { "x": 400, "y": 50 },
+      "data": {
+        "label": "Noise Generator",
+        "type": "noiseGenerator",
+        "noiseType": "simplex",
+        "scale": 3.0,
+        "octaves": 4,
+        "speed": 0.5,
+        "seed": 42,
+        "inputs": [
+          { "type": "scalar", "label": "Speed", "id": "scalar-target-speed" },
+          { "type": "scalar", "label": "Scale", "id": "scalar-target-scale" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "ga-shape-1",
+      "type": "shapeGenerator",
+      "position": { "x": 400, "y": 350 },
+      "data": {
+        "label": "Shape Generator",
+        "type": "shapeGenerator",
+        "shapeType": "circle",
+        "fillColor": "#e74c3c",
+        "fillAlpha": 0.8,
+        "borderColor": "#f39c12",
+        "borderWidth": 0.02,
+        "bgColor": "#000000",
+        "bgAlpha": 0,
+        "radius": 0.35,
+        "inputs": [
+          { "type": "webgl", "label": "Fill", "id": "webgl-target-0" },
+          { "type": "webgl", "label": "Border", "id": "webgl-target-1" },
+          { "type": "webgl", "label": "Background", "id": "webgl-target-2" },
+          { "type": "scalar", "label": "Rotation", "id": "scalar-target-rotation" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "ga-comp-1",
+      "type": "composition",
+      "position": { "x": 750, "y": 150 },
+      "data": {
+        "label": "Composition",
+        "type": "composition",
+        "layers": [
+          { "id": "layer-a", "opacity": 1, "blendMode": "normal" },
+          { "id": "layer-b", "opacity": 0.7, "blendMode": "additive" }
+        ],
+        "inputs": [
+          { "type": "webgl", "label": "Layer 0", "id": "webgl-target-layer-layer-a" },
+          { "type": "webgl", "label": "Layer 1", "id": "webgl-target-layer-layer-b" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "ga-blur-1",
+      "type": "blurEffect",
+      "position": { "x": 1050, "y": 50 },
+      "data": {
+        "label": "Blur Effect",
+        "type": "blurEffect",
+        "blurType": "radial",
+        "radius": 2,
+        "strength": 0.4,
+        "centerX": 0.5,
+        "centerY": 0.5,
+        "inputs": [
+          { "type": "webgl", "label": "Input", "id": "webgl-target-0" },
+          { "type": "scalar", "label": "Radius", "id": "scalar-target-radius" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "ga-distort-1",
+      "type": "distortionEffect",
+      "position": { "x": 1050, "y": 300 },
+      "data": {
+        "label": "Distortion Effect",
+        "type": "distortionEffect",
+        "distortionType": "chromatic_aberration",
+        "intensity": 0.015,
+        "inputs": [
+          { "type": "webgl", "label": "Input", "id": "webgl-target-0" },
+          { "type": "scalar", "label": "Speed", "id": "scalar-target-speed" },
+          { "type": "scalar", "label": "Amplitude", "id": "scalar-target-amplitude" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "ga-color-1",
+      "type": "colorCorrection",
+      "position": { "x": 1350, "y": 150 },
+      "data": {
+        "label": "Color Correction",
+        "type": "colorCorrection",
+        "hue": 0,
+        "saturation": 1.4,
+        "brightness": 0.08,
+        "contrast": 1.15,
+        "inputs": [
+          { "type": "webgl", "label": "Input", "id": "webgl-target-0" },
+          { "type": "scalar", "label": "Hue", "id": "scalar-target-hue" },
+          { "type": "scalar", "label": "Brightness", "id": "scalar-target-brightness" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "ga-preview-1",
+      "type": "webglPreview",
+      "position": { "x": 1700, "y": 150 },
+      "data": {
+        "label": "WebGL Preview",
+        "type": "webglPreview",
+        "fpsCap": 60,
+        "resolutionPreset": "720p",
+        "isPlaying": true,
+        "inputs": [{ "type": "webgl", "label": "Source", "id": "webgl-target-0" }],
+        "outputs": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "ga-e1",
+      "source": "ga-time-1",
+      "target": "ga-noise-1",
+      "sourceHandle": "scalar-source-0",
+      "targetHandle": "scalar-target-speed",
+      "type": "turbo"
+    },
+    {
+      "id": "ga-e2",
+      "source": "ga-noise-1",
+      "target": "ga-comp-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-layer-layer-a",
+      "type": "turbo"
+    },
+    {
+      "id": "ga-e3",
+      "source": "ga-shape-1",
+      "target": "ga-comp-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-layer-layer-b",
+      "type": "turbo"
+    },
+    {
+      "id": "ga-e4",
+      "source": "ga-comp-1",
+      "target": "ga-blur-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "ga-e5",
+      "source": "ga-blur-1",
+      "target": "ga-distort-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "ga-e6",
+      "source": "ga-distort-1",
+      "target": "ga-color-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "ga-e7",
+      "source": "ga-color-1",
+      "target": "ga-preview-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    }
+  ]
+}

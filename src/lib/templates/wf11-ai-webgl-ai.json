@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "title": "AI > WebGL > AI",
+  "description": "Generate an image with AI, apply WebGL effects, snapshot a frame, and upscale it.",
+  "nodes": [
+    {
+      "id": "aw-gen-1",
+      "type": "imageGenerator",
+      "position": { "x": 50, "y": 150 },
+      "data": {
+        "label": "Image Generator",
+        "type": "imageGenerator",
+        "prompt": "abstract landscape with flowing neon rivers and crystalline mountains, vibrant colors, digital art",
+        "model": "fal-ai/flux/dev",
+        "aspectRatio": "16:9",
+        "numImages": 1,
+        "images": [],
+        "selectedImageIndex": 0,
+        "inputs": [
+          { "type": "text", "label": "Prompt", "id": "text-target-0" },
+          { "type": "image", "label": "Reference", "id": "image-target-1" }
+        ],
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-source-0" }]
+      }
+    },
+    {
+      "id": "aw-layer-1",
+      "type": "imageLayer",
+      "position": { "x": 450, "y": 150 },
+      "data": {
+        "label": "Image Layer",
+        "type": "imageLayer",
+        "inputs": [{ "type": "image", "label": "Image", "id": "image-target-0" }],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "aw-distort-1",
+      "type": "distortionEffect",
+      "position": { "x": 800, "y": 150 },
+      "data": {
+        "label": "Distortion Effect",
+        "type": "distortionEffect",
+        "distortionType": "wave",
+        "amplitude": 0.03,
+        "frequency": 3.0,
+        "speed": 0.8,
+        "inputs": [
+          { "type": "webgl", "label": "Input", "id": "webgl-target-0" },
+          { "type": "scalar", "label": "Speed", "id": "scalar-target-speed" },
+          { "type": "scalar", "label": "Amplitude", "id": "scalar-target-amplitude" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "aw-color-1",
+      "type": "colorCorrection",
+      "position": { "x": 1150, "y": 150 },
+      "data": {
+        "label": "Color Correction",
+        "type": "colorCorrection",
+        "hue": 15,
+        "saturation": 1.3,
+        "brightness": 0.03,
+        "contrast": 1.1,
+        "inputs": [
+          { "type": "webgl", "label": "Input", "id": "webgl-target-0" },
+          { "type": "scalar", "label": "Hue", "id": "scalar-target-hue" },
+          { "type": "scalar", "label": "Brightness", "id": "scalar-target-brightness" }
+        ],
+        "outputs": [{ "type": "webgl", "label": "Output", "id": "webgl-source-0" }]
+      }
+    },
+    {
+      "id": "aw-preview-1",
+      "type": "webglPreview",
+      "position": { "x": 1500, "y": 50 },
+      "data": {
+        "label": "WebGL Preview",
+        "type": "webglPreview",
+        "fpsCap": 30,
+        "resolutionPreset": "720p",
+        "isPlaying": true,
+        "inputs": [{ "type": "webgl", "label": "Source", "id": "webgl-target-0" }],
+        "outputs": []
+      }
+    },
+    {
+      "id": "aw-snapshot-1",
+      "type": "webglSnapshot",
+      "position": { "x": 1500, "y": 350 },
+      "data": {
+        "label": "WebGL Snapshot",
+        "type": "webglSnapshot",
+        "scrubTime": 2.5,
+        "inputs": [{ "type": "webgl", "label": "Source", "id": "webgl-target-0" }],
+        "outputs": [{ "type": "image", "label": "Image", "id": "image-source-0" }]
+      }
+    },
+    {
+      "id": "aw-upscale-1",
+      "type": "imageUpscale",
+      "position": { "x": 1900, "y": 350 },
+      "data": {
+        "label": "Image Upscale",
+        "type": "imageUpscale",
+        "model": "fal-ai/clarity-upscaler",
+        "prompt": "",
+        "outputImage": null,
+        "inputImageUrl": null,
+        "inputDimensions": null,
+        "inputs": [
+          { "type": "image", "label": "Image", "id": "image-target-0" },
+          { "type": "text", "label": "Prompt", "id": "text-target-0" }
+        ],
+        "outputs": [{ "type": "image", "label": "Output", "id": "image-source-0" }]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "aw-e1",
+      "source": "aw-gen-1",
+      "target": "aw-layer-1",
+      "sourceHandle": "image-source-0",
+      "targetHandle": "image-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "aw-e2",
+      "source": "aw-layer-1",
+      "target": "aw-distort-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "aw-e3",
+      "source": "aw-distort-1",
+      "target": "aw-color-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "aw-e4",
+      "source": "aw-color-1",
+      "target": "aw-preview-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "aw-e5",
+      "source": "aw-color-1",
+      "target": "aw-snapshot-1",
+      "sourceHandle": "webgl-source-0",
+      "targetHandle": "webgl-target-0",
+      "type": "turbo"
+    },
+    {
+      "id": "aw-e6",
+      "source": "aw-snapshot-1",
+      "target": "aw-upscale-1",
+      "sourceHandle": "image-source-0",
+      "targetHandle": "image-target-0",
+      "type": "turbo"
+    }
+  ]
+}
