@@ -290,6 +290,27 @@ export type ColorCorrectionData = NodeData & {
   levelsSectionOpen: boolean;
 };
 
+// ---------------------------------------------------------------------------
+// Distortion Effect node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type DistortionType = 'wave' | 'twist' | 'ripple' | 'displacement' | 'chromatic_aberration';
+
+export type DistortionEffectData = NodeData & {
+  distortionType: DistortionType;
+  bypass: boolean;
+  preset: string;
+  // Wave / Ripple
+  amplitude: number;
+  frequency: number;
+  speed: number;
+  // Twist / Displacement
+  strength: number;
+  // Chromatic Aberration
+  intensity: number;
+  angle: number;
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;
