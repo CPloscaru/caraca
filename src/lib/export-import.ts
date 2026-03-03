@@ -11,11 +11,13 @@ type ExportInput = {
   title: string;
   nodes: Node[];
   edges: Edge[];
+  screenshot?: string;
 };
 
 type ExportPayload = {
   version: 1;
   title: string;
+  thumbnail?: string;
   nodes: Array<{
     id: string;
     type: string;
@@ -38,6 +40,45 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'workflow';
+}
+
+const THUMBNAIL_MAX_W = 640;
+const THUMBNAIL_MAX_H = 360;
+const THUMBNAIL_QUALITY = 0.7;
+/** Base64 size threshold (~100 KB) below which we skip re-encoding */
+const THUMBNAIL_SIZE_THRESHOLD = 100_000;
+
+/**
+ * Compress a data-URI screenshot to a JPEG thumbnail at reduced resolution.
+ * If the source is already small enough it is returned as-is.
+ */
+function compressThumbnail(dataUri: string): string {
+  // Rough base64 payload length (strip data:image/*;base64, prefix)
+  const base64Start = dataUri.indexOf(',');
+  if (base64Start !== -1 && dataUri.length - base64Start - 1 < THUMBNAIL_SIZE_THRESHOLD) {
+    return dataUri;
+  }
+
+  const img = new Image();
+  img.src = dataUri;
+
+  // Image must already be loaded (synchronous data URI)
+  let w = img.width || THUMBNAIL_MAX_W;
+  let h = img.height || THUMBNAIL_MAX_H;
+
+  if (w > THUMBNAIL_MAX_W || h > THUMBNAIL_MAX_H) {
+    const scale = Math.min(THUMBNAIL_MAX_W / w, THUMBNAIL_MAX_H / h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUri;
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', THUMBNAIL_QUALITY);
 }
 
 export function exportWorkflow(project: ExportInput): void {
@@ -76,6 +117,11 @@ export function exportWorkflow(project: ExportInput): void {
     edges: cleanEdges,
   };
 
+  // Embed a compressed screenshot thumbnail when provided
+  if (project.screenshot) {
+    payload.thumbnail = compressThumbnail(project.screenshot);
+  }
+
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: 'application/json',
   });
@@ -95,7 +141,7 @@ export function exportWorkflow(project: ExportInput): void {
 // ---------------------------------------------------------------------------
 
 type ValidationResult =
-  | { valid: true; data: { title: string; nodes: Node[]; edges: Edge[] } }
+  | { valid: true; data: { title: string; nodes: Node[]; edges: Edge[]; thumbnail?: string } }
   | { valid: false; error: string };
 
 function validateWorkflowJson(json: unknown): ValidationResult {
@@ -183,6 +229,7 @@ function validateWorkflowJson(json: unknown): ValidationResult {
       title: obj.title as string,
       nodes: obj.nodes as Node[],
       edges: obj.edges as Edge[],
+      ...(typeof obj.thumbnail === 'string' ? { thumbnail: obj.thumbnail } : {}),
     },
   };
 }
@@ -193,7 +240,7 @@ function validateWorkflowJson(json: unknown): ValidationResult {
 
 export async function importWorkflow(
   file: File,
-): Promise<{ title: string; nodes: Node[]; edges: Edge[] }> {
+): Promise<{ title: string; nodes: Node[]; edges: Edge[]; thumbnail?: string }> {
   const text = await file.text();
 
   let json: unknown;

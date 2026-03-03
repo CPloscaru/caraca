@@ -9,6 +9,7 @@ import {
   MiniMap,
   SelectionMode,
   useReactFlow,
+  type Edge,
   type Node,
 } from '@xyflow/react';
 import { useShallow } from 'zustand/shallow';
@@ -39,6 +40,7 @@ import {
 import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { getRegistryEntry, type NodeTemplate } from '@/lib/node-registry';
 import { useExecutionStore } from '@/stores/execution-store';
+import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import type { NodeData } from '@/types/canvas';
 
 // WebGL nodes — dynamically imported with SSR disabled
@@ -427,6 +429,23 @@ export function Canvas() {
   // Interaction mode: 'pan' (hand drag) or 'select' (box selection)
   const [interactionMode, setInteractionMode] = useState<'pan' | 'select'>('pan');
 
+  // Drag-drop import state
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const projectId = useExecutionStore((s) => s.projectId);
+
+  const handleCloseImport = useCallback(() => {
+    setImportFile(null);
+    setImportDialogOpen(false);
+  }, []);
+
+  const handleImportReplaced = useCallback(
+    (data: { title: string; nodes: Node[]; edges: Edge[] }) => {
+      useCanvasStore.getState().setNodesAndEdges(data.nodes, data.edges);
+    },
+    [],
+  );
+
   // Load favorites from SQLite on mount
   useEffect(() => {
     useFavoritesStore.getState().loadFavorites();
@@ -526,6 +545,16 @@ export function Canvas() {
         };
 
         addNode(newNode);
+        return;
+      }
+
+      // .caraca.json file drop — open ImportDialog
+      const jsonFiles = Array.from(event.dataTransfer.files).filter(
+        (f) => /\.caraca\.json$/i.test(f.name),
+      );
+      if (jsonFiles.length > 0) {
+        setImportFile(jsonFiles[0]);
+        setImportDialogOpen(true);
         return;
       }
 
@@ -683,6 +712,13 @@ export function Canvas() {
       {commandPaletteOpen && (
         <CommandPalette onAddNode={onCommandPaletteAddNode} />
       )}
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={handleCloseImport}
+        file={importFile}
+        currentProjectId={projectId ?? undefined}
+        onReplaced={handleImportReplaced}
+      />
       {/* Schema loading overlay */}
       {schemaLoading && (
         <div
