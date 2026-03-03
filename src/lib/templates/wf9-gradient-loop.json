@@ -26,7 +26,7 @@
       "data": {
         "label": "Mouse Interaction",
         "type": "mouseInteraction",
-        "easingPreset": "smooth",
+        "easingPreset": "ease-out",
         "inputs": [],
         "outputs": [
           { "type": "scalar", "label": "X", "id": "scalar-source-0" },
