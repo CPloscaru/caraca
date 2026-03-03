@@ -306,9 +306,8 @@ function getNodeColor(node: Node): string {
     case 'shapeGenerator': return '#ff6b35';
     case 'blurEffect': return '#00bcd4';
     case 'colorCorrection': return '#00bcd4';
-    case 'composition': return '#9c27b0';
-    case 'colorCorrection': return '#00bcd4';
     case 'distortionEffect': return '#00bcd4';
+    case 'composition': return '#9c27b0';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
