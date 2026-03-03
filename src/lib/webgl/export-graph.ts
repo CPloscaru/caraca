@@ -7,7 +7,7 @@
 
 import { useCanvasStore } from '@/stores/canvas-store';
 import { getUpstreamNodes } from '@/lib/dag';
-import type { Node, Edge } from '@xyflow/react';
+import type { Node } from '@xyflow/react';
 import type {
   GradientType,
   NoiseType,

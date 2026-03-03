@@ -10,6 +10,7 @@ import { useWebGLPreview } from '@/hooks/use-webgl-preview';
 import { PreviewCanvas } from './PreviewCanvas';
 import { PreviewToolbar } from './PreviewToolbar';
 import { PreviewFullscreenModal } from './PreviewFullscreenModal';
+import { ExportModal } from './ExportModal';
 import { getWebGLOutput } from '@/lib/webgl/output-map';
 import { emitMouseEvent } from '@/lib/mouse-event-bus';
 import type {
@@ -118,6 +119,9 @@ function WebGLPreviewNodeInner({ id, data, selected }: NodeProps) {
   // Fullscreen modal state
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
 
+  // Export modal state
+  const [exportOpen, setExportOpen] = useState(false);
+
   const handleDoubleClick = useCallback(() => {
     if (!isEmpty) setFullscreenOpen(true);
   }, [isEmpty]);
@@ -164,6 +168,7 @@ function WebGLPreviewNodeInner({ id, data, selected }: NodeProps) {
     <PreviewToolbar
       isPlaying={isPlaying}
       onTogglePlay={handleTogglePlay}
+      onExport={() => setExportOpen(true)}
       fpsCap={fpsCap}
       onFpsCapChange={handleFpsCapChange}
       resolutionPreset={resolutionPreset}
@@ -308,6 +313,19 @@ function WebGLPreviewNodeInner({ id, data, selected }: NodeProps) {
             isEmpty={isEmpty}
           />
         </PreviewFullscreenModal>
+      )}
+
+      {/* Export modal */}
+      {exportOpen && (
+        <ExportModal
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          previewNodeId={id}
+          initialResolution={resolutionPreset}
+          initialFpsCap={fpsCap}
+          initialCustomWidth={customWidth}
+          initialCustomHeight={customHeight}
+        />
       )}
 
       {/* Input handle — webgl target */}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, Code } from 'lucide-react';
 import type { FpsCap, ResolutionPreset } from '@/types/canvas';
 
 // ---------------------------------------------------------------------------
@@ -13,6 +13,7 @@ type SourceOption = { id: string; label: string };
 type PreviewToolbarProps = {
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onExport: () => void;
   fpsCap: FpsCap;
   onFpsCapChange: (cap: FpsCap) => void;
   resolutionPreset: ResolutionPreset;
@@ -35,6 +36,7 @@ type PreviewToolbarProps = {
 export function PreviewToolbar({
   isPlaying,
   onTogglePlay,
+  onExport,
   fpsCap,
   onFpsCapChange,
   resolutionPreset,
@@ -119,6 +121,28 @@ export function PreviewToolbar({
         }}
       >
         {isPlaying ? <Pause size={10} /> : <Play size={10} />}
+      </button>
+
+      {/* Export */}
+      <button
+        onClick={onExport}
+        disabled={disabled}
+        title="Exporter HTML"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+          border: 'none',
+          background: 'rgba(255,255,255,0.08)',
+          borderRadius: 4,
+          color: disabled ? '#444' : '#ccc',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          flexShrink: 0,
+        }}
+      >
+        <Code size={10} />
       </button>
 
       {/* FPS cap */}

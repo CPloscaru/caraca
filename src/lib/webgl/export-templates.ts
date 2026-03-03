@@ -286,7 +286,7 @@ function buildRawFramebuffers(passCount: number): string {
     }`;
 }
 
-function buildRawRenderLoop(passes: ExportPass[], fpsCap: number, tc: TimeControlExport | null, hasMouse: boolean): string {
+function buildRawRenderLoop(passes: ExportPass[], fpsCap: number, _tc: TimeControlExport | null, _hasMouse: boolean): string {
   const lines: string[] = [];
   const minFrameTime = fpsCap > 0 ? `const MIN_FRAME = ${Math.round(1000 / fpsCap)};` : 'const MIN_FRAME = 0;';
 
