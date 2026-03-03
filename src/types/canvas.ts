@@ -275,9 +275,40 @@ export type BlurEffectData = NodeData & {
   preset: string;
 };
 
+// ---------------------------------------------------------------------------
+// Color Correction node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type ColorCorrectionData = NodeData & {
+  bypass: boolean;
+  preset: string;
+  hue: number;
+  saturation: number;
+  brightness: number;
+  contrast: number;
+  colorSectionOpen: boolean;
+  levelsSectionOpen: boolean;
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;
+};
+
+// ---------------------------------------------------------------------------
+// Composition node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type BlendMode = 'normal' | 'multiply' | 'screen' | 'add';
+
+export type CompositionLayer = {
+  id: string;
+  blendMode: BlendMode;
+  opacity: number;
+};
+
+export type CompositionData = NodeData & {
+  layers: CompositionLayer[];
 };
 
 // ---------------------------------------------------------------------------

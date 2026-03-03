@@ -66,6 +66,9 @@ const ShapeGeneratorNode = webglDynamic(
 const BlurEffectNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/BlurEffectNode'),
 );
+const ColorCorrectionNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/ColorCorrectionNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -87,6 +90,7 @@ const nodeTypes = {
   textLayer: TextLayerNode,
   shapeGenerator: ShapeGeneratorNode,
   blurEffect: BlurEffectNode,
+  colorCorrection: ColorCorrectionNode,
   webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
@@ -219,6 +223,20 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'colorCorrection') {
+    return {
+      extraData: {
+        bypass: false,
+        preset: '',
+        hue: 0,
+        saturation: 0,
+        brightness: 0,
+        contrast: 0,
+        colorSectionOpen: true,
+        levelsSectionOpen: true,
+      },
+    };
+  }
   if (nodeType === 'webglPreview') {
     return {
       style: { width: 300, height: 200 },
@@ -254,6 +272,7 @@ function getNodeColor(node: Node): string {
     case 'textLayer': return '#ff6b35';
     case 'shapeGenerator': return '#ff6b35';
     case 'blurEffect': return '#00bcd4';
+    case 'colorCorrection': return '#00bcd4';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
