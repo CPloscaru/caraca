@@ -81,6 +81,9 @@ const TimeControlNode = webglDynamic(
 const MouseInteractionNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/MouseInteractionNode'),
 );
+const WebGLSnapshotNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/WebGLSnapshotNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -107,6 +110,7 @@ const nodeTypes = {
   composition: CompositionNode,
   timeControl: TimeControlNode,
   mouseInteraction: MouseInteractionNode,
+  webglSnapshot: WebGLSnapshotNode,
   webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
@@ -308,6 +312,14 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'webglSnapshot') {
+    return {
+      extraData: {
+        scrubTime: 0.5,
+        capturedImageUrl: null,
+      },
+    };
+  }
   if (nodeType === 'webglPreview') {
     return {
       style: { width: 300, height: 200 },
@@ -348,6 +360,7 @@ function getNodeColor(node: Node): string {
     case 'composition': return '#9c27b0';
     case 'timeControl': return '#4caf50';
     case 'mouseInteraction': return '#4caf50';
+    case 'webglSnapshot': return '#4caf50';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }

@@ -348,6 +348,15 @@ export type MouseInteractionData = NodeData & {
   smoothingSectionOpen: boolean;
 };
 
+// ---------------------------------------------------------------------------
+// WebGL Snapshot node types (Phase 46)
+// ---------------------------------------------------------------------------
+
+export type WebGLSnapshotData = NodeData & {
+  scrubTime: number;              // 0-1 normalized timeline position
+  capturedImageUrl: string | null; // data URL of captured frame (PNG)
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;
