@@ -326,6 +326,28 @@ export type DistortionEffectData = NodeData & {
   angle: number;
 };
 
+// ---------------------------------------------------------------------------
+// Mouse Interaction node types (Phase 45)
+// ---------------------------------------------------------------------------
+
+export type ClickStateMode = 'momentary' | 'toggle';
+export type EasingPreset = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'spring';
+export type RangeMapping = {
+  preset: '0-1' | '-1-1' | '0-360' | 'custom';
+  min: number;
+  max: number;
+};
+
+export type MouseInteractionData = NodeData & {
+  clickStateMode: ClickStateMode;
+  easingPreset: EasingPreset;
+  rangeMappings: Record<string, RangeMapping>;
+  positionSectionOpen: boolean;
+  gesturesSectionOpen: boolean;
+  rangeMappingSectionOpen: boolean;
+  smoothingSectionOpen: boolean;
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;

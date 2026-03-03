@@ -11,6 +11,7 @@ import { PreviewCanvas } from './PreviewCanvas';
 import { PreviewToolbar } from './PreviewToolbar';
 import { PreviewFullscreenModal } from './PreviewFullscreenModal';
 import { getWebGLOutput } from '@/lib/webgl/output-map';
+import { emitMouseEvent } from '@/lib/mouse-event-bus';
 import type {
   FpsCap,
   ResolutionPreset,
@@ -222,8 +223,57 @@ function WebGLPreviewNodeInner({ id, data, selected }: NodeProps) {
         </span>
       </div>
 
-      {/* Preview area */}
-      <div style={{ flex: 1, minHeight: 100 }}>
+      {/* Preview area — emits mouse events for control nodes */}
+      <div
+        style={{ flex: 1, minHeight: 100 }}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+          emitMouseEvent({ x, y, pressed: e.buttons > 0, scrollDelta: 0, touches: [] });
+        }}
+        onMouseDown={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+          emitMouseEvent({ x, y, pressed: true, scrollDelta: 0, touches: [] });
+        }}
+        onMouseUp={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+          emitMouseEvent({ x, y, pressed: false, scrollDelta: 0, touches: [] });
+        }}
+        onWheel={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+          emitMouseEvent({ x, y, pressed: false, scrollDelta: e.deltaY / 100, touches: [] });
+        }}
+        onTouchMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const touches = Array.from(e.touches).map(t => ({
+            x: Math.max(0, Math.min(1, (t.clientX - rect.left) / rect.width)),
+            y: Math.max(0, Math.min(1, (t.clientY - rect.top) / rect.height)),
+          }));
+          const cx = touches.reduce((s, t) => s + t.x, 0) / touches.length;
+          const cy = touches.reduce((s, t) => s + t.y, 0) / touches.length;
+          emitMouseEvent({ x: cx, y: cy, pressed: true, scrollDelta: 0, touches });
+        }}
+        onTouchStart={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const touches = Array.from(e.touches).map(t => ({
+            x: Math.max(0, Math.min(1, (t.clientX - rect.left) / rect.width)),
+            y: Math.max(0, Math.min(1, (t.clientY - rect.top) / rect.height)),
+          }));
+          const cx = touches.reduce((s, t) => s + t.x, 0) / touches.length;
+          const cy = touches.reduce((s, t) => s + t.y, 0) / touches.length;
+          emitMouseEvent({ x: cx, y: cy, pressed: true, scrollDelta: 0, touches });
+        }}
+        onTouchEnd={() => {
+          // Do not emit on touch end -- freeze behavior
+        }}
+      >
         {fullscreenOpen ? (
           /* When fullscreen is open, show placeholder in node body */
           <div style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

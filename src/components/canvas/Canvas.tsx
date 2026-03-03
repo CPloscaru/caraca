@@ -78,6 +78,9 @@ const CompositionNode = webglDynamic(
 const TimeControlNode = webglDynamic(
   () => import('@/components/canvas/nodes/webgl/TimeControlNode'),
 );
+const MouseInteractionNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/MouseInteractionNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -103,6 +106,7 @@ const nodeTypes = {
   distortionEffect: DistortionEffectNode,
   composition: CompositionNode,
   timeControl: TimeControlNode,
+  mouseInteraction: MouseInteractionNode,
   webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
@@ -276,6 +280,24 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       },
     };
   }
+  if (nodeType === 'mouseInteraction') {
+    return {
+      extraData: {
+        clickStateMode: 'momentary',
+        easingPreset: 'linear',
+        rangeMappings: {
+          X: { preset: '0-1', min: 0, max: 1 },
+          Y: { preset: '0-1', min: 0, max: 1 },
+          Distance: { preset: '0-1', min: 0, max: 1 },
+          Angle: { preset: '0-360', min: 0, max: 360 },
+        },
+        positionSectionOpen: true,
+        gesturesSectionOpen: false,
+        rangeMappingSectionOpen: false,
+        smoothingSectionOpen: false,
+      },
+    };
+  }
   if (nodeType === 'composition') {
     return {
       extraData: {
@@ -325,6 +347,7 @@ function getNodeColor(node: Node): string {
     case 'distortionEffect': return '#00bcd4';
     case 'composition': return '#9c27b0';
     case 'timeControl': return '#4caf50';
+    case 'mouseInteraction': return '#4caf50';
     case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
