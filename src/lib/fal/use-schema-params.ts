@@ -80,9 +80,22 @@ export function useSchemaParams(
       const filtered = tree.filter((n) => !allExcluded.has(n.name));
       setFilteredTree(filtered);
 
-      // Reset schemaParams when model changes (old params may not apply)
+      // Reset schemaParams when model changes, seeding with schema defaults
+      // so the executor always has the full param set.
       if (prevModel.current !== model) {
-        updateNodeData(nodeId, { schemaParams: undefined });
+        const defaults: Record<string, unknown> = {};
+        for (const f of extra) {
+          if (f.default !== undefined) defaults[f.name] = f.default;
+        }
+        // Also seed defaults from filtered tree nodes (enum defaults, etc.)
+        for (const n of filtered) {
+          if (n.default !== undefined && defaults[n.name] === undefined) {
+            defaults[n.name] = n.default;
+          }
+        }
+        updateNodeData(nodeId, {
+          schemaParams: Object.keys(defaults).length > 0 ? defaults : undefined,
+        });
         prevModel.current = model;
       }
     });

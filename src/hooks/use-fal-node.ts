@@ -182,6 +182,7 @@ export function useFalNode(options: UseFalNodeOptions): UseFalNodeReturn {
 
   // ---- Fetch schema on model change ----
   useEffect(() => {
+    if (!model) return;          // skip fetch for empty/unset model
     let cancelled = false;
 
     if (hasDynamicPorts) {

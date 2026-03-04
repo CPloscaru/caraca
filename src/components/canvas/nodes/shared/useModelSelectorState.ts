@@ -88,6 +88,17 @@ export function useModelSelectorState<TData>(
     [doFetch],
   );
 
+  // Re-fetch when fetchUrl changes (e.g. mode/category switch) ---------------
+  const prevUrlRef = useRef(fetchUrl);
+  useEffect(() => {
+    if (prevUrlRef.current !== fetchUrl) {
+      prevUrlRef.current = fetchUrl;
+      fetchedRef.current = false;
+      setData(null);
+      doFetch();
+    }
+  }, [fetchUrl, doFetch]);
+
   // Eager fetch on mount (e.g. ModelSelector needs display name immediately) -
   const didEagerFetch = useRef(false);
   useEffect(() => {
