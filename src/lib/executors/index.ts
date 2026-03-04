@@ -110,7 +110,7 @@ export async function runSingleNode(nodeId: string): Promise<void> {
   const sortedIds = [...upstreamIds, ...downstreamIds.filter((id) => id !== nodeId)];
 
   // Start execution
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution(nodeId);
   const signal = controller.signal;
 
   // Build cached results from upstream nodes that already have 'done' status.
@@ -183,7 +183,7 @@ export async function runSingleNode(nodeId: string): Promise<void> {
       console.error('Execution error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution(nodeId);
   }
 }
 
@@ -222,7 +222,7 @@ export async function runAllWorkflow(): Promise<void> {
   const sortedIds = topologicalSort(nodeIds, edgesSimple);
 
   // Start execution
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution('__workflow__');
   const signal = controller.signal;
 
   // Set all nodes to pending
@@ -280,7 +280,7 @@ export async function runAllWorkflow(): Promise<void> {
       console.error('Execution error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution('__workflow__');
   }
 }
 
@@ -331,7 +331,7 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
   const sortedIds = getDownstreamNodes(batchNodeId, nodeIds, edgesSimple);
 
   // Start execution
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution(batchNodeId);
   const signal = controller.signal;
 
   for (const id of sortedIds) {
@@ -418,7 +418,7 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
       console.error('Batch execution error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution(batchNodeId);
     useExecutionStore.getState().clearBatchProgress(batchNodeId);
   }
 }
@@ -455,7 +455,7 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
 
   const sortedIds = getDownstreamNodes(batchNodeId, nodeIds, edgesSimple);
 
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution(batchNodeId);
   const signal = controller.signal;
 
   for (const id of sortedIds) {
@@ -544,7 +544,7 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
       console.error('Batch retry error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution(batchNodeId);
     useExecutionStore.getState().clearBatchProgress(batchNodeId);
   }
 }

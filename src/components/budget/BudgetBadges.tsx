@@ -188,7 +188,7 @@ export function BudgetBadges() {
   const openRouter = useBudgetStore((s) => s.openRouter);
   const thresholds = useBudgetStore((s) => s.thresholds);
   const fetchBalances = useBudgetStore((s) => s.fetchBalances);
-  const isRunning = useExecutionStore((s) => s.isRunning);
+  const isRunning = useExecutionStore((s) => Object.keys(s.activeExecutions).length > 0);
   const prevRunningRef = useRef(false);
 
   // Initial fetch on mount
