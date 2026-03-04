@@ -116,10 +116,14 @@ export async function runSingleNode(nodeId: string): Promise<void> {
   // Build cached results from upstream nodes that already have 'done' status.
   // The target node itself and all downstream nodes are never cached — they must re-execute
   // to receive fresh data from the target node.
+  // Source nodes (no incoming edges) are never cached — their data (imageUrl, prompt, etc.)
+  // can change between executions without any signal to the execution store.
   const downstreamSet = new Set(downstreamIds);
+  const nodesWithInputs = new Set(edges.map((e) => e.target));
   const cachedResults: Record<string, Record<string, unknown>> = {};
   for (const id of sortedIds) {
     if (id === nodeId || downstreamSet.has(id)) continue;
+    if (!nodesWithInputs.has(id)) continue; // source nodes: always re-execute
     const state = execStore.nodeStates[id];
     if (state?.status === 'done' && state.result) {
       cachedResults[id] = state.result as Record<string, unknown>;
