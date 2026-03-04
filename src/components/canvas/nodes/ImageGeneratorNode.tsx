@@ -305,7 +305,22 @@ export function ImageGeneratorNode({ id, data, selected }: NodeProps) {
               Aspect
             </label>
             <div className="flex flex-wrap gap-0.5">
-              {config.hasImageSize && config.imageSizeOptions && config.imageSizeOptions.length > 0 ? (
+              {config.hasAspectRatio && config.aspectRatioOptions && config.aspectRatioOptions.length > 0 ? (
+                config.aspectRatioOptions.map((option) => (
+                  <button
+                    key={option}
+                    className={`nodrag rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                      (paramValues.aspect_ratio ?? config.aspectRatioOptions![0]) === option
+                        ? 'bg-purple-500/20 text-purple-300'
+                        : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
+                    }`}
+                    onClick={() => setParam('aspect_ratio', option)}
+                    title={option}
+                  >
+                    {option}
+                  </button>
+                ))
+              ) : config.hasImageSize && config.imageSizeOptions && config.imageSizeOptions.length > 0 ? (
                 config.imageSizeOptions.map((option) => (
                   <button
                     key={option}

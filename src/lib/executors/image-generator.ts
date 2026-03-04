@@ -33,8 +33,9 @@ export const imageGeneratorExecutor: NodeExecutor = async (
   // whether the schema already provides image_size / num_images.
   applySchemaParams(falInput, nodeData as Record<string, unknown>);
 
-  // image_size: only set if not already provided by schema params
-  if (!('image_size' in falInput)) {
+  // image_size: only set if not already provided by schema params and no
+  // aspect_ratio field (models use one or the other, never both).
+  if (!('image_size' in falInput) && !('aspect_ratio' in falInput)) {
     const imageSizeOption = (data as Record<string, unknown>).imageSizeOption as string | undefined;
     if (imageSizeOption) {
       falInput.image_size = imageSizeOption;

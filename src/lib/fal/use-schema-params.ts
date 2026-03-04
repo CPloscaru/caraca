@@ -87,10 +87,16 @@ export function useSchemaParams(
         for (const f of extra) {
           if (f.default !== undefined) defaults[f.name] = f.default;
         }
-        // Also seed defaults from filtered tree nodes (enum defaults, etc.)
-        for (const n of filtered) {
-          if (n.default !== undefined && defaults[n.name] === undefined) {
+        // Seed from full tree (including dedicated fields) so the executor
+        // always has values for aspect_ratio, image_size, etc.
+        for (const n of tree) {
+          if (defaults[n.name] !== undefined) continue;
+          if (n.default !== undefined) {
             defaults[n.name] = n.default;
+          } else if (n.kind === 'enum' && n.enum && n.enum.length > 0) {
+            defaults[n.name] = n.enum[0];
+          } else if (n.kind === 'boolean') {
+            defaults[n.name] = false;
           }
         }
         updateNodeData(nodeId, {
