@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimationPreview } from '@/components/dashboard/AnimationPreview';
+import { WorkflowDiagram } from '@/components/dashboard/WorkflowDiagram';
 import type { TemplateCategory } from '@/lib/templates';
 import type { Node, Edge } from '@xyflow/react';
 
@@ -111,29 +112,12 @@ export function TemplateCard({
           </span>
         </div>
       ) : (
-        <div
-          style={{
-            height: 160,
-            background: thumbnailGradient,
-            borderBottom: '1px solid #2a2a2a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span
-            style={{
-              color: 'rgba(255,255,255,0.7)',
-              fontSize: 12,
-              fontWeight: 500,
-              background: 'rgba(0,0,0,0.25)',
-              padding: '4px 10px',
-              borderRadius: 4,
-            }}
-          >
-            {nodes.length} node{nodes.length !== 1 ? 's' : ''}
-          </span>
-        </div>
+        <WorkflowDiagram
+          nodes={nodes}
+          edges={edges}
+          gradient={thumbnailGradient}
+          height={160}
+        />
       )}
 
       {/* Custom badge */}
