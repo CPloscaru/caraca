@@ -29,16 +29,23 @@ export const imageGeneratorExecutor: NodeExecutor = async (
     prompt: resolvedPrompt,
   };
 
-  // Use string enum if available (schema-driven), fall back to width/height object
-  const imageSizeOption = (data as Record<string, unknown>).imageSizeOption as string | undefined;
-  if (imageSizeOption) {
-    falInput.image_size = imageSizeOption;
-  } else {
-    falInput.image_size = ASPECT_RATIO_PRESETS[aspectRatio] || { width: 1024, height: 1024 };
+  // Merge dynamic schema params early so dedicated fields below can detect
+  // whether the schema already provides image_size / num_images.
+  applySchemaParams(falInput, nodeData as Record<string, unknown>);
+
+  // image_size: only set if not already provided by schema params and no
+  // aspect_ratio field (models use one or the other, never both).
+  if (!('image_size' in falInput) && !('aspect_ratio' in falInput)) {
+    const imageSizeOption = (data as Record<string, unknown>).imageSizeOption as string | undefined;
+    if (imageSizeOption) {
+      falInput.image_size = imageSizeOption;
+    } else {
+      falInput.image_size = ASPECT_RATIO_PRESETS[aspectRatio] || { width: 1024, height: 1024 };
+    }
   }
 
-  // Only send num_images when > 1 (avoids unsupported-param errors on models without it)
-  if (numImages > 1) {
+  // num_images: only set if not already provided by schema params and > 1
+  if (!('num_images' in falInput) && numImages > 1) {
     falInput.num_images = numImages;
   }
 
@@ -59,9 +66,6 @@ export const imageGeneratorExecutor: NodeExecutor = async (
 
   // Apply text port inputs (connected Text Input nodes override inline values)
   applyTextPortInputs(inputs, falInput);
-
-  // Merge dynamic schema params (won't overwrite dedicated keys)
-  applySchemaParams(falInput, nodeData as Record<string, unknown>);
 
   // Capture debug request payload
   const debugRequest = { model, ...falInput };

@@ -143,7 +143,7 @@ export function useFalNode(options: UseFalNodeOptions): UseFalNodeReturn {
 
   const handleRun = useCallback(() => {
     if (isRunning || isPending) {
-      useExecutionStore.getState().cancelExecution();
+      useExecutionStore.getState().cancelExecution(nodeId);
       return;
     }
     if (upstreamBatch && upstreamBatch.values.length > 0) {
@@ -182,6 +182,7 @@ export function useFalNode(options: UseFalNodeOptions): UseFalNodeReturn {
 
   // ---- Fetch schema on model change ----
   useEffect(() => {
+    if (!model) return;          // skip fetch for empty/unset model
     let cancelled = false;
 
     if (hasDynamicPorts) {

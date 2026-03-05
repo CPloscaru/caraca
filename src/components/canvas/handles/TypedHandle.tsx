@@ -78,25 +78,32 @@ export function TypedHandle({ portType, portId: _portId, index,
   }
 
   const content = (
-    <div className="relative flex items-center" style={{ pointerEvents: 'none' }}>
+    <>
       {handleElement}
-      {label && (
-        <span
-          className="pointer-events-none absolute whitespace-nowrap text-[9px] text-gray-400"
-          style={isTarget ? { left: 18 } : { right: 18 }}
+      {(label || badgeText) && (
+        <div
+          className="pointer-events-none absolute flex flex-col"
+          style={{
+            top: (rest as Record<string, unknown>).style
+              ? ((rest as Record<string, unknown>).style as CSSProperties).top
+              : undefined,
+            ...(isTarget ? { left: 18 } : { right: 18 }),
+            transform: 'translateY(-50%)',
+          }}
         >
-          {label}
-        </span>
+          {label && (
+            <span className="whitespace-nowrap text-[9px] text-gray-400">
+              {label}
+            </span>
+          )}
+          {badgeText && (
+            <span className="whitespace-nowrap rounded bg-white/10 px-1 text-[8px] text-gray-400">
+              {badgeText}
+            </span>
+          )}
+        </div>
       )}
-      {badgeText && (
-        <span
-          className="pointer-events-none absolute whitespace-nowrap rounded bg-white/10 px-1 text-[8px] text-gray-400"
-          style={isTarget ? { left: 18, top: 12 } : { right: 18, top: 12 }}
-        >
-          {badgeText}
-        </span>
-      )}
-    </div>
+    </>
   );
 
   if (tooltip) {

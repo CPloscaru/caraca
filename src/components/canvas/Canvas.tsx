@@ -9,6 +9,7 @@ import {
   MiniMap,
   SelectionMode,
   useReactFlow,
+  type Edge,
   type Node,
 } from '@xyflow/react';
 import { useShallow } from 'zustand/shallow';
@@ -29,6 +30,7 @@ import { BatchParameterNode } from '@/components/canvas/nodes/BatchParameterNode
 import { NoteNode } from '@/components/canvas/nodes/NoteNode';
 import { TextDisplayNode } from '@/components/canvas/nodes/TextDisplayNode';
 import { withNodeErrorBoundary } from '@/components/canvas/nodes/NodeErrorBoundary';
+import { webglDynamic } from '@/lib/webgl/dynamic';
 import { TurboEdge } from '@/components/canvas/edges/TurboEdge';
 import { AnnotationEdge } from '@/components/canvas/edges/AnnotationEdge';
 import {
@@ -38,7 +40,52 @@ import {
 import { CommandPalette } from '@/components/canvas/CommandPalette';
 import { getRegistryEntry, type NodeTemplate } from '@/lib/node-registry';
 import { useExecutionStore } from '@/stores/execution-store';
+import { ImportDialog } from '@/components/dashboard/ImportDialog';
 import type { NodeData } from '@/types/canvas';
+
+// WebGL nodes — dynamically imported with SSR disabled
+const GradientGeneratorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/GradientGeneratorNode'),
+);
+const WebGLPreviewNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/WebGLPreviewNode'),
+);
+const SolidColorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/SolidColorNode'),
+);
+const NoiseGeneratorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/NoiseGeneratorNode'),
+);
+const ImageLayerNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/ImageLayerNode'),
+);
+const TextLayerNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/TextLayerNode'),
+);
+const ShapeGeneratorNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/ShapeGeneratorNode'),
+);
+const BlurEffectNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/BlurEffectNode'),
+);
+const ColorCorrectionNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/ColorCorrectionNode'),
+);
+const DistortionEffectNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/DistortionEffectNode'),
+);
+const CompositionNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/CompositionNode'),
+);
+const TimeControlNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/TimeControlNode'),
+);
+const MouseInteractionNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/MouseInteractionNode'),
+);
+const WebGLSnapshotNode = webglDynamic(
+  () => import('@/components/canvas/nodes/webgl/WebGLSnapshotNode'),
+);
 
 // NOTE: When adding a new node type, also add its component here (registry handles everything else)
 const nodeTypes = {
@@ -53,6 +100,20 @@ const nodeTypes = {
   batchParameter: withNodeErrorBoundary(BatchParameterNode),
   canvasNote: withNodeErrorBoundary(NoteNode),
   textDisplay: withNodeErrorBoundary(TextDisplayNode),
+  gradientGenerator: GradientGeneratorNode,
+  solidColor: SolidColorNode,
+  noiseGenerator: NoiseGeneratorNode,
+  imageLayer: ImageLayerNode,
+  textLayer: TextLayerNode,
+  shapeGenerator: ShapeGeneratorNode,
+  blurEffect: BlurEffectNode,
+  colorCorrection: ColorCorrectionNode,
+  distortionEffect: DistortionEffectNode,
+  composition: CompositionNode,
+  timeControl: TimeControlNode,
+  mouseInteraction: MouseInteractionNode,
+  webglSnapshot: WebGLSnapshotNode,
+  webglPreview: WebGLPreviewNode,
 };
 const edgeTypes = { turbo: TurboEdge, annotationEdge: AnnotationEdge };
 
@@ -75,6 +136,205 @@ function getNoteNodeExtras(nodeType: string): { style?: Record<string, number>; 
       extraData: { displayText: null },
     };
   }
+  if (nodeType === 'gradientGenerator') {
+    return {
+      extraData: {
+        gradientType: 'linear',
+        colorStops: [
+          { color: '#6366f1', position: 0 },
+          { color: '#ec4899', position: 1 },
+        ],
+        angle: 45,
+        speed: 1,
+        width: 512,
+        height: 512,
+      },
+    };
+  }
+  if (nodeType === 'solidColor') {
+    return {
+      extraData: {
+        color: '#ffffff',
+        alpha: 1,
+      },
+    };
+  }
+  if (nodeType === 'noiseGenerator') {
+    return {
+      extraData: {
+        noiseType: 'perlin',
+        scale: 10,
+        octaves: 4,
+        speed: 1,
+        seed: 42,
+        directionX: 1,
+        directionY: 0,
+      },
+    };
+  }
+  if (nodeType === 'shapeGenerator') {
+    return {
+      extraData: {
+        shapeType: 'rectangle',
+        fillColor: '#ffffff',
+        fillAlpha: 1,
+        borderColor: '#000000',
+        borderWidth: 0,
+        opacity: 1,
+        rotation: 0,
+        offsetX: 0,
+        offsetY: 0,
+        bgColor: '#000000',
+        bgAlpha: 0,
+        width: 0.4,
+        height: 0.4,
+        cornerTL: 0,
+        cornerTR: 0,
+        cornerBL: 0,
+        cornerBR: 0,
+        radius: 0.3,
+        sides: 6,
+        starMode: false,
+        innerRadius: 0.15,
+        polyRadius: 0.3,
+      },
+    };
+  }
+  if (nodeType === 'imageLayer') {
+    return {
+      extraData: {
+        imageUrl: null,
+      },
+    };
+  }
+  if (nodeType === 'textLayer') {
+    return {
+      extraData: {
+        text: 'Hello World',
+        fontFamily: 'Arial',
+        fontSize: 48,
+        fontColor: '#ffffff',
+        alignment: 'center',
+        bold: false,
+        italic: false,
+        outlineColor: '#000000',
+        outlineWidth: 0,
+        shadowColor: '#000000',
+        shadowOffsetX: 2,
+        shadowOffsetY: 2,
+        shadowBlur: 0,
+        textBoxWidth: 400,
+        offsetX: 0,
+        offsetY: 0,
+        bgColor: '#000000',
+        bgAlpha: 0,
+      },
+    };
+  }
+  if (nodeType === 'blurEffect') {
+    return {
+      extraData: {
+        blurType: 'gaussian',
+        bypass: false,
+        radius: 10,
+        strength: 0.2,
+        centerX: 0.5,
+        centerY: 0.5,
+        angle: 0,
+        preset: '',
+      },
+    };
+  }
+  if (nodeType === 'colorCorrection') {
+    return {
+      extraData: {
+        bypass: false,
+        preset: '',
+        hue: 0,
+        saturation: 0,
+        brightness: 0,
+        contrast: 0,
+        colorSectionOpen: true,
+        levelsSectionOpen: true,
+      },
+    };
+  }
+  if (nodeType === 'distortionEffect') {
+    return {
+      extraData: {
+        distortionType: 'wave',
+        bypass: false,
+        preset: '',
+        amplitude: 0.02,
+        frequency: 5,
+        speed: 1,
+        strength: 0.5,
+        intensity: 0.01,
+        angle: 0,
+      },
+    };
+  }
+  if (nodeType === 'timeControl') {
+    return {
+      extraData: {
+        speed: 1,
+        loopMode: 'loop',
+        timeRangeStart: 0,
+        timeRangeEnd: 10,
+        isPlaying: true,
+        positionSectionOpen: true,
+      },
+    };
+  }
+  if (nodeType === 'mouseInteraction') {
+    return {
+      extraData: {
+        clickStateMode: 'momentary',
+        easingPreset: 'linear',
+        rangeMappings: {
+          X: { preset: '0-1', min: 0, max: 1 },
+          Y: { preset: '0-1', min: 0, max: 1 },
+          Distance: { preset: '0-1', min: 0, max: 1 },
+          Angle: { preset: '0-360', min: 0, max: 360 },
+        },
+        positionSectionOpen: true,
+        gesturesSectionOpen: false,
+        rangeMappingSectionOpen: false,
+        smoothingSectionOpen: false,
+      },
+    };
+  }
+  if (nodeType === 'composition') {
+    return {
+      extraData: {
+        layers: [
+          { id: `layer_init_1`, blendMode: 'normal', opacity: 1 },
+          { id: `layer_init_2`, blendMode: 'normal', opacity: 1 },
+        ],
+      },
+    };
+  }
+  if (nodeType === 'webglSnapshot') {
+    return {
+      extraData: {
+        scrubTime: 0.5,
+        capturedImageUrl: null,
+      },
+    };
+  }
+  if (nodeType === 'webglPreview') {
+    return {
+      style: { width: 300, height: 200 },
+      extraData: {
+        fpsCap: 30,
+        resolutionPreset: '720p',
+        customWidth: 1280,
+        customHeight: 720,
+        isPlaying: false,
+        activeSourceIndex: 0,
+      },
+    };
+  }
   return {};
 }
 
@@ -90,6 +350,20 @@ function getNodeColor(node: Node): string {
     case 'imageToVideo': return '#f59e0b';
     case 'canvasNote': return '#ae53ba';
     case 'textDisplay': return '#6b7280';
+    case 'gradientGenerator': return '#ff6b35';
+    case 'solidColor': return '#ff6b35';
+    case 'noiseGenerator': return '#ff6b35';
+    case 'imageLayer': return '#ff6b35';
+    case 'textLayer': return '#ff6b35';
+    case 'shapeGenerator': return '#ff6b35';
+    case 'blurEffect': return '#00bcd4';
+    case 'colorCorrection': return '#00bcd4';
+    case 'distortionEffect': return '#00bcd4';
+    case 'composition': return '#9c27b0';
+    case 'timeControl': return '#4caf50';
+    case 'mouseInteraction': return '#4caf50';
+    case 'webglSnapshot': return '#4caf50';
+    case 'webglPreview': return '#ff6b35';
     default: return '#666';
   }
 }
@@ -154,6 +428,23 @@ export function Canvas() {
 
   // Interaction mode: 'pan' (hand drag) or 'select' (box selection)
   const [interactionMode, setInteractionMode] = useState<'pan' | 'select'>('pan');
+
+  // Drag-drop import state
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const projectId = useExecutionStore((s) => s.projectId);
+
+  const handleCloseImport = useCallback(() => {
+    setImportFile(null);
+    setImportDialogOpen(false);
+  }, []);
+
+  const handleImportReplaced = useCallback(
+    (data: { title: string; nodes: Node[]; edges: Edge[] }) => {
+      useCanvasStore.getState().setNodesAndEdges(data.nodes, data.edges);
+    },
+    [],
+  );
 
   // Load favorites from SQLite on mount
   useEffect(() => {
@@ -254,6 +545,16 @@ export function Canvas() {
         };
 
         addNode(newNode);
+        return;
+      }
+
+      // .caraca.json file drop — open ImportDialog
+      const jsonFiles = Array.from(event.dataTransfer.files).filter(
+        (f) => /\.caraca\.json$/i.test(f.name),
+      );
+      if (jsonFiles.length > 0) {
+        setImportFile(jsonFiles[0]);
+        setImportDialogOpen(true);
         return;
       }
 
@@ -411,6 +712,13 @@ export function Canvas() {
       {commandPaletteOpen && (
         <CommandPalette onAddNode={onCommandPaletteAddNode} />
       )}
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={handleCloseImport}
+        file={importFile}
+        currentProjectId={projectId ?? undefined}
+        onReplaced={handleImportReplaced}
+      />
       {/* Schema loading overlay */}
       {schemaLoading && (
         <div

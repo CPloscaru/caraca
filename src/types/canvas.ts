@@ -124,9 +124,258 @@ export type BatchParameterData = NodeData & {
   batchResults: BatchResultItem[] | null; // Collected results
 };
 
+// ---------------------------------------------------------------------------
+// WebGL preview node types (Phase 42)
+// ---------------------------------------------------------------------------
+
+export type ResolutionPreset = '720p' | '1080p' | '4k' | 'custom';
+export type FpsCap = 15 | 30 | 60;
+
+export const RESOLUTION_PRESETS: Record<Exclude<ResolutionPreset, 'custom'>, { width: number; height: number }> = {
+  '720p': { width: 1280, height: 720 },
+  '1080p': { width: 1920, height: 1080 },
+  '4k': { width: 3840, height: 2160 },
+};
+
+export type WebGLPreviewData = NodeData & {
+  fpsCap: FpsCap;
+  resolutionPreset: ResolutionPreset;
+  customWidth: number;
+  customHeight: number;
+  isPlaying: boolean;
+  activeSourceIndex: number;
+};
+
+// ---------------------------------------------------------------------------
+// WebGL generator node types (Phase 42)
+// ---------------------------------------------------------------------------
+
+export type GradientType = 'linear' | 'radial' | 'mesh';
+
+export type ColorStop = {
+  color: string;   // hex color e.g. "#ff0000"
+  position: number; // 0-1
+};
+
+export type GradientGeneratorData = NodeData & {
+  gradientType: GradientType;
+  colorStops: ColorStop[];
+  angle: number;      // 0-360, linear only
+  speed: number;      // animation speed multiplier (0-5, default 1)
+  width: number;      // render target width
+  height: number;     // render target height
+};
+
+// ---------------------------------------------------------------------------
+// Solid Color node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type SolidColorData = NodeData & {
+  color: string;
+  alpha: number;
+};
+
+// ---------------------------------------------------------------------------
+// Noise Generator node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type NoiseType = 'perlin' | 'simplex' | 'worley' | 'cellular';
+
+export type NoiseGeneratorData = NodeData & {
+  noiseType: NoiseType;
+  scale: number;
+  octaves: number;
+  speed: number;
+  seed: number;
+  directionX: number;
+  directionY: number;
+};
+
+// ---------------------------------------------------------------------------
+// Image Layer node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type ImageLayerData = NodeData & {
+  imageUrl: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Text Layer node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type TextLayerData = NodeData & {
+  text: string;
+  fontFamily: string;
+  fontSize: number;
+  fontColor: string;
+  alignment: 'left' | 'center' | 'right';
+  bold: boolean;
+  italic: boolean;
+  outlineColor: string;
+  outlineWidth: number;
+  shadowColor: string;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  shadowBlur: number;
+  textBoxWidth: number;
+  offsetX: number;
+  offsetY: number;
+  bgColor: string;
+  bgAlpha: number;
+};
+
+// ---------------------------------------------------------------------------
+// Shape Generator node types (Phase 43)
+// ---------------------------------------------------------------------------
+
+export type ShapeType = 'rectangle' | 'circle' | 'polygon';
+
+export type ShapeGeneratorData = NodeData & {
+  shapeType: ShapeType;
+  fillColor: string;
+  fillAlpha: number;
+  borderColor: string;
+  borderWidth: number;
+  opacity: number;
+  rotation: number;
+  offsetX: number;
+  offsetY: number;
+  bgColor: string;
+  bgAlpha: number;
+  // Rectangle-specific
+  width: number;
+  height: number;
+  cornerTL: number;
+  cornerTR: number;
+  cornerBL: number;
+  cornerBR: number;
+  // Circle-specific
+  radius: number;
+  // Polygon-specific
+  sides: number;
+  starMode: boolean;
+  innerRadius: number;
+  polyRadius: number;
+};
+
+// ---------------------------------------------------------------------------
+// Time Control node types (Phase 45)
+// ---------------------------------------------------------------------------
+
+export type LoopMode = 'loop' | 'ping-pong' | 'once';
+
+export type TimeControlData = NodeData & {
+  speed: number;            // multiplier, default 1
+  loopMode: LoopMode;       // default 'loop'
+  timeRangeStart: number;   // seconds, default 0
+  timeRangeEnd: number;     // seconds, default 10
+  isPlaying: boolean;       // default true
+  positionSectionOpen: boolean; // UI state, default true
+};
+
+// ---------------------------------------------------------------------------
+// Blur Effect node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type BlurType = 'gaussian' | 'radial' | 'motion';
+
+export type BlurEffectData = NodeData & {
+  blurType: BlurType;
+  bypass: boolean;
+  radius: number;
+  strength: number;
+  centerX: number;
+  centerY: number;
+  angle: number;
+  preset: string;
+};
+
+// ---------------------------------------------------------------------------
+// Color Correction node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type ColorCorrectionData = NodeData & {
+  bypass: boolean;
+  preset: string;
+  hue: number;
+  saturation: number;
+  brightness: number;
+  contrast: number;
+  colorSectionOpen: boolean;
+  levelsSectionOpen: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Distortion Effect node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type DistortionType = 'wave' | 'twist' | 'ripple' | 'displacement' | 'chromatic_aberration';
+
+export type DistortionEffectData = NodeData & {
+  distortionType: DistortionType;
+  bypass: boolean;
+  preset: string;
+  // Wave / Ripple
+  amplitude: number;
+  frequency: number;
+  speed: number;
+  // Twist / Displacement
+  strength: number;
+  // Chromatic Aberration
+  intensity: number;
+  angle: number;
+};
+
+// ---------------------------------------------------------------------------
+// Mouse Interaction node types (Phase 45)
+// ---------------------------------------------------------------------------
+
+export type ClickStateMode = 'momentary' | 'toggle';
+export type EasingPreset = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'spring';
+export type RangeMapping = {
+  preset: '0-1' | '-1-1' | '0-360' | 'custom';
+  min: number;
+  max: number;
+};
+
+export type MouseInteractionData = NodeData & {
+  clickStateMode: ClickStateMode;
+  easingPreset: EasingPreset;
+  rangeMappings: Record<string, RangeMapping>;
+  positionSectionOpen: boolean;
+  gesturesSectionOpen: boolean;
+  rangeMappingSectionOpen: boolean;
+  smoothingSectionOpen: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// WebGL Snapshot node types (Phase 46)
+// ---------------------------------------------------------------------------
+
+export type WebGLSnapshotData = NodeData & {
+  scrubTime: number;              // 0-1 normalized timeline position
+  capturedImageUrl: string | null; // data URL of captured frame (PNG)
+};
+
 export type NoteNodeData = NodeData & {
   noteTitle: string;
   noteBody: string;
+};
+
+// ---------------------------------------------------------------------------
+// Composition node types (Phase 44)
+// ---------------------------------------------------------------------------
+
+export type BlendMode = 'normal' | 'multiply' | 'screen' | 'add';
+
+export type CompositionLayer = {
+  id: string;
+  blendMode: BlendMode;
+  opacity: number;
+};
+
+export type CompositionData = NodeData & {
+  layers: CompositionLayer[];
 };
 
 // ---------------------------------------------------------------------------

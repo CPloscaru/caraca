@@ -1,10 +1,17 @@
 'use client';
 
-import { type DragEvent, useMemo } from 'react';
-import { StickyNote } from 'lucide-react';
+import { type DragEvent, useMemo, useState } from 'react';
+import { ChevronDown, StickyNote } from 'lucide-react';
 import { useAppStore } from '@/stores/app-store';
 import { PORT_TYPES, type PortType } from '@/lib/port-types';
-import { getNodeTemplates, type NodeTemplate } from '@/lib/node-registry';
+import {
+  getNodeTemplates,
+  groupBySubcategory,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  type NodeCategory,
+  type NodeTemplate,
+} from '@/lib/node-registry';
 
 function PortDot({ type }: { type: PortType }) {
   return (
@@ -21,11 +28,8 @@ function PortDot({ type }: { type: PortType }) {
   );
 }
 
-/** Tool node types that appear in the "Outils" section instead of the main palette */
-const TOOL_NODE_TYPES = new Set(['canvasNote']);
-
 function NodeEntry({ template, onDragStart }: { template: NodeTemplate; onDragStart: (e: DragEvent<HTMLDivElement>, t: NodeTemplate) => void }) {
-  const isTool = TOOL_NODE_TYPES.has(template.nodeType);
+  const isTool = template.category === 'tools';
 
   return (
     <div
@@ -87,6 +91,7 @@ function NodeEntry({ template, onDragStart }: { template: NodeTemplate; onDragSt
 
 export function Sidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const [collapsed, setCollapsed] = useState<Set<NodeCategory>>(new Set());
 
   const onDragStart = (event: DragEvent<HTMLDivElement>, template: NodeTemplate) => {
     event.dataTransfer.setData(
@@ -102,8 +107,24 @@ export function Sidebar() {
   };
 
   const allTemplates = useMemo(() => getNodeTemplates(), []);
-  const processingNodes = useMemo(() => allTemplates.filter((t) => !TOOL_NODE_TYPES.has(t.nodeType)), [allTemplates]);
-  const toolNodes = useMemo(() => allTemplates.filter((t) => TOOL_NODE_TYPES.has(t.nodeType)), [allTemplates]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<NodeCategory, NodeTemplate[]>();
+    for (const t of allTemplates) {
+      if (!map.has(t.category)) map.set(t.category, []);
+      map.get(t.category)!.push(t);
+    }
+    return [...map.entries()].sort(([a], [b]) => CATEGORY_ORDER[a] - CATEGORY_ORDER[b]);
+  }, [allTemplates]);
+
+  const toggleCategory = (cat: NodeCategory) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   if (!sidebarOpen) return null;
 
@@ -130,31 +151,65 @@ export function Sidebar() {
       >
         Node Palette
       </div>
-      {processingNodes.map((template) => (
-        <NodeEntry key={template.label} template={template} onDragStart={onDragStart} />
-      ))}
-
-      {toolNodes.length > 0 && (
-        <>
-          <div
-            style={{
-              padding: '12px 12px 8px',
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: '#9ca3af',
-              borderTop: '1px solid #2a2a2a',
-              marginTop: 4,
-            }}
-          >
-            Outils
+      {grouped.map(([category, templates]) => {
+        const isCollapsed = collapsed.has(category);
+        return (
+          <div key={category}>
+            <button
+              onClick={() => toggleCategory(category)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: '#9ca3af',
+                background: 'transparent',
+                border: 'none',
+                borderTop: '1px solid #2a2a2a',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              {CATEGORY_LABELS[category]}
+              <ChevronDown
+                size={14}
+                style={{
+                  transition: 'transform 0.15s ease',
+                  transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                }}
+              />
+            </button>
+            {!isCollapsed &&
+              (() => {
+                const hasSubcategories = templates.some((t) => t.subcategory);
+                if (!hasSubcategories) {
+                  return templates.map((template) => (
+                    <NodeEntry key={template.label} template={template} onDragStart={onDragStart} />
+                  ));
+                }
+                return groupBySubcategory(templates).map(([sub, subTemplates]) => (
+                  <div key={sub ?? '_default'}>
+                    {sub && (
+                      <div
+                        className="px-3 pb-0.5 pt-2 text-[10px] font-medium uppercase tracking-wider text-gray-500"
+                      >
+                        {sub}
+                      </div>
+                    )}
+                    {subTemplates.map((template) => (
+                      <NodeEntry key={template.label} template={template} onDragStart={onDragStart} />
+                    ))}
+                  </div>
+                ));
+              })()}
           </div>
-          {toolNodes.map((template) => (
-            <NodeEntry key={template.label} template={template} onDragStart={onDragStart} />
-          ))}
-        </>
-      )}
+        );
+      })}
     </div>
   );
 }

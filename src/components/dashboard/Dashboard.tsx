@@ -6,7 +6,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
 import { TemplateCard } from '@/components/dashboard/TemplateCard';
 import { ImportDialog } from '@/components/dashboard/ImportDialog';
-import { BUILTIN_TEMPLATES } from '@/lib/templates';
+import { getTemplatesByCategory } from '@/lib/templates';
 import type { Node, Edge } from '@xyflow/react';
 
 // ---------------------------------------------------------------------------
@@ -318,37 +318,107 @@ export function Dashboard() {
             </div>
           )
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 20,
-            }}
-          >
-            {BUILTIN_TEMPLATES.map((template) => (
-              <TemplateCard
-                key={template.id}
-                id={template.id}
-                title={template.title}
-                description={template.description}
-                thumbnailGradient={template.thumbnailGradient}
-                nodes={template.nodes}
-                edges={template.edges}
-                isNew={template.isNew}
-              />
-            ))}
-            {userTemplates.map((ut) => (
-              <TemplateCard
-                key={ut.id}
-                id={ut.id}
-                title={ut.title}
-                description={ut.template_description || 'Custom template'}
-                thumbnailGradient="linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)"
-                nodes={ut.workflow_json?.nodes ?? []}
-                edges={ut.workflow_json?.edges ?? []}
-                isCustom
-              />
-            ))}
+          <div>
+            {/* Animation section */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <h3 style={{ color: '#f3f4f6', fontSize: 16, fontWeight: 600, margin: 0 }}>
+                Animation
+              </h3>
+              <span
+                style={{
+                  background: 'rgba(34, 197, 94, 0.85)',
+                  color: '#fff',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                New
+              </span>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: 20,
+                marginBottom: 32,
+              }}
+            >
+              {getTemplatesByCategory('animation').map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  id={template.id}
+                  title={template.title}
+                  description={template.description}
+                  thumbnailGradient={template.thumbnailGradient}
+                  nodes={template.nodes}
+                  edges={template.edges}
+                  isNew={template.isNew}
+                  category={template.category}
+                  tags={template.tags}
+                />
+              ))}
+            </div>
+
+            {/* AI Workflows section */}
+            <h3 style={{ color: '#f3f4f6', fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+              AI Workflows
+            </h3>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: 20,
+                marginBottom: 32,
+              }}
+            >
+              {getTemplatesByCategory('ai').map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  id={template.id}
+                  title={template.title}
+                  description={template.description}
+                  thumbnailGradient={template.thumbnailGradient}
+                  nodes={template.nodes}
+                  edges={template.edges}
+                  isNew={template.isNew}
+                  category={template.category}
+                  tags={template.tags}
+                />
+              ))}
+            </div>
+
+            {/* User templates section */}
+            {userTemplates.length > 0 && (
+              <>
+                <h3 style={{ color: '#f3f4f6', fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
+                  My Templates
+                </h3>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: 20,
+                  }}
+                >
+                  {userTemplates.map((ut) => (
+                    <TemplateCard
+                      key={ut.id}
+                      id={ut.id}
+                      title={ut.title}
+                      description={ut.template_description || 'Custom template'}
+                      thumbnailGradient="linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)"
+                      nodes={ut.workflow_json?.nodes ?? []}
+                      edges={ut.workflow_json?.edges ?? []}
+                      isCustom
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 

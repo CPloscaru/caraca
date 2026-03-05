@@ -382,6 +382,14 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
     fetchUrl,
     transformResponse: (json) => json as ModelsResponse,
     onFetched: (response) => {
+      if (!value && response.models.length > 0) {
+        // Auto-select the first model when value is empty (e.g. after category switch)
+        const first = response.grouped.recommended[0] ?? response.models[0];
+        onChange(first.endpoint_id);
+        if (onPricingInfo) onPricingInfo({ unitPrice: first.unit_price, priceUnit: first.price_unit });
+        if (onModelInfo) onModelInfo(first);
+        return;
+      }
       if (value) {
         const selected = response.models.find((m) => m.endpoint_id === value);
         if (selected) {
@@ -391,7 +399,7 @@ export function ModelSelector({ value, onChange, mode = 'text-to-image', onPrici
       }
     },
     fallbackData: staticFallback,
-    eagerFetch: !!value,
+    eagerFetch: true,
   });
 
   // Favorites store

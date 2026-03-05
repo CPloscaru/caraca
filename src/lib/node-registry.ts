@@ -12,6 +12,8 @@ import type { PortType } from '@/lib/port-types';
 // Types
 // ---------------------------------------------------------------------------
 
+export type NodeCategory = 'ai' | 'animation' | 'tools';
+
 export type PortDefinition = {
   id: string;
   type: PortType;
@@ -35,6 +37,10 @@ type NodeRegistryEntry = {
   executeHandler?: string;
   /** Whether this node type is available in the add-node menus (false = future/unimplemented) */
   available: boolean;
+  /** Category for UI grouping (sidebar, context menu, command palette) */
+  category: NodeCategory;
+  /** Optional subcategory within a category (e.g. "Generators", "Effects" within Animation) */
+  subcategory?: string;
 };
 
 /** Shape returned by getNodeTemplates() for UI consumers (CommandPalette, ContextMenu, Sidebar). */
@@ -45,6 +51,31 @@ export type NodeTemplate = {
   outputs: PortDefinition[];
   description: string;
   tags: string[];
+  category: NodeCategory;
+  subcategory?: string;
+};
+
+/** Display labels for node categories */
+export const CATEGORY_LABELS: Record<NodeCategory, string> = {
+  ai: 'AI',
+  animation: 'Animation',
+  tools: 'Outils',
+};
+
+/** Sort order for node categories */
+export const CATEGORY_ORDER: Record<NodeCategory, number> = {
+  ai: 1,
+  animation: 2,
+  tools: 3,
+};
+
+/** Sort order for subcategories within the Animation category */
+export const SUBCATEGORY_ORDER: Record<string, number> = {
+  Generators: 1,
+  Effects: 2,
+  Composition: 3,
+  Control: 4,
+  Preview: 5,
 };
 
 // ---------------------------------------------------------------------------
@@ -64,6 +95,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 10,
     available: true,
+    category: 'ai',
   },
   {
     type: 'imageImport',
@@ -76,6 +108,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 20,
     available: true,
+    category: 'ai',
   },
   {
     type: 'imageGenerator',
@@ -91,6 +124,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['images', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 30,
     available: true,
+    category: 'ai',
   },
   {
     type: 'llmAssistant',
@@ -105,6 +139,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['output', 'tokenUsage', 'debugRequest', 'debugResponse', 'debugError'],
     order: 40,
     available: true,
+    category: 'ai',
   },
   {
     type: 'textDisplay',
@@ -117,6 +152,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['displayText'],
     order: 45,
     available: true,
+    category: 'ai',
   },
   {
     type: 'placeholder',
@@ -129,6 +165,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 999,
     available: false,
+    category: 'ai',
   },
 
   // -- Future nodes (Phase 12-14 placeholders) --
@@ -146,6 +183,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['outputImage', 'inputImageUrl', 'inputDimensions', 'schemaParams', 'debugRequest', 'debugResponse', 'debugError'],
     order: 50,
     available: true,
+    category: 'ai',
   },
   {
     type: 'textToVideo',
@@ -158,6 +196,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 60,
     available: true,
+    category: 'ai',
   },
   {
     type: 'imageToVideo',
@@ -173,6 +212,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['videoUrl', 'cdnUrl', 'videoResults', 'schemaParams', 'dynamicImagePorts', 'debugRequest', 'debugResponse', 'debugError'],
     order: 70,
     available: true,
+    category: 'ai',
   },
   {
     type: 'batchParameter',
@@ -185,6 +225,240 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: ['batchResults'],
     order: 80,
     available: true,
+    category: 'ai',
+  },
+  {
+    type: 'gradientGenerator',
+    label: 'Gradient Generator',
+    description: 'Generate animated gradients (linear, radial, mesh)',
+    tags: ['gradient', 'generator', 'webgl', 'animation'],
+    inputs: [{ id: 'scalar-target-speed', type: 'scalar' as const, label: 'Speed' }],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['colorStops', 'gradientType', 'angle', 'speed', 'width', 'height'],
+    order: 300,
+    available: true,
+    category: 'animation',
+    subcategory: 'Generators',
+  },
+  {
+    type: 'solidColor',
+    label: 'Solid Color',
+    description: 'Generate a solid color texture',
+    tags: ['solid', 'color', 'webgl', 'animation'],
+    inputs: [],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['color', 'alpha'],
+    order: 320,
+    available: true,
+    category: 'animation',
+    subcategory: 'Generators',
+  },
+  {
+    type: 'noiseGenerator',
+    label: 'Noise Generator',
+    description: 'Generate procedural noise textures',
+    tags: ['noise', 'perlin', 'simplex', 'worley', 'cellular', 'webgl', 'animation'],
+    inputs: [
+      { id: 'scalar-target-speed', type: 'scalar' as const, label: 'Speed' },
+      { id: 'scalar-target-scale', type: 'scalar' as const, label: 'Scale' },
+    ],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['noiseType', 'scale', 'octaves', 'speed', 'seed', 'directionX', 'directionY'],
+    order: 330,
+    available: true,
+    category: 'animation',
+    subcategory: 'Generators',
+  },
+  {
+    type: 'shapeGenerator',
+    label: 'Shape Generator',
+    description: 'Generate shapes (rectangle, circle, polygon)',
+    tags: ['shape', 'rectangle', 'circle', 'polygon', 'webgl', 'animation'],
+    inputs: [
+      { id: 'webgl-target-0', type: 'webgl' as const, label: 'Fill' },
+      { id: 'webgl-target-1', type: 'webgl' as const, label: 'Border' },
+      { id: 'webgl-target-2', type: 'webgl' as const, label: 'Background' },
+      { id: 'scalar-target-rotation', type: 'scalar' as const, label: 'Rotation' },
+    ],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: [
+      'shapeType', 'fillColor', 'fillAlpha', 'borderColor', 'borderWidth',
+      'opacity', 'rotation', 'offsetX', 'offsetY', 'bgColor', 'bgAlpha',
+      'width', 'height', 'cornerTL', 'cornerTR', 'cornerBL', 'cornerBR',
+      'radius', 'sides', 'starMode', 'innerRadius', 'polyRadius',
+    ],
+    order: 340,
+    available: true,
+    category: 'animation',
+    subcategory: 'Generators',
+  },
+  {
+    type: 'webglPreview',
+    label: 'WebGL Preview',
+    description: 'Preview WebGL animation in real-time',
+    tags: ['preview', 'webgl', 'animation', 'display'],
+    inputs: [{ id: 'webgl-target-0', type: 'webgl' as const, label: 'Source' }],
+    outputs: [],
+    resultFields: {},
+    stripOnExport: ['fpsCap', 'resolutionPreset', 'customWidth', 'customHeight', 'isPlaying', 'activeSourceIndex'],
+    order: 310,
+    available: true,
+    category: 'animation',
+    subcategory: 'Preview',
+  },
+  {
+    type: 'imageLayer',
+    label: 'Image Layer',
+    description: 'Use an AI-generated image as a WebGL texture',
+    tags: ['image', 'layer', 'texture', 'webgl', 'animation', 'bridge'],
+    inputs: [{ id: 'image-target-0', type: 'image' as const, label: 'Image' }],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['imageUrl'],
+    order: 350,
+    available: true,
+    category: 'animation',
+    subcategory: 'Generators',
+  },
+  {
+    type: 'textLayer',
+    label: 'Text Layer',
+    description: 'Render text as a WebGL texture',
+    tags: ['text', 'layer', 'font', 'webgl', 'animation'],
+    inputs: [{ id: 'webgl-target-0', type: 'webgl' as const, label: 'Fill' }],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: [
+      'text', 'fontFamily', 'fontSize', 'fontColor', 'alignment', 'bold', 'italic',
+      'outlineColor', 'outlineWidth', 'shadowColor', 'shadowOffsetX', 'shadowOffsetY',
+      'shadowBlur', 'textBoxWidth', 'offsetX', 'offsetY', 'bgColor', 'bgAlpha',
+    ],
+    order: 360,
+    available: true,
+    category: 'animation',
+    subcategory: 'Generators',
+  },
+  {
+    type: 'blurEffect',
+    label: 'Blur Effect',
+    description: 'Apply blur (gaussian, radial, motion) to a WebGL texture',
+    tags: ['blur', 'effect', 'gaussian', 'radial', 'motion', 'webgl', 'animation'],
+    inputs: [
+      { id: 'webgl-target-0', type: 'webgl' as const, label: 'Input' },
+      { id: 'scalar-target-radius', type: 'scalar' as const, label: 'Radius' },
+    ],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['blurType', 'bypass', 'radius', 'strength', 'centerX', 'centerY', 'angle', 'preset'],
+    order: 400,
+    available: true,
+    category: 'animation',
+    subcategory: 'Effects',
+  },
+  {
+    type: 'colorCorrection',
+    label: 'Color Correction',
+    description: 'Adjust hue, saturation, brightness, and contrast',
+    tags: ['color', 'correction', 'hue', 'saturation', 'brightness', 'contrast', 'webgl', 'animation'],
+    inputs: [
+      { id: 'webgl-target-0', type: 'webgl' as const, label: 'Input' },
+      { id: 'scalar-target-hue', type: 'scalar' as const, label: 'Hue' },
+      { id: 'scalar-target-brightness', type: 'scalar' as const, label: 'Brightness' },
+    ],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['bypass', 'preset', 'hue', 'saturation', 'brightness', 'contrast', 'colorSectionOpen', 'levelsSectionOpen'],
+    order: 410,
+    available: true,
+    category: 'animation',
+    subcategory: 'Effects',
+  },
+  {
+    type: 'distortionEffect',
+    label: 'Distortion Effect',
+    description: 'Apply distortion effects (wave, twist, ripple, displacement, chromatic aberration)',
+    tags: ['distortion', 'effect', 'wave', 'twist', 'ripple', 'displacement', 'chromatic', 'webgl', 'animation'],
+    inputs: [
+      { id: 'webgl-target-0', type: 'webgl' as const, label: 'Input' },
+      { id: 'scalar-target-speed', type: 'scalar' as const, label: 'Speed' },
+      { id: 'scalar-target-amplitude', type: 'scalar' as const, label: 'Amplitude' },
+    ],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['distortionType', 'bypass', 'preset', 'amplitude', 'frequency', 'speed', 'strength', 'intensity', 'angle'],
+    order: 420,
+    available: true,
+    category: 'animation',
+    subcategory: 'Effects',
+  },
+  {
+    type: 'composition',
+    label: 'Composition',
+    description: 'Blend multiple WebGL layers with blend modes and opacity',
+    tags: ['composition', 'blend', 'layers', 'webgl', 'animation'],
+    inputs: [],
+    outputs: [{ id: 'webgl-source-0', type: 'webgl' as const, label: 'Output' }],
+    resultFields: {},
+    stripOnExport: ['layers'],
+    order: 500,
+    available: true,
+    category: 'animation',
+    subcategory: 'Composition',
+  },
+  {
+    type: 'timeControl',
+    label: 'Time Control',
+    description: 'Control animation timing with speed, loop mode, and time range',
+    tags: ['time', 'control', 'animation', 'speed', 'loop', 'webgl'],
+    inputs: [],
+    outputs: [{ id: 'scalar-source-0', type: 'scalar' as const, label: 'Time' }],
+    resultFields: {},
+    stripOnExport: ['speed', 'loopMode', 'timeRangeStart', 'timeRangeEnd', 'isPlaying', 'positionSectionOpen'],
+    order: 600,
+    available: true,
+    category: 'animation',
+    subcategory: 'Control',
+  },
+  {
+    type: 'mouseInteraction',
+    label: 'Mouse Interaction',
+    description: 'Track cursor position with smoothing and range mapping',
+    tags: ['mouse', 'interaction', 'cursor', 'touch', 'webgl', 'control'],
+    inputs: [],
+    outputs: [
+      { id: 'scalar-source-0', type: 'scalar' as const, label: 'X' },
+      { id: 'scalar-source-1', type: 'scalar' as const, label: 'Y' },
+      { id: 'scalar-source-2', type: 'scalar' as const, label: 'Distance' },
+      { id: 'scalar-source-3', type: 'scalar' as const, label: 'Angle' },
+      { id: 'scalar-source-4', type: 'scalar' as const, label: 'Click' },
+      { id: 'scalar-source-5', type: 'scalar' as const, label: 'Scroll' },
+      { id: 'scalar-source-6', type: 'scalar' as const, label: 'Pinch' },
+      { id: 'scalar-source-7', type: 'scalar' as const, label: 'Rotation' },
+    ],
+    resultFields: {},
+    stripOnExport: ['clickStateMode', 'easingPreset', 'rangeMappings', 'positionSectionOpen', 'gesturesSectionOpen', 'rangeMappingSectionOpen', 'smoothingSectionOpen'],
+    order: 610,
+    available: true,
+    category: 'animation',
+    subcategory: 'Control',
+  },
+  {
+    type: 'webglSnapshot',
+    label: 'WebGL Snapshot',
+    description: 'Capture a single frame from a WebGL animation as an image',
+    tags: ['snapshot', 'capture', 'frame', 'webgl', 'animation', 'bridge', 'export'],
+    inputs: [{ id: 'webgl-target-0', type: 'webgl' as const, label: 'Source' }],
+    outputs: [{ id: 'image-source-0', type: 'image' as const, label: 'Image' }],
+    resultFields: {},
+    stripOnExport: ['scrubTime', 'capturedImageUrl'],
+    order: 315,
+    available: true,
+    category: 'animation',
+    subcategory: 'Preview',
   },
   {
     type: 'canvasNote',
@@ -197,6 +471,7 @@ const NODE_REGISTRY_ARRAY = [
     stripOnExport: [],
     order: 200,
     available: true,
+    category: 'tools',
   },
 ] as const satisfies readonly NodeRegistryEntry[];
 
@@ -252,7 +527,29 @@ export function getNodeTemplates(): NodeTemplate[] {
       outputs: e.outputs as PortDefinition[],
       description: e.description,
       tags: e.tags as string[],
+      category: e.category,
+      subcategory: e.subcategory,
     }));
+}
+
+/**
+ * Group templates by subcategory within a category.
+ * Returns array of [subcategory | undefined, templates] sorted by SUBCATEGORY_ORDER.
+ */
+export function groupBySubcategory(
+  templates: NodeTemplate[],
+): [string | undefined, NodeTemplate[]][] {
+  const map = new Map<string | undefined, NodeTemplate[]>();
+  for (const t of templates) {
+    const sub = t.subcategory;
+    if (!map.has(sub)) map.set(sub, []);
+    map.get(sub)!.push(t);
+  }
+  return [...map.entries()].sort(([a], [b]) => {
+    const oa = a ? (SUBCATEGORY_ORDER[a] ?? 99) : 0;
+    const ob = b ? (SUBCATEGORY_ORDER[b] ?? 99) : 0;
+    return oa - ob;
+  });
 }
 
 // ---------------------------------------------------------------------------

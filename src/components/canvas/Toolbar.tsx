@@ -81,9 +81,9 @@ export function Toolbar({ projectId, projectTitle, onTitleChange, saveStatus, on
   const openSettings = useAppStore((s) => s.openSettings);
   const minimapVisible = useAppStore((s) => s.minimapVisible);
   const toggleMinimap = useAppStore((s) => s.toggleMinimap);
-  const isRunning = useExecutionStore((s) => s.isRunning);
+  const isRunning = useExecutionStore((s) => Object.keys(s.activeExecutions).length > 0);
   const nodeStates = useExecutionStore((s) => s.nodeStates);
-  const cancelExecution = useExecutionStore((s) => s.cancelExecution);
+  const cancelAll = useExecutionStore((s) => s.cancelExecution);
   const clearAll = useExecutionStore((s) => s.clearAll);
 
   const hasResults = useMemo(
@@ -291,7 +291,7 @@ export function Toolbar({ projectId, projectTitle, onTitleChange, saveStatus, on
         {/* Cancel button — visible only when running */}
         {isRunning && (
           <button
-            onClick={cancelExecution}
+            onClick={() => cancelAll()}
             style={{
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',

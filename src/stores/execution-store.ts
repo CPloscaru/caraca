@@ -17,8 +17,7 @@ type NodeExecutionState = {
 
 type ExecutionStore = {
   nodeStates: Record<string, NodeExecutionState>;
-  isRunning: boolean;
-  abortController: AbortController | null;
+  activeExecutions: Record<string, AbortController>;
   batchProgress: Record<string, { current: number; total: number; accumulatedCost: number; currentItemText: string }>;
   projectId: string | null;
 
@@ -39,8 +38,9 @@ type ExecutionStore = {
   clearNodeQueueLogs: (nodeId: string) => void;
   setBatchProgress: (nodeId: string, current: number, total: number, accumulatedCost?: number, currentItemText?: string) => void;
   clearBatchProgress: (nodeId: string) => void;
-  startExecution: () => AbortController;
-  cancelExecution: () => void;
+  startExecution: (executionId: string) => AbortController;
+  finishExecution: (executionId: string) => void;
+  cancelExecution: (executionId?: string) => void;
   clearAll: () => void;
   clearNode: (nodeId: string) => void;
 };
@@ -62,8 +62,7 @@ function getOrCreateNodeState(
 
 export const useExecutionStore = create<ExecutionStore>((set, get) => ({
   nodeStates: {},
-  isRunning: false,
-  abortController: null,
+  activeExecutions: {},
   batchProgress: {},
   projectId: null,
 
@@ -177,25 +176,43 @@ export const useExecutionStore = create<ExecutionStore>((set, get) => ({
     });
   },
 
-  startExecution: () => {
-    // Cancel previous execution if still running
-    const prev = get().abortController;
-    if (prev) prev.abort();
-
+  startExecution: (executionId) => {
     const controller = new AbortController();
-    set({ isRunning: true, abortController: controller });
+    set((state) => ({
+      activeExecutions: { ...state.activeExecutions, [executionId]: controller },
+    }));
     return controller;
   },
 
-  cancelExecution: () => {
-    const controller = get().abortController;
-    if (controller) controller.abort();
-    // Keep completed results — only stop running state
-    set({ isRunning: false, abortController: null, batchProgress: {} });
+  finishExecution: (executionId) => {
+    set((state) => {
+      const { [executionId]: _removed, ...rest } = state.activeExecutions;
+      return { activeExecutions: rest };
+    });
+  },
+
+  cancelExecution: (executionId?) => {
+    if (executionId) {
+      const controller = get().activeExecutions[executionId];
+      if (controller) controller.abort();
+      set((state) => {
+        const { [executionId]: _removed, ...rest } = state.activeExecutions;
+        return { activeExecutions: rest };
+      });
+    } else {
+      // Cancel all
+      for (const controller of Object.values(get().activeExecutions)) {
+        controller.abort();
+      }
+      set({ activeExecutions: {}, batchProgress: {} });
+    }
   },
 
   clearAll: () => {
-    set({ nodeStates: {}, isRunning: false, abortController: null, batchProgress: {} });
+    for (const controller of Object.values(get().activeExecutions)) {
+      controller.abort();
+    }
+    set({ nodeStates: {}, activeExecutions: {}, batchProgress: {} });
   },
 
   clearNode: (nodeId) => {

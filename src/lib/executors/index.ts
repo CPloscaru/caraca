@@ -39,6 +39,7 @@ import { imageToVideoExecutor } from './image-to-video';
 import { batchParameterExecutor } from './batch-parameter';
 import { canvasNoteExecutor } from './canvas-note';
 import { textDisplayExecutor } from './text-display';
+import { webglSnapshotExecutor } from './webgl-snapshot';
 
 import type { NodeExecutor } from './types';
 
@@ -57,6 +58,7 @@ const executors: Record<string, NodeExecutor> = {
   batchParameter: batchParameterExecutor,
   canvasNote: canvasNoteExecutor,
   textDisplay: textDisplayExecutor,
+  webglSnapshot: webglSnapshotExecutor,
 };
 
 // ---------------------------------------------------------------------------
@@ -108,16 +110,20 @@ export async function runSingleNode(nodeId: string): Promise<void> {
   const sortedIds = [...upstreamIds, ...downstreamIds.filter((id) => id !== nodeId)];
 
   // Start execution
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution(nodeId);
   const signal = controller.signal;
 
   // Build cached results from upstream nodes that already have 'done' status.
   // The target node itself and all downstream nodes are never cached — they must re-execute
   // to receive fresh data from the target node.
+  // Source nodes (no incoming edges) are never cached — their data (imageUrl, prompt, etc.)
+  // can change between executions without any signal to the execution store.
   const downstreamSet = new Set(downstreamIds);
+  const nodesWithInputs = new Set(edges.map((e) => e.target));
   const cachedResults: Record<string, Record<string, unknown>> = {};
   for (const id of sortedIds) {
     if (id === nodeId || downstreamSet.has(id)) continue;
+    if (!nodesWithInputs.has(id)) continue; // source nodes: always re-execute
     const state = execStore.nodeStates[id];
     if (state?.status === 'done' && state.result) {
       cachedResults[id] = state.result as Record<string, unknown>;
@@ -177,7 +183,7 @@ export async function runSingleNode(nodeId: string): Promise<void> {
       console.error('Execution error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution(nodeId);
   }
 }
 
@@ -216,7 +222,7 @@ export async function runAllWorkflow(): Promise<void> {
   const sortedIds = topologicalSort(nodeIds, edgesSimple);
 
   // Start execution
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution('__workflow__');
   const signal = controller.signal;
 
   // Set all nodes to pending
@@ -274,7 +280,7 @@ export async function runAllWorkflow(): Promise<void> {
       console.error('Execution error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution('__workflow__');
   }
 }
 
@@ -325,7 +331,7 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
   const sortedIds = getDownstreamNodes(batchNodeId, nodeIds, edgesSimple);
 
   // Start execution
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution(batchNodeId);
   const signal = controller.signal;
 
   for (const id of sortedIds) {
@@ -412,7 +418,7 @@ export async function runBatchNode(batchNodeId: string): Promise<void> {
       console.error('Batch execution error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution(batchNodeId);
     useExecutionStore.getState().clearBatchProgress(batchNodeId);
   }
 }
@@ -449,7 +455,7 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
 
   const sortedIds = getDownstreamNodes(batchNodeId, nodeIds, edgesSimple);
 
-  const controller = execStore.startExecution();
+  const controller = execStore.startExecution(batchNodeId);
   const signal = controller.signal;
 
   for (const id of sortedIds) {
@@ -538,7 +544,7 @@ export async function retryFailedBatchItems(batchNodeId: string): Promise<void> 
       console.error('Batch retry error:', err);
     }
   } finally {
-    useExecutionStore.getState().cancelExecution();
+    useExecutionStore.getState().finishExecution(batchNodeId);
     useExecutionStore.getState().clearBatchProgress(batchNodeId);
   }
 }
