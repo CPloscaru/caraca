@@ -81,7 +81,12 @@ export function ProjectCard({
 
   const handleNewProject = useCallback(async () => {
     try {
-      const res = await fetch('/api/projects', { method: 'POST' });
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) return;
       const data = await res.json();
       router.push(`/project/${data.id}`);
     } catch (err) {
